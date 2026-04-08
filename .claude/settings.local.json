@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e:*)",
+      "Bash(npm install)",
+      "Bash(pg_isready:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
