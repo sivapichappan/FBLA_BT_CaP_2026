@@ -1,36 +1,72 @@
 import { Response } from 'express';
-import { query } from '../config/database';
+import crypto from 'crypto';
+import { query, getClient } from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 
 export const createDeal = async (req: AuthRequest, res: Response) => {
   try {
-    const { businessId, title, description, discountAmount, terms, expirationDate, redemptionLimit } = req.body;
-    const userId = req.user?.userId;
+    const {
+      businessId,
+      title,
+      description,
+      code,
+      discountType,
+      discountValue,
+      minimumPurchase,
+      startDate,
+      endDate,
+      totalLimit,
+      perUserLimit,
+      pointsBonus,
+      termsConditions,
+      imageUrl,
+    } = req.body;
+    const userId = req.user!.userId;
 
-    const businessCheck = await query(
-      'SELECT owner_id FROM businesses WHERE id = $1',
-      [businessId]
-    );
+    const businessCheck = await query('SELECT owner_id FROM businesses WHERE id = $1', [businessId]);
 
     if (businessCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Business not found' });
     }
 
-    if (businessCheck.rows[0].owner_id !== userId) {
+    if (businessCheck.rows[0].owner_id !== userId && !req.user!.isAdmin) {
       return res.status(403).json({ error: 'Not authorized to create deals for this business' });
     }
 
     const result = await query(
-      `INSERT INTO deals (business_id, title, description, discount_amount, terms, expiration_date, redemption_limit)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO deals (
+         business_id, title, description, code,
+         discount_type, discount_value, minimum_purchase,
+         start_date, end_date,
+         is_active, total_limit, per_user_limit, redemption_count,
+         points_bonus, terms_conditions, image_url
+       ) VALUES (
+         $1, $2, $3, $4,
+         $5, $6, $7,
+         COALESCE($8, NOW()), $9,
+         true, $10, COALESCE($11, 1), 0,
+         COALESCE($12, 0), $13, $14
+       )
        RETURNING *`,
-      [businessId, title, description, discountAmount, terms, expirationDate, redemptionLimit]
+      [
+        businessId,
+        title,
+        description || null,
+        code || null,
+        discountType,
+        discountValue,
+        minimumPurchase || null,
+        startDate || null,
+        endDate,
+        totalLimit || null,
+        perUserLimit,
+        pointsBonus,
+        termsConditions || null,
+        imageUrl || null,
+      ]
     );
 
-    res.status(201).json({
-      message: 'Deal created successfully',
-      deal: result.rows[0],
-    });
+    res.status(201).json({ message: 'Deal created successfully', deal: result.rows[0] });
   } catch (error) {
     console.error('Create deal error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -39,14 +75,17 @@ export const createDeal = async (req: AuthRequest, res: Response) => {
 
 export const getBusinessDeals = async (req: AuthRequest, res: Response) => {
   try {
-    const { businessId } = req.params;
+    const businessId = parseInt(req.params.businessId, 10);
+    if (!Number.isInteger(businessId)) {
+      return res.status(400).json({ error: 'Invalid business ID' });
+    }
 
     const result = await query(
       `SELECT * FROM deals
        WHERE business_id = $1
          AND is_active = true
-         AND (expiration_date IS NULL OR expiration_date > NOW())
-         AND (redemption_limit IS NULL OR times_redeemed < redemption_limit)
+         AND (end_date IS NULL OR end_date > NOW())
+         AND (total_limit IS NULL OR redemption_count < total_limit)
        ORDER BY created_at DESC`,
       [businessId]
     );
@@ -65,15 +104,15 @@ export const getAllActiveDeals = async (req: AuthRequest, res: Response) => {
     let sql = `
       SELECT
         d.*,
-        b.name as business_name,
-        b.category,
+        b.name AS business_name,
+        b.slug AS business_slug,
         b.latitude,
         b.longitude
       FROM deals d
       JOIN businesses b ON d.business_id = b.id
       WHERE d.is_active = true
-        AND (d.expiration_date IS NULL OR d.expiration_date > NOW())
-        AND (d.redemption_limit IS NULL OR d.times_redeemed < d.redemption_limit)
+        AND (d.end_date IS NULL OR d.end_date > NOW())
+        AND (d.total_limit IS NULL OR d.redemption_count < d.total_limit)
     `;
 
     const params: any[] = [];
@@ -104,14 +143,15 @@ export const getAllActiveDeals = async (req: AuthRequest, res: Response) => {
 };
 
 export const redeemDeal = async (req: AuthRequest, res: Response) => {
+  const client = await getClient();
   try {
-    const { dealId } = req.params;
-    const userId = req.user?.userId;
+    const dealId = parseInt(req.params.dealId, 10);
+    if (!Number.isInteger(dealId)) {
+      return res.status(400).json({ error: 'Invalid deal ID' });
+    }
+    const userId = req.user!.userId;
 
-    const dealCheck = await query(
-      `SELECT * FROM deals WHERE id = $1`,
-      [dealId]
-    );
+    const dealCheck = await query(`SELECT * FROM deals WHERE id = $1`, [dealId]);
 
     if (dealCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Deal not found' });
@@ -123,51 +163,59 @@ export const redeemDeal = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Deal is no longer active' });
     }
 
-    if (deal.expiration_date && new Date(deal.expiration_date) < new Date()) {
+    if (deal.end_date && new Date(deal.end_date) < new Date()) {
       return res.status(400).json({ error: 'Deal has expired' });
     }
 
-    if (deal.redemption_limit && deal.times_redeemed >= deal.redemption_limit) {
+    if (deal.total_limit && deal.redemption_count >= deal.total_limit) {
       return res.status(400).json({ error: 'Deal redemption limit reached' });
     }
 
-    const alreadyRedeemed = await query(
-      'SELECT id FROM deal_redemptions WHERE deal_id = $1 AND user_id = $2',
+    const userClaims = await query(
+      'SELECT COUNT(*)::int AS count FROM deal_claims WHERE deal_id = $1 AND user_id = $2',
       [dealId, userId]
     );
 
-    if (alreadyRedeemed.rows.length > 0) {
-      return res.status(400).json({ error: 'You have already redeemed this deal' });
+    if (userClaims.rows[0].count >= (deal.per_user_limit || 1)) {
+      return res.status(400).json({ error: 'You have already claimed this deal' });
     }
 
-    await query(
-      'INSERT INTO deal_redemptions (deal_id, user_id) VALUES ($1, $2)',
-      [dealId, userId]
+    const redemptionCode = crypto.randomBytes(6).toString('hex').toUpperCase();
+
+    await client.query('BEGIN');
+
+    const claim = await client.query(
+      `INSERT INTO deal_claims (deal_id, user_id, status, redemption_code)
+       VALUES ($1, $2, 'claimed', $3)
+       RETURNING *`,
+      [dealId, userId, redemptionCode]
     );
 
-    await query(
-      'UPDATE deals SET times_redeemed = times_redeemed + 1 WHERE id = $1',
+    await client.query(
+      'UPDATE deals SET redemption_count = redemption_count + 1 WHERE id = $1',
       [dealId]
     );
 
-    await query(
-      `INSERT INTO analytics_events (business_id, event_type, user_id, metadata)
-       VALUES ($1, 'deal_redeemed', $2, $3)`,
-      [deal.business_id, userId, JSON.stringify({ dealId, title: deal.title })]
-    );
+    await client.query('COMMIT');
 
-    res.json({ message: 'Deal redeemed successfully' });
+    res.json({ message: 'Deal claimed successfully', claim: claim.rows[0] });
   } catch (error) {
-    console.error('Redeem deal error:', error);
+    await client.query('ROLLBACK');
+    console.error('Claim deal error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
   }
 };
 
 export const updateDeal = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
-    const { title, description, discountAmount, terms, expirationDate, isActive } = req.body;
-    const userId = req.user?.userId;
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid deal ID' });
+    }
+    const { title, description, discountType, discountValue, termsConditions, endDate, isActive } = req.body;
+    const userId = req.user!.userId;
 
     const dealCheck = await query(
       `SELECT d.*, b.owner_id
@@ -181,7 +229,7 @@ export const updateDeal = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Deal not found' });
     }
 
-    if (dealCheck.rows[0].owner_id !== userId) {
+    if (dealCheck.rows[0].owner_id !== userId && !req.user!.isAdmin) {
       return res.status(403).json({ error: 'Not authorized to update this deal' });
     }
 
@@ -189,19 +237,18 @@ export const updateDeal = async (req: AuthRequest, res: Response) => {
       `UPDATE deals
        SET title = COALESCE($1, title),
            description = COALESCE($2, description),
-           discount_amount = COALESCE($3, discount_amount),
-           terms = COALESCE($4, terms),
-           expiration_date = COALESCE($5, expiration_date),
-           is_active = COALESCE($6, is_active)
-       WHERE id = $7
+           discount_type = COALESCE($3, discount_type),
+           discount_value = COALESCE($4, discount_value),
+           terms_conditions = COALESCE($5, terms_conditions),
+           end_date = COALESCE($6, end_date),
+           is_active = COALESCE($7, is_active),
+           updated_at = NOW()
+       WHERE id = $8
        RETURNING *`,
-      [title, description, discountAmount, terms, expirationDate, isActive, id]
+      [title, description, discountType, discountValue, termsConditions, endDate, isActive, id]
     );
 
-    res.json({
-      message: 'Deal updated successfully',
-      deal: result.rows[0],
-    });
+    res.json({ message: 'Deal updated successfully', deal: result.rows[0] });
   } catch (error) {
     console.error('Update deal error:', error);
     res.status(500).json({ error: 'Internal server error' });

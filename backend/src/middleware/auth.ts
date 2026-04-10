@@ -3,9 +3,9 @@ import { verifyToken } from '../utils/jwt';
 
 export interface AuthRequest extends Request {
   user?: {
-    userId: string;
+    userId: number;
     email: string;
-    isBusinessOwner: boolean;
+    isAdmin: boolean;
   };
 }
 
@@ -27,9 +27,9 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
   }
 };
 
-export const businessOwnerMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
-  if (!req.user?.isBusinessOwner) {
-    return res.status(403).json({ error: 'Access denied. Business owner only.' });
+export const adminMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user?.isAdmin) {
+    return res.status(403).json({ error: 'Access denied. Admin only.' });
   }
   next();
 };

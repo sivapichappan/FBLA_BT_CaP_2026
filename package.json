@@ -19,6 +19,7 @@
     "build:frontend": "cd frontend && npm run build"
   },
   "devDependencies": {
+    "@vercel/node": "^5.7.3",
     "concurrently": "^8.2.2"
   }
 }

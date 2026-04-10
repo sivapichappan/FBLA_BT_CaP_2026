@@ -1,62 +1,146 @@
 import { Request, Response } from 'express';
-import { query } from '../config/database';
+import { query, getClient } from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 
+const slugify = (text: string): string =>
+  text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+
+const ensureUniqueSlug = async (base: string): Promise<string> => {
+  let slug = base || 'business';
+  let attempt = 0;
+  while (true) {
+    const candidate = attempt === 0 ? slug : `${slug}-${attempt}`;
+    const r = await query('SELECT id FROM businesses WHERE slug = $1', [candidate]);
+    if (r.rows.length === 0) return candidate;
+    attempt++;
+  }
+};
+
 export const createBusiness = async (req: AuthRequest, res: Response) => {
+  const client = await getClient();
   try {
     const {
       name,
-      category,
+      categoryIds,
       description,
-      address,
+      addressLine1,
+      addressLine2,
       city,
       state,
       zipCode,
+      country,
       phone,
       website,
       email,
       latitude,
       longitude,
-      priceRange,
+      priceLevel,
       hoursOfOperation,
       photoUrls,
+      isLocal,
+      isChain,
+      chainName,
     } = req.body;
 
-    const ownerId = req.user?.userId;
+    const ownerId = req.user!.userId;
+    const slug = await ensureUniqueSlug(slugify(name));
 
-    const result = await query(
+    await client.query('BEGIN');
+
+    const businessResult = await client.query(
       `INSERT INTO businesses (
-        owner_id, name, category, description, address, city, state, zip_code,
-        phone, website, email, latitude, longitude, price_range, hours_of_operation, photo_urls
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-      RETURNING *`,
+         owner_id, name, slug, description, phone, email, website,
+         address_line_1, address_line_2, city, state, zip_code, country,
+         latitude, longitude, price_level,
+         is_local, is_chain, chain_name,
+         is_verified, is_active, is_claimed,
+         average_rating, review_count
+       ) VALUES (
+         $1, $2, $3, $4, $5, $6, $7,
+         $8, $9, $10, $11, $12, COALESCE($13, 'USA'),
+         $14, $15, $16,
+         COALESCE($17, true), COALESCE($18, false), $19,
+         false, true, true,
+         0, 0
+       )
+       RETURNING *`,
       [
         ownerId,
         name,
-        category,
-        description,
-        address,
+        slug,
+        description || null,
+        phone || null,
+        email || null,
+        website || null,
+        addressLine1,
+        addressLine2 || null,
         city,
         state,
         zipCode,
-        phone,
-        website,
-        email,
+        country || null,
         latitude,
         longitude,
-        priceRange,
-        JSON.stringify(hoursOfOperation),
-        photoUrls,
+        priceLevel || null,
+        isLocal,
+        isChain,
+        chainName || null,
       ]
     );
 
+    const business = businessResult.rows[0];
+
+    if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+      const values: string[] = [];
+      const params: any[] = [];
+      categoryIds.forEach((cid: number, idx: number) => {
+        values.push(`($${idx * 2 + 1}, $${idx * 2 + 2})`);
+        params.push(business.id, cid);
+      });
+      await client.query(
+        `INSERT INTO business_categories (business_id, category_id) VALUES ${values.join(', ')}`,
+        params
+      );
+    }
+
+    if (hoursOfOperation && typeof hoursOfOperation === 'object') {
+      for (const [day, hours] of Object.entries<any>(hoursOfOperation)) {
+        const dayNum = parseInt(day, 10);
+        if (Number.isNaN(dayNum) || dayNum < 0 || dayNum > 6) continue;
+        await client.query(
+          `INSERT INTO business_hours (business_id, day_of_week, open_time, close_time, is_closed)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [business.id, dayNum, hours?.open || null, hours?.close || null, !!hours?.closed]
+        );
+      }
+    }
+
+    if (Array.isArray(photoUrls) && photoUrls.length > 0) {
+      for (let i = 0; i < photoUrls.length; i++) {
+        await client.query(
+          `INSERT INTO business_photos (business_id, url, is_primary, upload_order)
+           VALUES ($1, $2, $3, $4)`,
+          [business.id, photoUrls[i], i === 0, i]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+
     res.status(201).json({
       message: 'Business created successfully',
-      business: result.rows[0],
+      business,
     });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Create business error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
   }
 };
 
@@ -64,39 +148,39 @@ export const searchBusinesses = async (req: Request, res: Response) => {
   try {
     const {
       query: searchQuery,
-      category,
+      categoryId,
       latitude,
       longitude,
       radius = 10,
-      priceRange,
+      priceLevel,
       minRating,
-      openNow,
       sortBy,
       limit = 50,
       offset = 0,
     } = req.query;
 
+    const lat = parseFloat((latitude as string) || '0');
+    const lng = parseFloat((longitude as string) || '0');
+    const hasLocation = !!latitude && !!longitude;
+
     let sql = `
       SELECT
         b.*,
-        COALESCE(AVG(r.rating), 0) as avg_rating,
-        COUNT(DISTINCT r.id) as review_count,
-        (
+        ${hasLocation ? `(
           6371 * acos(
             cos(radians($1)) * cos(radians(b.latitude)) *
             cos(radians(b.longitude) - radians($2)) +
             sin(radians($1)) * sin(radians(b.latitude))
           )
-        ) as distance_km
+        ) AS distance_km` : `NULL::float AS distance_km`}
       FROM businesses b
-      LEFT JOIN reviews r ON b.id = r.business_id
-      WHERE 1=1
+      WHERE b.is_active = true
     `;
 
-    const params: any[] = [latitude || 0, longitude || 0];
-    let paramIndex = 3;
+    const params: any[] = hasLocation ? [lat, lng] : [];
+    let paramIndex = params.length + 1;
 
-    if (latitude && longitude && radius) {
+    if (hasLocation && radius) {
       sql += ` AND (
         6371 * acos(
           cos(radians($1)) * cos(radians(b.latitude)) *
@@ -111,50 +195,45 @@ export const searchBusinesses = async (req: Request, res: Response) => {
     if (searchQuery) {
       sql += ` AND (
         b.name ILIKE $${paramIndex} OR
-        b.description ILIKE $${paramIndex} OR
-        b.category ILIKE $${paramIndex}
+        b.description ILIKE $${paramIndex}
       )`;
       params.push(`%${searchQuery}%`);
       paramIndex++;
     }
 
-    if (category) {
-      sql += ` AND b.category = $${paramIndex}`;
-      params.push(category);
+    if (categoryId) {
+      sql += ` AND EXISTS (
+        SELECT 1 FROM business_categories bc
+        WHERE bc.business_id = b.id AND bc.category_id = $${paramIndex}
+      )`;
+      params.push(parseInt(categoryId as string, 10));
       paramIndex++;
     }
 
-    if (priceRange) {
-      sql += ` AND b.price_range = $${paramIndex}`;
-      params.push(priceRange);
+    if (priceLevel) {
+      sql += ` AND b.price_level = $${paramIndex}`;
+      params.push(parseInt(priceLevel as string, 10));
       paramIndex++;
     }
-
-    sql += ` GROUP BY b.id`;
 
     if (minRating) {
-      sql += ` HAVING AVG(r.rating) >= $${paramIndex}`;
-      params.push(minRating);
+      sql += ` AND b.average_rating >= $${paramIndex}`;
+      params.push(parseFloat(minRating as string));
       paramIndex++;
     }
 
     const sortOptions: Record<string, string> = {
-      rating: 'avg_rating DESC',
-      review_count: 'review_count DESC',
-      distance: 'distance_km ASC',
+      rating: 'b.average_rating DESC NULLS LAST',
+      review_count: 'b.review_count DESC',
+      distance: 'distance_km ASC NULLS LAST',
+      newest: 'b.created_at DESC',
     };
-    const orderClause = sortOptions[sortBy as string] || 'distance_km ASC';
+    const orderClause = sortOptions[sortBy as string] || (hasLocation ? 'distance_km ASC NULLS LAST' : 'b.created_at DESC');
     sql += ` ORDER BY ${orderClause}`;
     sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(limit, offset);
 
     const result = await query(sql, params);
-
-    await query(
-      `INSERT INTO analytics_events (business_id, event_type, metadata)
-       SELECT id, 'search_result', $1 FROM businesses WHERE id = ANY($2)`,
-      [JSON.stringify({ searchQuery, category }), result.rows.map((b) => b.id)]
-    );
 
     res.json({
       businesses: result.rows,
@@ -168,31 +247,47 @@ export const searchBusinesses = async (req: Request, res: Response) => {
 
 export const getBusinessById = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid business ID' });
+    }
 
-    const result = await query(
-      `SELECT
-        b.*,
-        COALESCE(AVG(r.rating), 0) as avg_rating,
-        COUNT(DISTINCT r.id) as review_count
-       FROM businesses b
-       LEFT JOIN reviews r ON b.id = r.business_id
-       WHERE b.id = $1
-       GROUP BY b.id`,
-      [id]
-    );
+    const result = await query(`SELECT * FROM businesses WHERE id = $1`, [id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Business not found' });
     }
 
-    await query(
-      `INSERT INTO analytics_events (business_id, event_type)
-       VALUES ($1, 'profile_view')`,
+    const categories = await query(
+      `SELECT c.id, c.name, c.slug, c.icon
+       FROM business_categories bc
+       JOIN categories c ON bc.category_id = c.id
+       WHERE bc.business_id = $1`,
       [id]
     );
 
-    res.json({ business: result.rows[0] });
+    const hours = await query(
+      `SELECT day_of_week, open_time, close_time, is_closed
+       FROM business_hours WHERE business_id = $1
+       ORDER BY day_of_week`,
+      [id]
+    );
+
+    const photos = await query(
+      `SELECT id, url, caption, alt_text, is_primary, upload_order
+       FROM business_photos WHERE business_id = $1
+       ORDER BY upload_order`,
+      [id]
+    );
+
+    res.json({
+      business: {
+        ...result.rows[0],
+        categories: categories.rows,
+        hours: hours.rows,
+        photos: photos.rows,
+      },
+    });
   } catch (error) {
     console.error('Get business error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -201,46 +296,53 @@ export const getBusinessById = async (req: Request, res: Response) => {
 
 export const updateBusiness = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
-    const userId = req.user?.userId;
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid business ID' });
+    }
+    const userId = req.user!.userId;
 
-    const businessCheck = await query(
-      'SELECT owner_id FROM businesses WHERE id = $1',
-      [id]
-    );
+    const businessCheck = await query('SELECT owner_id FROM businesses WHERE id = $1', [id]);
 
     if (businessCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Business not found' });
     }
 
-    if (businessCheck.rows[0].owner_id !== userId) {
+    if (businessCheck.rows[0].owner_id !== userId && !req.user!.isAdmin) {
       return res.status(403).json({ error: 'Not authorized to update this business' });
     }
 
     const {
       name,
-      category,
       description,
-      address,
+      addressLine1,
+      addressLine2,
+      city,
+      state,
+      zipCode,
       phone,
       website,
-      hoursOfOperation,
-      photoUrls,
+      email,
+      priceLevel,
     } = req.body;
 
     const result = await query(
       `UPDATE businesses
        SET name = COALESCE($1, name),
-           category = COALESCE($2, category),
-           description = COALESCE($3, description),
-           address = COALESCE($4, address),
-           phone = COALESCE($5, phone),
-           website = COALESCE($6, website),
-           hours_of_operation = COALESCE($7, hours_of_operation),
-           photo_urls = COALESCE($8, photo_urls)
-       WHERE id = $9
+           description = COALESCE($2, description),
+           address_line_1 = COALESCE($3, address_line_1),
+           address_line_2 = COALESCE($4, address_line_2),
+           city = COALESCE($5, city),
+           state = COALESCE($6, state),
+           zip_code = COALESCE($7, zip_code),
+           phone = COALESCE($8, phone),
+           website = COALESCE($9, website),
+           email = COALESCE($10, email),
+           price_level = COALESCE($11, price_level),
+           updated_at = NOW()
+       WHERE id = $12
        RETURNING *`,
-      [name, category, description, address, phone, website, JSON.stringify(hoursOfOperation), photoUrls, id]
+      [name, description, addressLine1, addressLine2, city, state, zipCode, phone, website, email, priceLevel, id]
     );
 
     res.json({
@@ -253,13 +355,12 @@ export const updateBusiness = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getCategories = async (req: Request, res: Response) => {
+export const getCategories = async (_req: Request, res: Response) => {
   try {
     const result = await query(
-      'SELECT DISTINCT category FROM businesses ORDER BY category'
+      'SELECT id, name, slug, icon, parent_id FROM categories ORDER BY name'
     );
-
-    res.json({ categories: result.rows.map((r) => r.category) });
+    res.json({ categories: result.rows });
   } catch (error) {
     console.error('Get categories error:', error);
     res.status(500).json({ error: 'Internal server error' });

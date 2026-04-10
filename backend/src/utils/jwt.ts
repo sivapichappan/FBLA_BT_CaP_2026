@@ -7,9 +7,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-in-productio
 const JWT_EXPIRATION = '7d';
 
 export interface TokenPayload {
-  userId: string;
+  userId: number;
   email: string;
-  isBusinessOwner: boolean;
+  isAdmin: boolean;
 }
 
 export const generateToken = (payload: TokenPayload): string => {

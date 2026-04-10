@@ -3,10 +3,19 @@ import bcrypt from 'bcrypt';
 import { query } from '../config/database';
 import { generateToken } from '../utils/jwt';
 import { verifyRecaptcha } from '../services/recaptcha';
+import { AuthRequest } from '../middleware/auth';
+
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
+
+const generateUsername = (email: string): string => {
+  const base = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20);
+  return `${base}${Math.floor(Math.random() * 10000)}`;
+};
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { email, password, fullName, recaptchaToken } = req.body;
+    const { email, password, firstName, lastName, username, recaptchaToken } = req.body;
 
     const isHuman = await verifyRecaptcha(recaptchaToken);
     if (!isHuman) {
@@ -18,20 +27,29 @@ export const register = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email already registered' });
     }
 
+    let finalUsername = username || generateUsername(email);
+    const existingUsername = await query('SELECT id FROM users WHERE username = $1', [finalUsername]);
+    if (existingUsername.rows.length > 0) {
+      finalUsername = generateUsername(email);
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
 
     const result = await query(
-      `INSERT INTO users (email, password_hash, full_name)
-       VALUES ($1, $2, $3)
-       RETURNING id, email, full_name, is_business_owner, created_at`,
-      [email, passwordHash, fullName || null]
+      `INSERT INTO users (
+         email, username, password_hash, first_name, last_name,
+         trust_score, total_points, level, is_active, is_admin
+       )
+       VALUES ($1, $2, $3, $4, $5, 50.0, 0, 1, true, false)
+       RETURNING id, email, username, first_name, last_name, is_admin, created_at`,
+      [email, finalUsername, passwordHash, firstName || null, lastName || null]
     );
 
     const user = result.rows[0];
     const token = generateToken({
       userId: user.id,
       email: user.email,
-      isBusinessOwner: user.is_business_owner,
+      isAdmin: user.is_admin,
     });
 
     res.status(201).json({
@@ -40,8 +58,10 @@ export const register = async (req: Request, res: Response) => {
       user: {
         id: user.id,
         email: user.email,
-        fullName: user.full_name,
-        isBusinessOwner: user.is_business_owner,
+        username: user.username,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        isAdmin: user.is_admin,
         createdAt: user.created_at,
       },
     });
@@ -61,7 +81,9 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const result = await query(
-      'SELECT id, email, password_hash, full_name, is_business_owner FROM users WHERE email = $1',
+      `SELECT id, email, username, password_hash, first_name, last_name, is_admin,
+              failed_login_attempts, locked_until, is_active
+       FROM users WHERE email = $1`,
       [email]
     );
 
@@ -70,16 +92,47 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const user = result.rows[0];
+
+    if (!user.is_active) {
+      return res.status(403).json({ error: 'Account is disabled' });
+    }
+
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      return res.status(423).json({ error: 'Account temporarily locked. Try again later.' });
+    }
+
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
 
     if (!isValidPassword) {
+      const newAttempts = (user.failed_login_attempts || 0) + 1;
+      const shouldLock = newAttempts >= MAX_FAILED_ATTEMPTS;
+      await query(
+        `UPDATE users
+         SET failed_login_attempts = $1,
+             locked_until = $2
+         WHERE id = $3`,
+        [
+          newAttempts,
+          shouldLock ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000) : null,
+          user.id,
+        ]
+      );
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    await query(
+      `UPDATE users
+       SET failed_login_attempts = 0,
+           locked_until = NULL,
+           last_login_at = NOW()
+       WHERE id = $1`,
+      [user.id]
+    );
 
     const token = generateToken({
       userId: user.id,
       email: user.email,
-      isBusinessOwner: user.is_business_owner,
+      isAdmin: user.is_admin,
     });
 
     res.json({
@@ -88,8 +141,10 @@ export const login = async (req: Request, res: Response) => {
       user: {
         id: user.id,
         email: user.email,
-        fullName: user.full_name,
-        isBusinessOwner: user.is_business_owner,
+        username: user.username,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        isAdmin: user.is_admin,
       },
     });
   } catch (error) {
@@ -98,12 +153,14 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-export const getProfile = async (req: Request, res: Response) => {
+export const getProfile = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
 
     const result = await query(
-      `SELECT id, email, full_name, location_lat, location_lng, is_business_owner, created_at
+      `SELECT id, email, username, first_name, last_name, profile_image_url,
+              default_latitude, default_longitude, default_city, default_state,
+              trust_score, total_points, level, is_admin, created_at, last_login_at
        FROM users WHERE id = $1`,
       [userId]
     );
@@ -119,14 +176,19 @@ export const getProfile = async (req: Request, res: Response) => {
   }
 };
 
-export const updateLocation = async (req: Request, res: Response) => {
+export const updateLocation = async (req: AuthRequest, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
-    const { latitude, longitude } = req.body;
+    const userId = req.user!.userId;
+    const { latitude, longitude, city, state } = req.body;
 
     await query(
-      'UPDATE users SET location_lat = $1, location_lng = $2 WHERE id = $3',
-      [latitude, longitude, userId]
+      `UPDATE users
+       SET default_latitude = $1,
+           default_longitude = $2,
+           default_city = COALESCE($3, default_city),
+           default_state = COALESCE($4, default_state)
+       WHERE id = $5`,
+      [latitude, longitude, city || null, state || null, userId]
     );
 
     res.json({ message: 'Location updated successfully' });

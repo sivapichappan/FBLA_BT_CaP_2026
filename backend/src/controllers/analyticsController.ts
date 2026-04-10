@@ -4,12 +4,15 @@ import { AuthRequest } from '../middleware/auth';
 
 export const getBusinessAnalytics = async (req: AuthRequest, res: Response) => {
   try {
-    const { businessId } = req.params;
-    const { startDate, endDate } = req.query;
-    const userId = req.user?.userId;
+    const businessId = parseInt(req.params.businessId, 10);
+    if (!Number.isInteger(businessId)) {
+      return res.status(400).json({ error: 'Invalid business ID' });
+    }
+
+    const userId = req.user!.userId;
 
     const businessCheck = await query(
-      'SELECT owner_id FROM businesses WHERE id = $1',
+      'SELECT owner_id, average_rating, review_count FROM businesses WHERE id = $1',
       [businessId]
     );
 
@@ -17,90 +20,52 @@ export const getBusinessAnalytics = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Business not found' });
     }
 
-    if (businessCheck.rows[0].owner_id !== userId) {
+    if (businessCheck.rows[0].owner_id !== userId && !req.user!.isAdmin) {
       return res.status(403).json({ error: 'Not authorized to view analytics for this business' });
     }
 
-    const dateFilter = startDate && endDate
-      ? 'AND created_at BETWEEN $2 AND $3'
-      : '';
-    const params = dateFilter
-      ? [businessId, startDate, endDate]
-      : [businessId];
-
-    const profileViews = await query(
-      `SELECT COUNT(*) as count
-       FROM analytics_events
-       WHERE business_id = $1 AND event_type = 'profile_view' ${dateFilter}`,
-      params
-    );
-
-    const searchAppearances = await query(
-      `SELECT COUNT(*) as count
-       FROM analytics_events
-       WHERE business_id = $1 AND event_type = 'search_result' ${dateFilter}`,
-      params
-    );
-
-    const reviewsPosted = await query(
-      `SELECT COUNT(*) as count
-       FROM analytics_events
-       WHERE business_id = $1 AND event_type = 'review_posted' ${dateFilter}`,
-      params
-    );
-
     const favorites = await query(
-      `SELECT COUNT(*) as count
-       FROM favorites
-       WHERE business_id = $1`,
+      `SELECT COUNT(*)::int AS count FROM favorites WHERE business_id = $1`,
       [businessId]
     );
 
-    const dealsRedeemed = await query(
-      `SELECT COUNT(*) as count
-       FROM analytics_events
-       WHERE business_id = $1 AND event_type = 'deal_redeemed' ${dateFilter}`,
-      params
-    );
-
-    const avgRating = await query(
-      `SELECT COALESCE(AVG(rating), 0) as avg_rating
-       FROM reviews
-       WHERE business_id = $1`,
+    const dealsClaimed = await query(
+      `SELECT COUNT(*)::int AS count
+       FROM deal_claims dc
+       JOIN deals d ON dc.deal_id = d.id
+       WHERE d.business_id = $1`,
       [businessId]
     );
 
     const ratingDistribution = await query(
-      `SELECT rating, COUNT(*) as count
+      `SELECT rating, COUNT(*)::int AS count
        FROM reviews
-       WHERE business_id = $1
+       WHERE business_id = $1 AND is_hidden = false
        GROUP BY rating
        ORDER BY rating DESC`,
       [businessId]
     );
 
-    const viewsTrend = await query(
+    const reviewsTrend = await query(
       `SELECT
-        DATE(created_at) as date,
-        COUNT(*) as count
-       FROM analytics_events
-       WHERE business_id = $1 AND event_type = 'profile_view' ${dateFilter}
+         DATE(created_at) AS date,
+         COUNT(*)::int AS count
+       FROM reviews
+       WHERE business_id = $1 AND is_hidden = false
        GROUP BY DATE(created_at)
        ORDER BY date DESC
        LIMIT 30`,
-      params
+      [businessId]
     );
 
     res.json({
       analytics: {
-        profileViews: parseInt(profileViews.rows[0].count),
-        searchAppearances: parseInt(searchAppearances.rows[0].count),
-        reviewsPosted: parseInt(reviewsPosted.rows[0].count),
-        totalFavorites: parseInt(favorites.rows[0].count),
-        dealsRedeemed: parseInt(dealsRedeemed.rows[0].count),
-        averageRating: parseFloat(avgRating.rows[0].avg_rating).toFixed(2),
+        averageRating: parseFloat(businessCheck.rows[0].average_rating || 0).toFixed(2),
+        totalReviews: businessCheck.rows[0].review_count,
+        totalFavorites: favorites.rows[0].count,
+        dealsClaimed: dealsClaimed.rows[0].count,
         ratingDistribution: ratingDistribution.rows,
-        viewsTrend: viewsTrend.rows,
+        reviewsTrend: reviewsTrend.rows,
       },
     });
   } catch (error) {
@@ -111,31 +76,35 @@ export const getBusinessAnalytics = async (req: AuthRequest, res: Response) => {
 
 export const getDealAnalytics = async (req: AuthRequest, res: Response) => {
   try {
-    const { businessId } = req.params;
-    const userId = req.user?.userId;
+    const businessId = parseInt(req.params.businessId, 10);
+    if (!Number.isInteger(businessId)) {
+      return res.status(400).json({ error: 'Invalid business ID' });
+    }
+    const userId = req.user!.userId;
 
-    const businessCheck = await query(
-      'SELECT owner_id FROM businesses WHERE id = $1',
-      [businessId]
-    );
+    const businessCheck = await query('SELECT owner_id FROM businesses WHERE id = $1', [businessId]);
 
     if (businessCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Business not found' });
     }
 
-    if (businessCheck.rows[0].owner_id !== userId) {
+    if (businessCheck.rows[0].owner_id !== userId && !req.user!.isAdmin) {
       return res.status(403).json({ error: 'Not authorized to view analytics for this business' });
     }
 
     const result = await query(
       `SELECT
-        d.id,
-        d.title,
-        d.times_redeemed,
-        d.redemption_limit,
-        d.created_at,
-        d.expiration_date,
-        d.is_active
+         d.id,
+         d.title,
+         d.discount_type,
+         d.discount_value,
+         d.redemption_count,
+         d.total_limit,
+         d.per_user_limit,
+         d.start_date,
+         d.end_date,
+         d.is_active,
+         d.created_at
        FROM deals d
        WHERE d.business_id = $1
        ORDER BY d.created_at DESC`,
