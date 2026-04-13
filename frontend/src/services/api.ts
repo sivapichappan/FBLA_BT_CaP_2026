@@ -6,81 +6,115 @@ export const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
-export interface Business {
-  id: string;
+export interface Category {
+  id: number;
   name: string;
-  category: string;
+  slug: string;
+  icon: string | null;
+  parent_id: number | null;
+}
+
+export interface Business {
+  id: number;
+  name: string;
+  slug: string;
   description?: string;
-  address: string;
+  address_line_1: string;
+  address_line_2?: string;
+  city: string;
+  state: string;
+  zip_code: string;
   phone?: string;
   website?: string;
+  email?: string;
   latitude: number;
   longitude: number;
-  price_range?: string;
-  hours_of_operation?: any;
-  photo_urls?: string[];
-  avg_rating: number;
+  price_level?: number;
+  is_local?: boolean;
+  is_chain?: boolean;
+  average_rating: number;
   review_count: number;
   distance_km?: number;
+  categories?: Category[];
+  hours?: any[];
+  photos?: any[];
 }
 
 export interface Review {
-  id: string;
+  id: number;
   rating: number;
-  comment?: string;
+  title?: string;
+  content?: string;
+  helpfulCount: number;
+  notHelpfulCount: number;
   createdAt: string;
-  userName: string;
+  updatedAt: string;
+  user: {
+    id: number;
+    username: string;
+    firstName: string;
+    lastName: string;
+    profileImageUrl?: string;
+  };
 }
 
 export interface Deal {
-  id: string;
-  business_id: string;
+  id: number;
+  business_id: number;
   title: string;
   description?: string;
-  discount_amount?: string;
-  expiration_date?: string;
-  times_redeemed: number;
-  redemption_limit?: number;
+  discount_type: string;
+  discount_value: number;
+  end_date?: string;
+  redemption_count: number;
+  total_limit?: number;
+  per_user_limit?: number;
+  business_name?: string;
 }
 
 export const businessApi = {
   search: (params: any) => api.get<{ businesses: Business[] }>('/businesses/search', { params }),
-  getById: (id: string) => api.get<{ business: Business }>(`/businesses/${id}`),
+  getById: (id: number) => api.get<{ business: Business }>(`/businesses/${id}`),
   create: (data: any) => api.post('/businesses', data),
-  update: (id: string, data: any) => api.put(`/businesses/${id}`, data),
-  getCategories: () => api.get<{ categories: string[] }>('/businesses/categories'),
+  update: (id: number, data: any) => api.put(`/businesses/${id}`, data),
+  getCategories: () => api.get<{ categories: Category[] }>('/businesses/categories'),
 };
 
 export const reviewApi = {
-  getBusinessReviews: (businessId: string, params?: any) =>
+  getBusinessReviews: (businessId: number, params?: any) =>
     api.get<{ reviews: Review[] }>(`/reviews/business/${businessId}`, { params }),
   create: (data: any) => api.post('/reviews', data),
-  update: (id: string, data: any) => api.put(`/reviews/${id}`, data),
-  delete: (id: string) => api.delete(`/reviews/${id}`),
+  update: (id: number, data: any) => api.put(`/reviews/${id}`, data),
+  delete: (id: number) => api.delete(`/reviews/${id}`),
 };
 
 export const favoriteApi = {
   getAll: () => api.get<{ favorites: Business[] }>('/favorites'),
-  add: (businessId: string) => api.post('/favorites', { businessId }),
-  remove: (businessId: string) => api.delete(`/favorites/${businessId}`),
-  check: (businessId: string) => api.get<{ isFavorite: boolean }>(`/favorites/check/${businessId}`),
+  add: (businessId: number) => api.post('/favorites', { businessId }),
+  remove: (businessId: number) => api.delete(`/favorites/${businessId}`),
+  check: (businessId: number) => api.get<{ isFavorite: boolean }>(`/favorites/check/${businessId}`),
 };
 
 export const dealApi = {
-  getBusinessDeals: (businessId: string) => api.get<{ deals: Deal[] }>(`/deals/business/${businessId}`),
+  getBusinessDeals: (businessId: number) => api.get<{ deals: Deal[] }>(`/deals/business/${businessId}`),
   getAllActive: (params?: any) => api.get<{ deals: Deal[] }>('/deals/active', { params }),
   create: (data: any) => api.post('/deals', data),
-  update: (id: string, data: any) => api.put(`/deals/${id}`, data),
-  redeem: (dealId: string) => api.post(`/deals/${dealId}/redeem`),
+  update: (id: number, data: any) => api.put(`/deals/${id}`, data),
+  redeem: (dealId: number) => api.post(`/deals/${dealId}/redeem`),
 };
 
 export const analyticsApi = {
-  getBusinessAnalytics: (businessId: string, params?: any) =>
+  getBusinessAnalytics: (businessId: number, params?: any) =>
     api.get(`/analytics/business/${businessId}`, { params }),
-  getDealAnalytics: (businessId: string) => api.get(`/analytics/business/${businessId}/deals`),
+  getDealAnalytics: (businessId: number) => api.get(`/analytics/business/${businessId}/deals`),
 };
 
 export const aiApi = {
-  chat: (message: string, latitude?: number, longitude?: number) =>
-    api.post<{ response: string; suggestions?: any[] }>('/ai/chat', { message, latitude, longitude }),
+  chat: (message: string, latitude?: number, longitude?: number, sessionToken?: string) =>
+    api.post<{ response: string; sessionToken: string; suggestions?: any[] }>('/ai/chat', {
+      message,
+      latitude,
+      longitude,
+      sessionToken,
+    }),
 };

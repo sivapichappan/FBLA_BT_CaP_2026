@@ -4,12 +4,12 @@ import { Loader } from '@googlemaps/js-api-loader';
 interface MapComponentProps {
   center: { lat: number; lng: number };
   businesses?: Array<{
-    id: string;
+    id: number;
     name: string;
     latitude: number;
     longitude: number;
   }>;
-  onBusinessClick?: (businessId: string) => void;
+  onBusinessClick?: (businessId: number) => void;
   zoom?: number;
 }
 

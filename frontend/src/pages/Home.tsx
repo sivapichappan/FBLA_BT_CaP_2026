@@ -43,7 +43,7 @@ const Home: React.FC = () => {
     }
   };
 
-  const handleBusinessClick = (businessId: string) => {
+  const handleBusinessClick = (businessId: number) => {
     navigate(`/business/${businessId}`);
   };
 

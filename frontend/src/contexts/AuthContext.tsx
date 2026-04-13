@@ -36,9 +36,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await axios.get('/api/auth/profile');
       setUser(response.data.user);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch user profile:', error);
-      logout();
+      if (error?.response?.status === 401) {
+        logout();
+      }
     }
   };
 

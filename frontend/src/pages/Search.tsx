@@ -1,20 +1,19 @@
 import React, { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocation } from '../contexts/LocationContext';
-import { businessApi, Business } from '../services/api';
+import { businessApi, Business, Category } from '../services/api';
 import BusinessCard from '../components/BusinessCard';
 import '../styles/Search.css';
 
-/** Search page with text search, category/price/open-now filters, and sort controls. */
 const Search: React.FC = () => {
   const navigate = useNavigate();
   const { location } = useLocation();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [category, setCategory] = useState('');
-  const [priceRange, setPriceRange] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [priceLevel, setPriceLevel] = useState('');
   const [sortBy, setSortBy] = useState('distance');
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -25,7 +24,7 @@ const Search: React.FC = () => {
 
   useEffect(() => {
     fetchResults();
-  }, [sortBy, category, priceRange]);
+  }, [sortBy, categoryId, priceLevel]);
 
   const fetchResults = async () => {
     setLoading(true);
@@ -36,8 +35,8 @@ const Search: React.FC = () => {
         limit: 50,
       };
       if (searchQuery) params.query = searchQuery;
-      if (category) params.category = category;
-      if (priceRange) params.priceRange = priceRange;
+      if (categoryId) params.categoryId = categoryId;
+      if (priceLevel) params.priceLevel = priceLevel;
       if (location) {
         params.latitude = location.latitude;
         params.longitude = location.longitude;
@@ -74,26 +73,26 @@ const Search: React.FC = () => {
 
       <div className="filters-row">
         <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
           aria-label="Filter by category"
         >
           <option value="">All Categories</option>
           {categories.map((cat) => (
-            <option key={cat} value={cat}>{cat}</option>
+            <option key={cat.id} value={cat.id}>{cat.name}</option>
           ))}
         </select>
 
         <select
-          value={priceRange}
-          onChange={(e) => setPriceRange(e.target.value)}
-          aria-label="Filter by price range"
+          value={priceLevel}
+          onChange={(e) => setPriceLevel(e.target.value)}
+          aria-label="Filter by price level"
         >
           <option value="">Any Price</option>
-          <option value="$">$</option>
-          <option value="$$">$$</option>
-          <option value="$$$">$$$</option>
-          <option value="$$$$">$$$$</option>
+          <option value="1">$ (Budget)</option>
+          <option value="2">$$ (Moderate)</option>
+          <option value="3">$$$ (Upscale)</option>
+          <option value="4">$$$$ (Fine Dining)</option>
         </select>
 
         <select
@@ -104,6 +103,7 @@ const Search: React.FC = () => {
           <option value="distance">Distance</option>
           <option value="rating">Rating</option>
           <option value="review_count">Most Reviews</option>
+          <option value="newest">Newest</option>
         </select>
       </div>
 
