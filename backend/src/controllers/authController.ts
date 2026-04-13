@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import { query } from '../config/database';
 import { generateToken } from '../utils/jwt';
-import { verifyRecaptcha } from '../services/recaptcha';
 import { AuthRequest } from '../middleware/auth';
 
 const MAX_FAILED_ATTEMPTS = 5;
@@ -15,12 +14,7 @@ const generateUsername = (email: string): string => {
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { email, password, firstName, lastName, username, recaptchaToken } = req.body;
-
-    const isHuman = await verifyRecaptcha(recaptchaToken);
-    if (!isHuman) {
-      return res.status(400).json({ error: 'reCAPTCHA verification failed' });
-    }
+    const { email, password, firstName, lastName, username } = req.body;
 
     const existingUser = await query('SELECT id FROM users WHERE email = $1', [email]);
     if (existingUser.rows.length > 0) {
@@ -73,12 +67,7 @@ export const register = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { email, password, recaptchaToken } = req.body;
-
-    const isHuman = await verifyRecaptcha(recaptchaToken);
-    if (!isHuman) {
-      return res.status(400).json({ error: 'reCAPTCHA verification failed' });
-    }
+    const { email, password } = req.body;
 
     const result = await query(
       `SELECT id, email, username, password_hash, first_name, last_name, is_admin,

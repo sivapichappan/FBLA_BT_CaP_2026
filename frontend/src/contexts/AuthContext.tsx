@@ -2,17 +2,19 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
 
 interface User {
-  id: string;
+  id: number;
   email: string;
-  fullName?: string;
-  isBusinessOwner: boolean;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  isAdmin: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (email: string, password: string, recaptchaToken: string) => Promise<void>;
-  register: (email: string, password: string, fullName: string, recaptchaToken: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, fullName: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -40,12 +42,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const login = async (email: string, password: string, recaptchaToken: string) => {
-    const response = await axios.post('/api/auth/login', {
-      email,
-      password,
-      recaptchaToken,
-    });
+  const login = async (email: string, password: string) => {
+    const response = await axios.post('/api/auth/login', { email, password });
     const { token: newToken, user: newUser } = response.data;
     localStorage.setItem('token', newToken);
     setToken(newToken);
@@ -53,12 +51,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
   };
 
-  const register = async (email: string, password: string, fullName: string, recaptchaToken: string) => {
+  const register = async (email: string, password: string, fullName: string) => {
+    const nameParts = fullName.trim().split(/\s+/);
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     const response = await axios.post('/api/auth/register', {
       email,
       password,
-      fullName,
-      recaptchaToken,
+      firstName,
+      lastName,
     });
     const { token: newToken, user: newUser } = response.data;
     localStorage.setItem('token', newToken);

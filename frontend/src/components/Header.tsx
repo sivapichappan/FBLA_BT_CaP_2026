@@ -27,7 +27,7 @@ const Header: React.FC = () => {
               <Link to="/favorites" className="nav-link">Favorites</Link>
               <Link to="/deals" className="nav-link">Deals</Link>
               <Link to="/assistant" className="nav-link">AI Assistant</Link>
-              {user?.isBusinessOwner && (
+              {user?.isAdmin && (
                 <Link to="/dashboard" className="nav-link">Dashboard</Link>
               )}
             </>

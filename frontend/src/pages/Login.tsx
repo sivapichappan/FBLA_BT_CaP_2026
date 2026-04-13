@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import ReCAPTCHA from 'react-google-recaptcha';
 import { useAuth } from '../contexts/AuthContext';
 import '../styles/Auth.css';
 
@@ -9,7 +8,6 @@ const Login: React.FC = () => {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [recaptchaToken, setRecaptchaToken] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -17,17 +15,9 @@ const Login: React.FC = () => {
     e.preventDefault();
     setError('');
 
-    const hasRecaptchaKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY &&
-                            import.meta.env.VITE_RECAPTCHA_SITE_KEY !== 'YOUR_GOOGLE_MAPS_KEY_HERE';
-
-    if (hasRecaptchaKey && !recaptchaToken) {
-      setError('Please complete the reCAPTCHA');
-      return;
-    }
-
     setLoading(true);
     try {
-      await login(email, password, recaptchaToken || 'dev-mode');
+      await login(email, password);
       navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Login failed');
@@ -64,16 +54,6 @@ const Login: React.FC = () => {
               required
             />
           </div>
-
-          {import.meta.env.VITE_RECAPTCHA_SITE_KEY &&
-           import.meta.env.VITE_RECAPTCHA_SITE_KEY !== 'YOUR_GOOGLE_MAPS_KEY_HERE' && (
-            <div className="recaptcha-container">
-              <ReCAPTCHA
-                sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
-                onChange={(token) => setRecaptchaToken(token || '')}
-              />
-            </div>
-          )}
 
           <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
             {loading ? 'Logging in...' : 'Login'}
