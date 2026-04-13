@@ -47,13 +47,7 @@ You'll need these 3 API keys:
    - Create API key
 
 2. **OpenAI API**: https://platform.openai.com/api-keys
-   -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
-
-3. **reCAPTCHA**: https://www.google.com/recaptcha/admin
-   - Choose v3
-   - Get site key: 6LcyGxMsAAAAALa2SAw6Hs_c72_qsur-d0ZGNDpu
-   - secret key:
-     6LcyGxMsAAAAAH_HIKiQU0fmfBIMRaQ8mMaJkivI
+   - Create a new secret key and copy it
 
 ### Backend .env
 
@@ -74,8 +68,6 @@ ENCRYPTION_KEY=another-random-32-char-string-change-me
 
 GOOGLE_MAPS_API_KEY=your_google_maps_key
 OPENAI_API_KEY=your_openai_api_key
-RECAPTCHA_SITE_KEY=6LcyGxMsAAAAALa2SAw6Hs_c72_qsur-d0ZGNDpu
-RECAPTCHA_SECRET_KEY=6LcyGxMsAAAAAH_HIKiQU0fmfBIMRaQ8mMaJkivI
 
 FRONTEND_URL=http://localhost:3000
 ```

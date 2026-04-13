@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { query, getClient } from '../config/database';
 import { AuthRequest } from '../middleware/auth';
@@ -73,7 +73,7 @@ export const createDeal = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getBusinessDeals = async (req: AuthRequest, res: Response) => {
+export const getBusinessDeals = async (req: Request, res: Response) => {
   try {
     const businessId = parseInt(req.params.businessId, 10);
     if (!Number.isInteger(businessId)) {
@@ -97,7 +97,7 @@ export const getBusinessDeals = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getAllActiveDeals = async (req: AuthRequest, res: Response) => {
+export const getAllActiveDeals = async (req: Request, res: Response) => {
   try {
     const { latitude, longitude, radius = 10, limit = 20 } = req.query;
 

@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { query, getClient } from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 
@@ -61,7 +61,7 @@ export const createReview = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getBusinessReviews = async (req: AuthRequest, res: Response) => {
+export const getBusinessReviews = async (req: Request, res: Response) => {
   try {
     const businessId = parseInt(req.params.businessId, 10);
     if (!Number.isInteger(businessId)) {
