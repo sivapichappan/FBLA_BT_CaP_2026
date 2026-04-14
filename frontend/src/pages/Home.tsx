@@ -1,32 +1,29 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocation } from '../contexts/LocationContext';
 import { businessApi, Business } from '../services/api';
-import MapComponent from '../components/MapComponent';
 import BusinessCard from '../components/BusinessCard';
-import '../styles/Home.css';
+import MapComponent from '../components/MapComponent';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { MapPin, Search, Star, Tag, MessageCircle } from 'lucide-react';
 
-const Home: React.FC = () => {
+const Home = () => {
   const navigate = useNavigate();
   const { location, requestLocation } = useLocation();
   const [nearbyBusinesses, setNearbyBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!location) {
-      requestLocation();
-    }
+    if (!location) requestLocation();
   }, []);
 
   useEffect(() => {
-    if (location) {
-      fetchNearbyBusinesses();
-    }
+    if (location) fetchNearbyBusinesses();
   }, [location]);
 
   const fetchNearbyBusinesses = async () => {
     if (!location) return;
-
     setLoading(true);
     try {
       const response = await businessApi.search({
@@ -43,76 +40,82 @@ const Home: React.FC = () => {
     }
   };
 
-  const handleBusinessClick = (businessId: number) => {
-    navigate(`/business/${businessId}`);
-  };
-
   return (
-    <div className="home">
-      <section className="hero">
-        <div className="hero-content">
-          <h1>Discover Local Businesses Near You</h1>
-          <p>Find the best restaurants, shops, and services in your area</p>
-          <div className="hero-actions">
-            <button onClick={() => navigate('/search')} className="btn btn-primary btn-large">
-              Start Exploring
-            </button>
+    <div>
+      {/* Hero */}
+      <section className="bg-gradient-to-br from-primary/5 via-background to-primary/10 py-20 px-4">
+        <div className="container mx-auto text-center max-w-3xl">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
+            Discover Local Businesses Near You
+          </h1>
+          <p className="text-lg text-muted-foreground mb-8">
+            Find the best restaurants, shops, and services in your area. Support local, discover more.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button size="lg" onClick={() => navigate('/search')} className="gap-2">
+              <Search className="h-5 w-5" /> Start Exploring
+            </Button>
             {!location && (
-              <button onClick={requestLocation} className="btn btn-secondary btn-large">
-                Enable Location
-              </button>
+              <Button size="lg" variant="outline" onClick={requestLocation} className="gap-2">
+                <MapPin className="h-5 w-5" /> Enable Location
+              </Button>
             )}
           </div>
         </div>
       </section>
 
+      {/* Nearby businesses */}
       {location && (
-        <section className="nearby-section">
-          <h2>Businesses Near You</h2>
+        <section className="container mx-auto px-4 py-12">
+          <h2 className="text-2xl font-bold mb-6">Businesses Near You</h2>
 
-          <div className="map-container">
+          <div className="rounded-lg overflow-hidden border mb-8 h-[400px]">
             <MapComponent
               center={{ lat: location.latitude, lng: location.longitude }}
               businesses={nearbyBusinesses.map(b => ({
-                id: b.id,
-                name: b.name,
-                latitude: b.latitude,
-                longitude: b.longitude,
+                id: b.id, name: b.name, latitude: b.latitude, longitude: b.longitude,
               }))}
-              onBusinessClick={handleBusinessClick}
+              onBusinessClick={(id) => navigate(`/business/${id}`)}
             />
           </div>
 
           {loading ? (
-            <div className="loading">Loading nearby businesses...</div>
-          ) : (
-            <div className="business-grid">
-              {nearbyBusinesses.map(business => (
-                <BusinessCard key={business.id} business={business} onClick={handleBusinessClick} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-48 rounded-lg" />
               ))}
             </div>
+          ) : nearbyBusinesses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {nearbyBusinesses.map(b => (
+                <BusinessCard key={b.id} business={b} onClick={(id) => navigate(`/business/${id}`)} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-8">
+              No businesses found nearby. Try expanding your search radius.
+            </p>
           )}
         </section>
       )}
 
-      <section className="features">
-        <h2>Why Choose LocalDiscover?</h2>
-        <div className="features-grid">
-          <div className="feature">
-            <h3>🗺️ Location-Based</h3>
-            <p>Find businesses near you with real-time location tracking</p>
-          </div>
-          <div className="feature">
-            <h3>⭐ Verified Reviews</h3>
-            <p>Read authentic reviews from real customers</p>
-          </div>
-          <div className="feature">
-            <h3>💰 Special Deals</h3>
-            <p>Discover exclusive coupons and promotions</p>
-          </div>
-          <div className="feature">
-            <h3>🤖 AI Assistant</h3>
-            <p>Get personalized recommendations with our AI chatbot</p>
+      {/* Features */}
+      <section className="bg-muted/50 py-16 px-4">
+        <div className="container mx-auto">
+          <h2 className="text-2xl font-bold text-center mb-10">Why Choose LocalDiscover?</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { icon: MapPin, title: 'Location-Based', desc: 'Find businesses near you with real-time location' },
+              { icon: Star, title: 'Verified Reviews', desc: 'Read authentic reviews from real customers' },
+              { icon: Tag, title: 'Special Deals', desc: 'Discover exclusive coupons and promotions' },
+              { icon: MessageCircle, title: 'AI Assistant', desc: 'Get personalized recommendations with AI' },
+            ].map(({ icon: Icon, title, desc }) => (
+              <div key={title} className="bg-background rounded-lg p-6 border text-center">
+                <Icon className="h-10 w-10 mx-auto mb-3 text-primary" />
+                <h3 className="font-semibold mb-2">{title}</h3>
+                <p className="text-sm text-muted-foreground">{desc}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>

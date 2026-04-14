@@ -1,11 +1,15 @@
-import React, { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocation } from '../contexts/LocationContext';
 import { businessApi, Business, Category } from '../services/api';
 import BusinessCard from '../components/BusinessCard';
-import '../styles/Search.css';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Search as SearchIcon } from 'lucide-react';
 
-const Search: React.FC = () => {
+const Search = () => {
   const navigate = useNavigate();
   const { location } = useLocation();
 
@@ -19,7 +23,7 @@ const Search: React.FC = () => {
   const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
-    businessApi.getCategories().then((res) => setCategories(res.data.categories)).catch(() => {});
+    businessApi.getCategories().then(r => setCategories(r.data.categories)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -30,10 +34,7 @@ const Search: React.FC = () => {
     setLoading(true);
     setHasSearched(true);
     try {
-      const params: Record<string, any> = {
-        sortBy,
-        limit: 50,
-      };
+      const params: Record<string, any> = { sortBy, limit: 50 };
       if (searchQuery) params.query = searchQuery;
       if (categoryId) params.categoryId = categoryId;
       if (priceLevel) params.priceLevel = priceLevel;
@@ -57,69 +58,78 @@ const Search: React.FC = () => {
   };
 
   return (
-    <div className="search-page">
-      <h1>Search Businesses</h1>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-6">Search Businesses</h1>
 
-      <form className="search-bar" onSubmit={handleSubmit}>
-        <input
-          type="text"
-          placeholder="Search by name, category, or description..."
+      <form onSubmit={handleSubmit} className="flex gap-2 mb-6">
+        <Input
+          placeholder="Search by name or description..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          aria-label="Search businesses"
+          onChange={e => setSearchQuery(e.target.value)}
+          className="flex-1"
         />
-        <button type="submit" className="btn btn-primary">Search</button>
+        <Button type="submit" className="gap-2">
+          <SearchIcon className="h-4 w-4" /> Search
+        </Button>
       </form>
 
-      <div className="filters-row">
-        <select
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-          aria-label="Filter by category"
-        >
-          <option value="">All Categories</option>
-          {categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>{cat.name}</option>
-          ))}
-        </select>
-
-        <select
-          value={priceLevel}
-          onChange={(e) => setPriceLevel(e.target.value)}
-          aria-label="Filter by price level"
-        >
-          <option value="">Any Price</option>
-          <option value="1">$ (Budget)</option>
-          <option value="2">$$ (Moderate)</option>
-          <option value="3">$$$ (Upscale)</option>
-          <option value="4">$$$$ (Fine Dining)</option>
-        </select>
-
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          aria-label="Sort results by"
-        >
-          <option value="distance">Distance</option>
-          <option value="rating">Rating</option>
-          <option value="review_count">Most Reviews</option>
-          <option value="newest">Newest</option>
-        </select>
-      </div>
-
-      <div className="search-results">
-        {loading ? (
-          <div className="loading">Searching...</div>
-        ) : businesses.length > 0 ? (
-          <div className="business-grid">
-            {businesses.map((b) => (
-              <BusinessCard key={b.id} business={b} onClick={(id) => navigate(`/business/${id}`)} />
+      <div className="flex flex-wrap gap-3 mb-8">
+        <Select value={categoryId} onValueChange={setCategoryId}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="All Categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {categories.map(cat => (
+              <SelectItem key={cat.id} value={String(cat.id)}>{cat.icon} {cat.name}</SelectItem>
             ))}
-          </div>
-        ) : hasSearched ? (
-          <div className="no-results">No businesses found. Try adjusting your filters.</div>
-        ) : null}
+          </SelectContent>
+        </Select>
+
+        <Select value={priceLevel} onValueChange={setPriceLevel}>
+          <SelectTrigger className="w-[150px]">
+            <SelectValue placeholder="Any Price" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="any">Any Price</SelectItem>
+            <SelectItem value="1">$ Budget</SelectItem>
+            <SelectItem value="2">$$ Moderate</SelectItem>
+            <SelectItem value="3">$$$ Upscale</SelectItem>
+            <SelectItem value="4">$$$$ Fine Dining</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="distance">Distance</SelectItem>
+            <SelectItem value="rating">Rating</SelectItem>
+            <SelectItem value="review_count">Most Reviews</SelectItem>
+            <SelectItem value="newest">Newest</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
+
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-48 rounded-lg" />
+          ))}
+        </div>
+      ) : businesses.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {businesses.map(b => (
+            <BusinessCard key={b.id} business={b} onClick={id => navigate(`/business/${id}`)} />
+          ))}
+        </div>
+      ) : hasSearched ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <p className="text-lg">No businesses found.</p>
+          <p className="text-sm mt-1">Try adjusting your filters or search terms.</p>
+        </div>
+      ) : null}
     </div>
   );
 };

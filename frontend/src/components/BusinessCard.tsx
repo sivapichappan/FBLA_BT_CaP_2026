@@ -1,4 +1,6 @@
-import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Star, MapPin } from 'lucide-react';
 import { Business } from '../services/api';
 
 interface BusinessCardProps {
@@ -6,37 +8,54 @@ interface BusinessCardProps {
   onClick: (id: number) => void;
 }
 
-const priceLevelDisplay = (level?: number) => {
-  if (!level) return null;
-  return '$'.repeat(level);
-};
-
 const BusinessCard: React.FC<BusinessCardProps> = ({ business, onClick }) => {
   return (
-    <div
-      className="business-card"
+    <Card
+      className="cursor-pointer hover:shadow-lg transition-shadow"
       onClick={() => onClick(business.id)}
-      role="button"
-      tabIndex={0}
-      aria-label={`View ${business.name}`}
-      onKeyDown={(e) => e.key === 'Enter' && onClick(business.id)}
     >
-      <h3>{business.name}</h3>
-      <p className="category">
-        {business.categories?.map(c => c.name).join(', ') || 'Uncategorized'}
-      </p>
-      {business.price_level && (
-        <span className="price-range">{priceLevelDisplay(business.price_level)}</span>
-      )}
-      {business.description && <p className="description">{business.description}</p>}
-      <div className="business-meta">
-        <span className="rating">⭐ {Number(business.average_rating || 0).toFixed(1)}</span>
-        <span className="reviews">({business.review_count || 0} reviews)</span>
-        {business.distance_km != null && (
-          <span className="distance">{Number(business.distance_km).toFixed(1)} km</span>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg leading-tight">{business.name}</CardTitle>
+        <div className="flex flex-wrap gap-1 mt-1">
+          {business.categories?.map(c => (
+            <Badge key={c.id} variant="secondary" className="text-xs">
+              {c.icon} {c.name}
+            </Badge>
+          ))}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {business.description && (
+          <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+            {business.description}
+          </p>
         )}
-      </div>
-    </div>
+        <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1">
+              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+              {Number(business.average_rating || 0).toFixed(1)}
+            </span>
+            <span className="text-muted-foreground">
+              ({business.review_count || 0} reviews)
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {business.price_level && (
+              <span className="text-muted-foreground font-medium">
+                {'$'.repeat(business.price_level)}
+              </span>
+            )}
+            {business.distance_km != null && (
+              <span className="flex items-center gap-1 text-muted-foreground">
+                <MapPin className="h-3 w-3" />
+                {Number(business.distance_km).toFixed(1)} km
+              </span>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
