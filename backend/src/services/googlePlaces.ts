@@ -111,10 +111,11 @@ export const searchNearby = async (
     const params: Record<string, any> = {
       location: `${latitude},${longitude}`,
       radius: Math.min(radius, 50000),
-      type: type || 'establishment',
       key: API_KEY,
     };
+    if (type) params.type = type;
     if (keyword) params.keyword = keyword;
+    if (!type && !keyword) params.keyword = 'restaurant shop store cafe service';
 
     const response = await axios.get(`${BASE_URL}/nearbysearch/json`, { params });
 
