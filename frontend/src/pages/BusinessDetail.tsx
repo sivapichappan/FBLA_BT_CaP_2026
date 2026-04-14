@@ -36,23 +36,33 @@ const BusinessDetail = () => {
     loadBusiness();
   }, [businessId]);
 
+  const isGooglePlace = String(businessId).startsWith('gp_');
+
   const loadBusiness = async () => {
     setLoading(true);
     try {
-      const [bizRes, revRes, dealRes] = await Promise.all([
-        businessApi.getById(businessId),
-        reviewApi.getBusinessReviews(businessId),
-        dealApi.getBusinessDeals(businessId),
-      ]);
-      setBusiness(bizRes.data.business);
-      setReviews(revRes.data.reviews);
-      setDeals(dealRes.data.deals);
+      const bizRes = await businessApi.getById(businessId);
+      const biz = bizRes.data.business;
+      setBusiness(biz);
 
-      if (isAuthenticated) {
-        try {
-          const favRes = await favoriteApi.check(businessId);
-          setIsFavorite(favRes.data.isFavorite);
-        } catch {}
+      // Google Places businesses come with reviews embedded; skip local API calls
+      if (isGooglePlace) {
+        setReviews(biz.reviews || []);
+        setDeals([]);
+      } else {
+        const [revRes, dealRes] = await Promise.all([
+          reviewApi.getBusinessReviews(businessId as number),
+          dealApi.getBusinessDeals(businessId as number),
+        ]);
+        setReviews(revRes.data.reviews);
+        setDeals(dealRes.data.deals);
+
+        if (isAuthenticated) {
+          try {
+            const favRes = await favoriteApi.check(businessId as number);
+            setIsFavorite(favRes.data.isFavorite);
+          } catch {}
+        }
       }
     } catch (error) {
       console.error('Failed to load business:', error);
@@ -129,7 +139,10 @@ const BusinessDetail = () => {
         <div>
           <h1 className="text-3xl font-bold">{business.name}</h1>
           <div className="flex flex-wrap gap-2 mt-2">
-            {business.categories?.map(c => (
+            {business.primary_type_display_name && (
+              <Badge variant="secondary">{business.primary_type_display_name}</Badge>
+            )}
+            {!business.primary_type_display_name && business.categories?.map(c => (
               <Badge key={c.id} variant="secondary">{c.icon} {c.name}</Badge>
             ))}
             {business.price_level && (
@@ -164,11 +177,16 @@ const BusinessDetail = () => {
         </TabsList>
 
         <TabsContent value="about">
+          {business.editorial_summary && (
+            <p className="text-muted-foreground italic mb-6 text-sm border-l-2 pl-4">
+              {business.editorial_summary}
+            </p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader><CardTitle>Details</CardTitle></CardHeader>
               <CardContent className="space-y-3 text-sm">
-                {business.description && <p>{business.description}</p>}
+                {business.description && !business.editorial_summary && <p>{business.description}</p>}
                 <Separator />
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
@@ -186,22 +204,37 @@ const BusinessDetail = () => {
                     <a href={business.website} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">{business.website}</a>
                   </div>
                 )}
+                {business.google_maps_uri && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <a href={business.google_maps_uri} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">View on Google Maps</a>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {business.hours && business.hours.length > 0 && (
+            {((business.weekday_descriptions && business.weekday_descriptions.length > 0) ||
+              (business.hours && business.hours.length > 0)) && (
               <Card>
                 <CardHeader><CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5" /> Hours</CardTitle></CardHeader>
                 <CardContent>
                   <div className="space-y-2 text-sm">
-                    {business.hours.map(h => (
-                      <div key={h.day_of_week} className="flex justify-between">
-                        <span className="font-medium">{dayNames[h.day_of_week]}</span>
-                        <span className="text-muted-foreground">
-                          {h.is_closed ? 'Closed' : `${h.open_time} - ${h.close_time}`}
-                        </span>
-                      </div>
-                    ))}
+                    {business.weekday_descriptions && business.weekday_descriptions.length > 0 ? (
+                      business.weekday_descriptions.map((text: string, i: number) => (
+                        <div key={i} className="flex justify-between">
+                          <span>{text}</span>
+                        </div>
+                      ))
+                    ) : (
+                      business.hours?.map(h => (
+                        <div key={h.day_of_week} className="flex justify-between">
+                          <span className="font-medium">{dayNames[h.day_of_week]}</span>
+                          <span className="text-muted-foreground">
+                            {h.is_closed ? 'Closed' : `${h.open_time} - ${h.close_time}`}
+                          </span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>

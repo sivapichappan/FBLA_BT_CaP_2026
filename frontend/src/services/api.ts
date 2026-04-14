@@ -39,6 +39,11 @@ export interface Business {
   is_open_now?: boolean | null;
   business_status?: string | null;
   category_name?: string;
+  primary_type?: string | null;
+  primary_type_display_name?: string | null;
+  editorial_summary?: string | null;
+  google_maps_uri?: string | null;
+  weekday_descriptions?: string[];
   types?: string[];
   categories?: Category[];
   hours?: any[];

@@ -151,7 +151,7 @@ export const searchBusinesses = async (req: Request, res: Response) => {
       query: searchQuery,
       latitude,
       longitude,
-      radius = 5000,
+      radius = 1000,
       type,
     } = req.query;
 
@@ -162,17 +162,24 @@ export const searchBusinesses = async (req: Request, res: Response) => {
       return res.json({ businesses: [], total: 0 });
     }
 
-    const radiusMeters = Math.min(parseInt(radius as string, 10) || 5000, 50000);
+    const radiusMeters = Math.min(parseInt(radius as string, 10) || 1000, 50000);
+    let places: any[];
 
-    const places = await googlePlaces.searchNearby(
-      lat,
-      lng,
-      radiusMeters,
-      searchQuery as string || undefined,
-      type as string || undefined,
-    );
+    if (searchQuery) {
+      // Text search for keyword queries
+      places = await googlePlaces.searchText(searchQuery as string, lat, lng, radiusMeters);
+    } else if (type) {
+      // Single type filter
+      places = await googlePlaces.searchNearby(lat, lng, radiusMeters, [type as string], 20);
+    } else {
+      // Default: diverse 3-way parallel search
+      places = await googlePlaces.searchNearbyDiverse(lat, lng, radiusMeters);
+    }
 
-    const businesses = places.map(googlePlaces.formatPlaceAsBusiness);
+    const businesses = places.map(googlePlaces.formatPlace);
+
+    // CDN cache for 5 minutes
+    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
 
     res.json({
       businesses,
@@ -195,7 +202,7 @@ export const getBusinessById = async (req: Request, res: Response) => {
       if (!detail) {
         return res.status(404).json({ error: 'Business not found' });
       }
-      return res.json({ business: googlePlaces.formatPlaceDetailAsBusiness(detail) });
+      return res.json({ business: googlePlaces.formatPlaceDetail(detail) });
     }
 
     // Local database business

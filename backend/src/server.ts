@@ -9,6 +9,7 @@ import favoriteRoutes from './routes/favoriteRoutes';
 import dealRoutes from './routes/dealRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
 import aiRoutes from './routes/aiRoutes';
+import photoRoutes from './routes/photoRoutes';
 import { generalLimiter } from './middleware/rateLimiter';
 
 dotenv.config();
@@ -33,6 +34,7 @@ app.use('/api/favorites', favoriteRoutes);
 app.use('/api/deals', dealRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/photos', photoRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });

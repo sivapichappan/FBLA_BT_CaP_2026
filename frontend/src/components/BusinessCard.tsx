@@ -31,18 +31,7 @@ const ratingStars = (rating: number) => {
   ));
 };
 
-const formatTypes = (types?: string[]) => {
-  if (!types || types.length === 0) return null;
-  const exclude = ['point_of_interest', 'establishment', 'political', 'locality', 'sublocality'];
-  const filtered = types
-    .filter(t => !exclude.includes(t))
-    .slice(0, 3)
-    .map(t => t.replace(/_/g, ' '));
-  return filtered;
-};
-
 const BusinessCard: React.FC<BusinessCardProps> = ({ business, onClick }) => {
-  const types = formatTypes(business.types);
 
   return (
     <Card
@@ -81,22 +70,14 @@ const BusinessCard: React.FC<BusinessCardProps> = ({ business, onClick }) => {
           {business.name}
         </h3>
 
-        {/* Categories / Types */}
-        <div className="flex flex-wrap gap-1 mb-2">
-          {business.categories && business.categories.length > 0 && business.categories[0].name !== 'Other' ? (
-            business.categories.map((c, i) => (
-              <Badge key={i} variant="secondary" className="text-[11px] px-1.5 py-0">
-                {c.name}
-              </Badge>
-            ))
-          ) : types && types.length > 0 ? (
-            types.map((t, i) => (
-              <Badge key={i} variant="secondary" className="text-[11px] px-1.5 py-0 capitalize">
-                {t}
-              </Badge>
-            ))
-          ) : null}
-        </div>
+        {/* Category */}
+        {(business.primary_type_display_name || business.category_name) && (
+          <div className="mb-2">
+            <Badge variant="secondary" className="text-[11px] px-1.5 py-0">
+              {business.primary_type_display_name || business.category_name}
+            </Badge>
+          </div>
+        )}
 
         {/* Rating */}
         <div className="flex items-center gap-2 mb-2">
