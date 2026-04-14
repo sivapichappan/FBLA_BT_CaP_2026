@@ -37,9 +37,12 @@ export interface Business {
   review_count: number;
   distance_km?: number;
   is_open_now?: boolean | null;
+  business_status?: string | null;
   category_name?: string;
+  types?: string[];
   categories?: Category[];
   hours?: any[];
+  photo_url?: string | null;
   photos?: any[];
   reviews?: any[];
   source?: 'local' | 'google_places';

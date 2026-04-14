@@ -176,9 +176,12 @@ export const formatPlaceAsBusiness = (place: PlaceBusiness) => {
     price_level: place.price_level || null,
     category_name: category,
     categories: [{ id: 0, name: category, slug: category.toLowerCase().replace(/\s+/g, '-'), icon: null }],
+    types: place.types || [],
     is_open_now: place.opening_hours?.open_now ?? null,
-    photos: place.photos?.slice(0, 3).map(p => ({
-      url: getPhotoUrl(p.photo_reference),
+    business_status: place.business_status || null,
+    photo_url: place.photos?.[0] ? getPhotoUrl(place.photos[0].photo_reference, 800) : null,
+    photos: place.photos?.slice(0, 5).map(p => ({
+      url: getPhotoUrl(p.photo_reference, 800),
     })) || [],
     source: 'google_places' as const,
   };
