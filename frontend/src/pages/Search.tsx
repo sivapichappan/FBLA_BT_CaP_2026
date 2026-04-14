@@ -37,7 +37,7 @@ const Search = () => {
       if (location) {
         params.latitude = location.latitude;
         params.longitude = location.longitude;
-        params.radius = 5000;
+        params.radius = 15000;
       }
       const res = await businessApi.search(params);
       setBusinesses(res.data.businesses);
