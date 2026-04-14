@@ -48,8 +48,8 @@ const DETAIL_FIELDS = [
 
 const CATEGORY_GROUPS = {
   eatDrink: ['restaurant', 'cafe', 'bar', 'bakery', 'coffee_shop', 'fast_food_restaurant'],
-  shopServices: ['shopping_mall', 'clothing_store', 'grocery_store', 'hair_salon', 'bank', 'book_store'],
-  doSee: ['park', 'museum', 'movie_theater', 'gym', 'tourist_attraction', 'library', 'spa'],
+  shopServices: ['shopping_mall', 'clothing_store', 'grocery_store', 'hair_salon', 'bank', 'book_store', 'convenience_store', 'electronics_store', 'pet_store', 'pharmacy'],
+  personalServices: ['gym', 'spa', 'beauty_salon', 'car_repair', 'car_wash', 'laundry', 'veterinary_care', 'dentist', 'doctor'],
 };
 
 // --- Price level mapping ---
@@ -118,7 +118,7 @@ export const searchNearbyDiverse = async (
   const [eatDrink, shopServices, doSee] = await Promise.all([
     searchNearby(latitude, longitude, radius, CATEGORY_GROUPS.eatDrink, 10),
     searchNearby(latitude, longitude, radius, CATEGORY_GROUPS.shopServices, 10),
-    searchNearby(latitude, longitude, radius, CATEGORY_GROUPS.doSee, 10),
+    searchNearby(latitude, longitude, radius, CATEGORY_GROUPS.personalServices, 10),
   ]);
 
   // Round-robin merge for diversity

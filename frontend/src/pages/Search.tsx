@@ -12,12 +12,12 @@ import { Search as SearchIcon } from 'lucide-react';
 const CATEGORIES = [
   { label: 'Food & Drink', type: 'restaurant', emoji: '🍽️' },
   { label: 'Coffee', type: 'cafe', emoji: '☕' },
-  { label: 'Shopping', type: 'shopping_mall', emoji: '🛍️' },
-  { label: 'Beauty', type: 'hair_salon', emoji: '💆' },
-  { label: 'Health', type: 'hospital', emoji: '🏥' },
-  { label: 'Entertainment', type: 'movie_theater', emoji: '🎭' },
+  { label: 'Shopping', type: 'clothing_store', emoji: '🛍️' },
+  { label: 'Groceries', type: 'grocery_store', emoji: '🛒' },
+  { label: 'Beauty & Spa', type: 'beauty_salon', emoji: '💆' },
   { label: 'Fitness', type: 'gym', emoji: '🏋️' },
-  { label: 'Services', type: 'bank', emoji: '🔧' },
+  { label: 'Auto', type: 'car_repair', emoji: '🚗' },
+  { label: 'Health', type: 'dentist', emoji: '🏥' },
   { label: 'Nightlife', type: 'bar', emoji: '🍸' },
 ];
 
