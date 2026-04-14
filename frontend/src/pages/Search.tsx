@@ -11,7 +11,7 @@ import { Search as SearchIcon } from 'lucide-react';
 
 const Search = () => {
   const navigate = useNavigate();
-  const { location } = useLocation();
+  const { location, requestLocation } = useLocation();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryId, setCategoryId] = useState('');
@@ -24,11 +24,12 @@ const Search = () => {
 
   useEffect(() => {
     businessApi.getCategories().then(r => setCategories(r.data.categories)).catch(() => {});
+    if (!location) requestLocation();
   }, []);
 
   useEffect(() => {
     fetchResults();
-  }, [sortBy, categoryId, priceLevel]);
+  }, [sortBy, categoryId, priceLevel, location]);
 
   const fetchResults = async () => {
     setLoading(true);
