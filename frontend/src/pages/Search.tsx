@@ -1,7 +1,7 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocation } from '../contexts/LocationContext';
-import { businessApi, Business, Category } from '../services/api';
+import { businessApi, Business } from '../services/api';
 import BusinessCard from '../components/BusinessCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,34 +15,29 @@ const Search = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [priceLevel, setPriceLevel] = useState('');
-  const [sortBy, setSortBy] = useState('distance');
-  const [categories, setCategories] = useState<Category[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
-    businessApi.getCategories().then(r => setCategories(r.data.categories)).catch(() => {});
     if (!location) requestLocation();
   }, []);
 
   useEffect(() => {
     fetchResults();
-  }, [sortBy, categoryId, priceLevel, location]);
+  }, [categoryId, location]);
 
   const fetchResults = async () => {
     setLoading(true);
     setHasSearched(true);
     try {
-      const params: Record<string, any> = { sortBy, limit: 50 };
+      const params: Record<string, any> = {};
       if (searchQuery) params.query = searchQuery;
-      if (categoryId) params.categoryId = categoryId;
-      if (priceLevel) params.priceLevel = priceLevel;
+      if (categoryId && categoryId !== 'all') params.type = categoryId;
       if (location) {
         params.latitude = location.latitude;
         params.longitude = location.longitude;
-        params.radius = 25;
+        params.radius = 5000;
       }
       const res = await businessApi.search(params);
       setBusinesses(res.data.businesses);
@@ -77,40 +72,21 @@ const Search = () => {
       <div className="flex flex-wrap gap-3 mb-8">
         <Select value={categoryId} onValueChange={setCategoryId}>
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All Categories" />
+            <SelectValue placeholder="All Types" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {categories.map(cat => (
-              <SelectItem key={cat.id} value={String(cat.id)}>{cat.icon} {cat.name}</SelectItem>
-            ))}
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="restaurant">Restaurants</SelectItem>
+            <SelectItem value="cafe">Cafes & Coffee</SelectItem>
+            <SelectItem value="bar">Bars</SelectItem>
+            <SelectItem value="store">Shopping</SelectItem>
+            <SelectItem value="gym">Fitness</SelectItem>
+            <SelectItem value="beauty_salon">Beauty & Spa</SelectItem>
+            <SelectItem value="car_repair">Automotive</SelectItem>
+            <SelectItem value="hospital">Healthcare</SelectItem>
           </SelectContent>
         </Select>
 
-        <Select value={priceLevel} onValueChange={setPriceLevel}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Any Price" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="any">Any Price</SelectItem>
-            <SelectItem value="1">$ Budget</SelectItem>
-            <SelectItem value="2">$$ Moderate</SelectItem>
-            <SelectItem value="3">$$$ Upscale</SelectItem>
-            <SelectItem value="4">$$$$ Fine Dining</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="distance">Distance</SelectItem>
-            <SelectItem value="rating">Rating</SelectItem>
-            <SelectItem value="review_count">Most Reviews</SelectItem>
-            <SelectItem value="newest">Newest</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {loading ? (

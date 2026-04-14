@@ -5,7 +5,7 @@ import { Business } from '../services/api';
 
 interface BusinessCardProps {
   business: Business;
-  onClick: (id: number) => void;
+  onClick: (id: number | string) => void;
 }
 
 const BusinessCard: React.FC<BusinessCardProps> = ({ business, onClick }) => {

@@ -29,8 +29,7 @@ const Home = () => {
       const response = await businessApi.search({
         latitude: location.latitude,
         longitude: location.longitude,
-        radius: 10,
-        limit: 10,
+        radius: 3000,
       });
       setNearbyBusinesses(response.data.businesses);
     } catch (error) {

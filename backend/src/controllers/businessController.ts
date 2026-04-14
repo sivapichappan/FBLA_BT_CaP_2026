@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { query, getClient } from '../config/database';
 import { AuthRequest } from '../middleware/auth';
+import * as googlePlaces from '../services/googlePlaces';
 
 const slugify = (text: string): string =>
   text
@@ -148,96 +149,34 @@ export const searchBusinesses = async (req: Request, res: Response) => {
   try {
     const {
       query: searchQuery,
-      categoryId,
       latitude,
       longitude,
-      radius = 10,
-      priceLevel,
-      minRating,
-      sortBy,
-      limit = 50,
-      offset = 0,
+      radius = 5000,
+      type,
     } = req.query;
 
-    const lat = parseFloat((latitude as string) || '0');
-    const lng = parseFloat((longitude as string) || '0');
-    const hasLocation = !!latitude && !!longitude;
+    const lat = parseFloat(latitude as string);
+    const lng = parseFloat(longitude as string);
 
-    let sql = `
-      SELECT
-        b.*,
-        ${hasLocation ? `(
-          6371 * acos(
-            cos(radians($1)) * cos(radians(b.latitude)) *
-            cos(radians(b.longitude) - radians($2)) +
-            sin(radians($1)) * sin(radians(b.latitude))
-          )
-        ) AS distance_km` : `NULL::float AS distance_km`}
-      FROM businesses b
-      WHERE b.is_active = true
-    `;
-
-    const params: any[] = hasLocation ? [lat, lng] : [];
-    let paramIndex = params.length + 1;
-
-    if (hasLocation && radius) {
-      sql += ` AND (
-        6371 * acos(
-          cos(radians($1)) * cos(radians(b.latitude)) *
-          cos(radians(b.longitude) - radians($2)) +
-          sin(radians($1)) * sin(radians(b.latitude))
-        )
-      ) <= $${paramIndex}`;
-      params.push(radius);
-      paramIndex++;
+    if (!lat || !lng) {
+      return res.json({ businesses: [], total: 0 });
     }
 
-    if (searchQuery) {
-      sql += ` AND (
-        b.name ILIKE $${paramIndex} OR
-        b.description ILIKE $${paramIndex}
-      )`;
-      params.push(`%${searchQuery}%`);
-      paramIndex++;
-    }
+    const radiusMeters = Math.min(parseInt(radius as string, 10) || 5000, 50000);
 
-    if (categoryId) {
-      sql += ` AND EXISTS (
-        SELECT 1 FROM business_categories bc
-        WHERE bc.business_id = b.id AND bc.category_id = $${paramIndex}
-      )`;
-      params.push(parseInt(categoryId as string, 10));
-      paramIndex++;
-    }
+    const places = await googlePlaces.searchNearby(
+      lat,
+      lng,
+      radiusMeters,
+      searchQuery as string || undefined,
+      type as string || undefined,
+    );
 
-    if (priceLevel) {
-      sql += ` AND b.price_level = $${paramIndex}`;
-      params.push(parseInt(priceLevel as string, 10));
-      paramIndex++;
-    }
-
-    if (minRating) {
-      sql += ` AND b.average_rating >= $${paramIndex}`;
-      params.push(parseFloat(minRating as string));
-      paramIndex++;
-    }
-
-    const sortOptions: Record<string, string> = {
-      rating: 'b.average_rating DESC NULLS LAST',
-      review_count: 'b.review_count DESC',
-      distance: 'distance_km ASC NULLS LAST',
-      newest: 'b.created_at DESC',
-    };
-    const orderClause = sortOptions[sortBy as string] || (hasLocation ? 'distance_km ASC NULLS LAST' : 'b.created_at DESC');
-    sql += ` ORDER BY ${orderClause}`;
-    sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(limit, offset);
-
-    const result = await query(sql, params);
+    const businesses = places.map(googlePlaces.formatPlaceAsBusiness);
 
     res.json({
-      businesses: result.rows,
-      total: result.rows.length,
+      businesses,
+      total: businesses.length,
     });
   } catch (error) {
     console.error('Search businesses error:', error);
@@ -247,7 +186,20 @@ export const searchBusinesses = async (req: Request, res: Response) => {
 
 export const getBusinessById = async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const rawId = req.params.id;
+
+    // Google Places business
+    if (rawId.startsWith('gp_')) {
+      const placeId = rawId.slice(3);
+      const detail = await googlePlaces.getPlaceDetails(placeId);
+      if (!detail) {
+        return res.status(404).json({ error: 'Business not found' });
+      }
+      return res.json({ business: googlePlaces.formatPlaceDetailAsBusiness(detail) });
+    }
+
+    // Local database business
+    const id = parseInt(rawId, 10);
     if (!Number.isInteger(id)) {
       return res.status(400).json({ error: 'Invalid business ID' });
     }
@@ -286,6 +238,7 @@ export const getBusinessById = async (req: Request, res: Response) => {
         categories: categories.rows,
         hours: hours.rows,
         photos: photos.rows,
+        source: 'local',
       },
     });
   } catch (error) {

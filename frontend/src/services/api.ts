@@ -15,9 +15,10 @@ export interface Category {
 }
 
 export interface Business {
-  id: number;
+  id: number | string;
+  place_id?: string;
   name: string;
-  slug: string;
+  slug?: string;
   description?: string;
   address_line_1: string;
   address_line_2?: string;
@@ -35,9 +36,13 @@ export interface Business {
   average_rating: number;
   review_count: number;
   distance_km?: number;
+  is_open_now?: boolean | null;
+  category_name?: string;
   categories?: Category[];
   hours?: any[];
   photos?: any[];
+  reviews?: any[];
+  source?: 'local' | 'google_places';
 }
 
 export interface Review {
@@ -74,9 +79,9 @@ export interface Deal {
 
 export const businessApi = {
   search: (params: any) => api.get<{ businesses: Business[] }>('/businesses/search', { params }),
-  getById: (id: number) => api.get<{ business: Business }>(`/businesses/${id}`),
+  getById: (id: number | string) => api.get<{ business: Business }>(`/businesses/${id}`),
   create: (data: any) => api.post('/businesses', data),
-  update: (id: number, data: any) => api.put(`/businesses/${id}`, data),
+  update: (id: number | string, data: any) => api.put(`/businesses/${id}`, data),
   getCategories: () => api.get<{ categories: Category[] }>('/businesses/categories'),
 };
 
