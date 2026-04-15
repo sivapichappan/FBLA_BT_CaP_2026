@@ -103,6 +103,7 @@ export const businessApi = {
   create: (data: any) => api.post('/businesses', data),
   update: (id: number | string, data: any) => api.put(`/businesses/${id}`, data),
   getCategories: () => api.get<{ categories: Category[] }>('/businesses/categories'),
+  geocode: (address: string) => api.get<{ latitude: number; longitude: number; formatted_address: string }>('/businesses/geocode', { params: { address } }),
 };
 
 export const reviewApi = {

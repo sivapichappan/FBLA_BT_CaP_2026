@@ -317,6 +317,39 @@ export const updateBusiness = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const geocodeLocation = async (req: Request, res: Response) => {
+  try {
+    const { address } = req.query;
+    if (!address || typeof address !== 'string') {
+      return res.status(400).json({ error: 'Address is required' });
+    }
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'API key not configured' });
+    }
+
+    const { default: axios } = await import('axios');
+    const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+      params: { address, key: apiKey },
+    });
+
+    if (response.data.status !== 'OK' || !response.data.results?.length) {
+      return res.status(404).json({ error: 'Location not found' });
+    }
+
+    const result = response.data.results[0];
+    res.json({
+      latitude: result.geometry.location.lat,
+      longitude: result.geometry.location.lng,
+      formatted_address: result.formatted_address,
+    });
+  } catch (error) {
+    console.error('Geocode error:', error);
+    res.status(500).json({ error: 'Failed to geocode location' });
+  }
+};
+
 export const getCategories = async (_req: Request, res: Response) => {
   try {
     const result = await query(
