@@ -332,7 +332,7 @@ export const autocompleteLocation = async (req: Request, res: Response) => {
       'https://places.googleapis.com/v1/places:autocomplete',
       {
         input,
-        includedPrimaryTypes: ['locality', 'sublocality', 'postal_code', 'administrative_area_level_1', 'route', 'street_address'],
+        includedPrimaryTypes: ['locality', 'sublocality', 'postal_code', 'administrative_area_level_1', 'street_address'],
       },
       {
         headers: {
