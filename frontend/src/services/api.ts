@@ -104,6 +104,7 @@ export const businessApi = {
   update: (id: number | string, data: any) => api.put(`/businesses/${id}`, data),
   getCategories: () => api.get<{ categories: Category[] }>('/businesses/categories'),
   geocode: (address: string) => api.get<{ latitude: number; longitude: number; formatted_address: string }>('/businesses/geocode', { params: { address } }),
+  autocomplete: (input: string) => api.get<{ predictions: Array<{ place_id: string; description: string; main_text: string; secondary_text: string }> }>('/businesses/autocomplete', { params: { input } }),
 };
 
 export const reviewApi = {

@@ -1,4 +1,4 @@
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState, useRef, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocation } from '../contexts/LocationContext';
 import { businessApi, Business } from '../services/api';
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search as SearchIcon, MapPin, Navigation, Loader2 } from 'lucide-react';
+import { Search as SearchIcon, MapPin, Navigation } from 'lucide-react';
 
 const CATEGORIES = [
   { label: 'Food & Drink', type: 'restaurant', emoji: '🍽️' },
@@ -27,6 +27,13 @@ const RADIUS_PRESETS = [
   { label: 'Driving', value: 10000, desc: '10 km' },
 ];
 
+interface Prediction {
+  place_id: string;
+  description: string;
+  main_text: string;
+  secondary_text: string;
+}
+
 const Search = () => {
   const navigate = useNavigate();
   const { location, requestLocation, setManualLocation } = useLocation();
@@ -42,7 +49,10 @@ const Search = () => {
   const [locationInput, setLocationInput] = useState('');
   const [locationLabel, setLocationLabel] = useState('');
   const [geocoding, setGeocoding] = useState(false);
-  const [locationError, setLocationError] = useState('');
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [showPredictions, setShowPredictions] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!location) requestLocation();
@@ -51,6 +61,17 @@ const Search = () => {
   useEffect(() => {
     if (location) fetchResults();
   }, [selectedType, radius, location]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowPredictions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   const fetchResults = async () => {
     if (!location) return;
@@ -82,25 +103,57 @@ const Search = () => {
     setSelectedType(prev => (prev === type ? null : type));
   };
 
-  const handleLocationSearch = async () => {
-    if (!locationInput.trim()) return;
+  // Autocomplete with 300ms debounce
+  const handleLocationInputChange = (value: string) => {
+    setLocationInput(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (value.length < 2) {
+      setPredictions([]);
+      setShowPredictions(false);
+      return;
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await businessApi.autocomplete(value);
+        setPredictions(res.data.predictions);
+        setShowPredictions(res.data.predictions.length > 0);
+      } catch {
+        setPredictions([]);
+      }
+    }, 300);
+  };
+
+  const selectPrediction = async (prediction: Prediction) => {
+    setShowPredictions(false);
+    setPredictions([]);
+    setLocationInput('');
     setGeocoding(true);
-    setLocationError('');
     try {
-      const res = await businessApi.geocode(locationInput.trim());
+      const res = await businessApi.geocode(prediction.description);
       setManualLocation(res.data.latitude, res.data.longitude);
-      setLocationLabel(res.data.formatted_address);
-      setLocationInput('');
+      setLocationLabel(prediction.description);
     } catch {
-      setLocationError('Location not found. Try a city name or address.');
+      setLocationLabel(prediction.main_text);
     } finally {
       setGeocoding(false);
     }
   };
 
+  const handleLocationKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (predictions.length > 0) {
+        selectPrediction(predictions[0]);
+      }
+    }
+  };
+
   const handleUseMyLocation = () => {
     setLocationLabel('');
-    setLocationError('');
+    setPredictions([]);
+    setShowPredictions(false);
     requestLocation();
   };
 
@@ -109,36 +162,46 @@ const Search = () => {
       <h1 className="text-3xl font-bold mb-6">Search Businesses</h1>
 
       {/* Location picker */}
-      <div className="flex flex-col sm:flex-row gap-2 mb-4 p-3 bg-muted/50 rounded-lg border">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground flex-shrink-0">
-          <MapPin className="h-4 w-4" />
+      <div className="p-3 bg-muted/50 rounded-lg border mb-4">
+        <div className="flex items-center gap-2 text-sm mb-2">
+          <MapPin className="h-4 w-4 text-primary" />
           <span className="font-medium">
-            {locationLabel || (location ? 'Current location' : 'No location set')}
+            {geocoding ? 'Finding location...' : locationLabel || (location ? 'Current location' : 'No location set')}
           </span>
         </div>
-        <div className="flex gap-2 flex-1">
-          <Input
-            placeholder="Enter city or address..."
-            value={locationInput}
-            onChange={e => setLocationInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleLocationSearch()}
-            className="flex-1 h-9"
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleLocationSearch}
-            disabled={geocoding || !locationInput.trim()}
-          >
-            {geocoding ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Go'}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={handleUseMyLocation} className="gap-1 flex-shrink-0">
+        <div className="flex gap-2 relative" ref={dropdownRef}>
+          <div className="relative flex-1">
+            <Input
+              placeholder="Enter city, zip code, or address..."
+              value={locationInput}
+              onChange={e => handleLocationInputChange(e.target.value)}
+              onFocus={() => predictions.length > 0 && setShowPredictions(true)}
+              onKeyDown={handleLocationKeyDown}
+              className="h-9"
+            />
+            {/* Autocomplete dropdown */}
+            {showPredictions && predictions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg z-50 overflow-hidden">
+                {predictions.map(p => (
+                  <button
+                    key={p.place_id}
+                    onClick={() => selectPrediction(p)}
+                    className="w-full text-left px-3 py-2.5 hover:bg-muted transition-colors flex items-start gap-2 border-b last:border-b-0"
+                  >
+                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">{p.main_text}</p>
+                      <p className="text-xs text-muted-foreground">{p.secondary_text}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <Button size="sm" variant="ghost" onClick={handleUseMyLocation} className="gap-1 flex-shrink-0 h-9">
             <Navigation className="h-3.5 w-3.5" /> My Location
           </Button>
         </div>
-        {locationError && (
-          <p className="text-xs text-destructive">{locationError}</p>
-        )}
       </div>
 
       {/* Search bar */}

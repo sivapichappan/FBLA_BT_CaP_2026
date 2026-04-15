@@ -317,6 +317,49 @@ export const updateBusiness = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const autocompleteLocation = async (req: Request, res: Response) => {
+  try {
+    const { input } = req.query;
+    if (!input || typeof input !== 'string' || input.length < 2) {
+      return res.json({ predictions: [] });
+    }
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) return res.json({ predictions: [] });
+
+    const { default: axios } = await import('axios');
+    const response = await axios.post(
+      'https://places.googleapis.com/v1/places:autocomplete',
+      {
+        input,
+        includedPrimaryTypes: ['locality', 'sublocality', 'postal_code', 'administrative_area_level_1', 'route', 'street_address'],
+      },
+      {
+        headers: {
+          'X-Goog-Api-Key': apiKey,
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
+    const predictions = (response.data.suggestions || [])
+      .filter((s: any) => s.placePrediction)
+      .slice(0, 5)
+      .map((s: any) => ({
+        place_id: s.placePrediction.placeId,
+        description: s.placePrediction.text?.text || '',
+        main_text: s.placePrediction.structuredFormat?.mainText?.text || '',
+        secondary_text: s.placePrediction.structuredFormat?.secondaryText?.text || '',
+      }));
+
+    res.setHeader('Cache-Control', 'public, s-maxage=300');
+    res.json({ predictions });
+  } catch (error: any) {
+    console.error('Autocomplete error:', error.response?.data || error.message);
+    res.json({ predictions: [] });
+  }
+};
+
 export const geocodeLocation = async (req: Request, res: Response) => {
   try {
     const { address } = req.query;

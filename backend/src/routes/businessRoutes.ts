@@ -8,6 +8,7 @@ const router = Router();
 
 router.post('/', authMiddleware, businessValidation, businessController.createBusiness);
 router.get('/search', searchLimiter, businessController.searchBusinesses);
+router.get('/autocomplete', businessController.autocompleteLocation);
 router.get('/geocode', businessController.geocodeLocation);
 router.get('/categories', businessController.getCategories);
 router.get('/:id', businessController.getBusinessById);
