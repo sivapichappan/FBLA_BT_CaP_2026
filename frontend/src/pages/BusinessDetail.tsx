@@ -47,6 +47,13 @@ const BusinessDetail = () => {
       const biz = bizRes.data.business;
       setBusiness(biz);
 
+      if (isAuthenticated) {
+        try {
+          const favRes = await favoriteApi.check(rawId);
+          setIsFavorite(favRes.data.isFavorite);
+        } catch {}
+      }
+
       if (isGooglePlace) {
         setReviews(biz.reviews || []);
         setDeals([]);
@@ -58,12 +65,6 @@ const BusinessDetail = () => {
         ]);
         setReviews(revRes.data.reviews);
         setDeals(dealRes.data.deals);
-        if (isAuthenticated) {
-          try {
-            const favRes = await favoriteApi.check(numId);
-            setIsFavorite(favRes.data.isFavorite);
-          } catch {}
-        }
       }
     } catch (error) {
       console.error('Failed to load business:', error);
@@ -73,13 +74,23 @@ const BusinessDetail = () => {
   };
 
   const toggleFavorite = async () => {
-    if (!isAuthenticated || isGooglePlace) return;
+    if (!isAuthenticated || !business) return;
     try {
-      const numId = parseInt(rawId, 10);
       if (isFavorite) {
-        await favoriteApi.remove(numId);
+        await favoriteApi.remove(rawId);
       } else {
-        await favoriteApi.add(numId);
+        if (isGooglePlace) {
+          await favoriteApi.add({
+            googlePlaceId: rawId.slice(3),
+            placeName: business.name,
+            placeAddress: business.address_line_1,
+            placeRating: business.average_rating,
+            placePhotoUrl: business.photo_url || undefined,
+            placeType: business.primary_type_display_name || business.category_name || undefined,
+          });
+        } else {
+          await favoriteApi.add({ businessId: parseInt(rawId, 10) });
+        }
       }
       setIsFavorite(!isFavorite);
     } catch (error) {
@@ -225,7 +236,7 @@ const BusinessDetail = () => {
             )}
           </div>
         </div>
-        {isAuthenticated && !isGooglePlace && (
+        {isAuthenticated && (
           <Button variant={isFavorite ? 'default' : 'outline'} onClick={toggleFavorite} className="gap-2 flex-shrink-0">
             {isFavorite ? <HeartOff className="h-4 w-4" /> : <Heart className="h-4 w-4" />}
             {isFavorite ? 'Saved' : 'Save'}

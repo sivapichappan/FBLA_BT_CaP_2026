@@ -102,10 +102,18 @@ export const reviewApi = {
 };
 
 export const favoriteApi = {
-  getAll: () => api.get<{ favorites: Business[] }>('/favorites'),
-  add: (businessId: number) => api.post('/favorites', { businessId }),
-  remove: (businessId: number) => api.delete(`/favorites/${businessId}`),
-  check: (businessId: number) => api.get<{ isFavorite: boolean }>(`/favorites/check/${businessId}`),
+  getAll: () => api.get<{ favorites: any[] }>('/favorites'),
+  add: (data: {
+    businessId?: number;
+    googlePlaceId?: string;
+    placeName?: string;
+    placeAddress?: string;
+    placeRating?: number;
+    placePhotoUrl?: string;
+    placeType?: string;
+  }) => api.post('/favorites', data),
+  remove: (id: number | string) => api.delete(`/favorites/${id}`),
+  check: (id: number | string) => api.get<{ isFavorite: boolean }>(`/favorites/check/${id}`),
 };
 
 export const dealApi = {
