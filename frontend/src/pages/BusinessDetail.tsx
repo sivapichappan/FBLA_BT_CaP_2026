@@ -13,9 +13,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Star, Heart, HeartOff, MapPin, Phone, Globe, Clock, Tag } from 'lucide-react';
-
-const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+import {
+  Star, Heart, HeartOff, MapPin, Phone, Globe, Clock, Tag,
+  Navigation, Share2, DollarSign, ExternalLink,
+} from 'lucide-react';
 
 const BusinessDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -25,41 +26,41 @@ const BusinessDetail = () => {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [isFavorite, setIsFavorite] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [heroPhoto, setHeroPhoto] = useState(0);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [newReview, setNewReview] = useState({ rating: 5, title: '', content: '' });
   const [submitting, setSubmitting] = useState(false);
 
-  const businessId = parseInt(id || '0', 10);
+  const rawId = id || '';
+  const isGooglePlace = rawId.startsWith('gp_');
 
   useEffect(() => {
-    if (!businessId) return;
+    if (!rawId) return;
     loadBusiness();
-  }, [businessId]);
-
-  const isGooglePlace = String(businessId).startsWith('gp_');
+    setHeroPhoto(0);
+  }, [rawId]);
 
   const loadBusiness = async () => {
     setLoading(true);
     try {
-      const bizRes = await businessApi.getById(businessId);
+      const bizRes = await businessApi.getById(rawId);
       const biz = bizRes.data.business;
       setBusiness(biz);
 
-      // Google Places businesses come with reviews embedded; skip local API calls
       if (isGooglePlace) {
         setReviews(biz.reviews || []);
         setDeals([]);
       } else {
+        const numId = parseInt(rawId, 10);
         const [revRes, dealRes] = await Promise.all([
-          reviewApi.getBusinessReviews(businessId as number),
-          dealApi.getBusinessDeals(businessId as number),
+          reviewApi.getBusinessReviews(numId),
+          dealApi.getBusinessDeals(numId),
         ]);
         setReviews(revRes.data.reviews);
         setDeals(dealRes.data.deals);
-
         if (isAuthenticated) {
           try {
-            const favRes = await favoriteApi.check(businessId as number);
+            const favRes = await favoriteApi.check(numId);
             setIsFavorite(favRes.data.isFavorite);
           } catch {}
         }
@@ -72,12 +73,13 @@ const BusinessDetail = () => {
   };
 
   const toggleFavorite = async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || isGooglePlace) return;
     try {
+      const numId = parseInt(rawId, 10);
       if (isFavorite) {
-        await favoriteApi.remove(businessId);
+        await favoriteApi.remove(numId);
       } else {
-        await favoriteApi.add(businessId);
+        await favoriteApi.add(numId);
       }
       setIsFavorite(!isFavorite);
     } catch (error) {
@@ -86,14 +88,16 @@ const BusinessDetail = () => {
   };
 
   const submitReview = async () => {
+    if (isGooglePlace) return;
     setSubmitting(true);
     try {
-      await reviewApi.create({ businessId, ...newReview });
+      const numId = parseInt(rawId, 10);
+      await reviewApi.create({ businessId: numId, ...newReview });
       setReviewDialogOpen(false);
       setNewReview({ rating: 5, title: '', content: '' });
-      const revRes = await reviewApi.getBusinessReviews(businessId);
+      const revRes = await reviewApi.getBusinessReviews(numId);
       setReviews(revRes.data.reviews);
-      const bizRes = await businessApi.getById(businessId);
+      const bizRes = await businessApi.getById(rawId);
       setBusiness(bizRes.data.business);
     } catch (error: any) {
       alert(error.response?.data?.error || 'Failed to submit review');
@@ -102,23 +106,21 @@ const BusinessDetail = () => {
     }
   };
 
-  const redeemDeal = async (dealId: number) => {
-    try {
-      const res = await dealApi.redeem(dealId);
-      alert(`Deal claimed! Code: ${res.data.claim.redemption_code}`);
-      const dealRes = await dealApi.getBusinessDeals(businessId);
-      setDeals(dealRes.data.deals);
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to claim deal');
-    }
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    alert('Link copied to clipboard!');
   };
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8 space-y-6">
-        <Skeleton className="h-10 w-2/3" />
-        <Skeleton className="h-64 rounded-lg" />
-        <Skeleton className="h-40 rounded-lg" />
+      <div className="container mx-auto px-4 py-8 space-y-4">
+        <Skeleton className="h-64 md:h-80 w-full rounded-lg" />
+        <Skeleton className="h-8 w-2/3" />
+        <Skeleton className="h-12 w-full" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Skeleton className="h-48 rounded-lg" />
+          <Skeleton className="h-48 rounded-lg" />
+        </div>
       </div>
     );
   }
@@ -132,41 +134,339 @@ const BusinessDetail = () => {
     );
   }
 
-  return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
+  const photos = business.photos || [];
+  const hasPhotos = photos.length > 0;
+  const statusBadge = () => {
+    if (business.business_status === 'CLOSED_PERMANENTLY') {
+      return <Badge variant="destructive">Permanently Closed</Badge>;
+    }
+    if (business.business_status === 'CLOSED_TEMPORARILY') {
+      return <Badge className="bg-yellow-500 text-white hover:bg-yellow-600">Temporarily Closed</Badge>;
+    }
+    if (business.is_open_now === true) {
+      return <Badge className="bg-green-500 text-white hover:bg-green-600">Open Now</Badge>;
+    }
+    if (business.is_open_now === false) {
+      return <Badge variant="destructive">Closed</Badge>;
+    }
+    return null;
+  };
+
+  // --- Shared sections ---
+
+  const photoGallery = hasPhotos && (
+    <div className="mb-6">
+      <div className="relative rounded-lg overflow-hidden h-64 md:h-80 mb-2">
+        <img
+          src={photos[heroPhoto]?.url}
+          alt={business.name}
+          className="w-full h-full object-cover"
+        />
+        {statusBadge() && (
+          <div className="absolute top-3 right-3">{statusBadge()}</div>
+        )}
+      </div>
+      {photos.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {photos.map((p: any, i: number) => (
+            <button
+              key={i}
+              onClick={() => setHeroPhoto(i)}
+              className={`flex-shrink-0 rounded-md overflow-hidden border-2 transition-colors ${
+                i === heroPhoto ? 'border-primary' : 'border-transparent hover:border-muted-foreground/30'
+              }`}
+            >
+              <img src={p.url} alt="" className="h-16 w-24 object-cover" loading="lazy" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const headerSection = (
+    <div className="mb-6">
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">{business.name}</h1>
-          <div className="flex flex-wrap gap-2 mt-2">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-3xl font-bold">{business.name}</h1>
+            {!hasPhotos && statusBadge()}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 mt-2">
             {business.primary_type_display_name && (
               <Badge variant="secondary">{business.primary_type_display_name}</Badge>
             )}
             {!business.primary_type_display_name && business.categories?.map(c => (
               <Badge key={c.id} variant="secondary">{c.icon} {c.name}</Badge>
             ))}
-            {business.price_level && (
-              <Badge variant="outline">{'$'.repeat(business.price_level)}</Badge>
+            {business.price_level != null && business.price_level > 0 && (
+              <Badge variant="outline" className="gap-0.5">
+                {Array.from({ length: business.price_level }).map((_, i) => (
+                  <DollarSign key={i} className="h-3 w-3" />
+                ))}
+              </Badge>
             )}
           </div>
           <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
-              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-              {Number(business.average_rating || 0).toFixed(1)} ({business.review_count} reviews)
+              <div className="flex">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star key={i} className={`h-4 w-4 ${i < Math.round(business.average_rating || 0) ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/30'}`} />
+                ))}
+              </div>
+              <span className="font-medium ml-1">{Number(business.average_rating || 0).toFixed(1)}</span>
+              <span>({business.review_count} reviews)</span>
             </span>
-            <span className="flex items-center gap-1">
-              <MapPin className="h-4 w-4" />
-              {business.city}, {business.state}
-            </span>
+            {(business.city || business.address_line_1) && (
+              <span className="flex items-center gap-1">
+                <MapPin className="h-4 w-4" />
+                {business.city && business.state ? `${business.city}, ${business.state}` : business.address_line_1}
+              </span>
+            )}
           </div>
         </div>
-        {isAuthenticated && (
-          <Button variant={isFavorite ? 'default' : 'outline'} onClick={toggleFavorite} className="gap-2">
+        {isAuthenticated && !isGooglePlace && (
+          <Button variant={isFavorite ? 'default' : 'outline'} onClick={toggleFavorite} className="gap-2 flex-shrink-0">
             {isFavorite ? <HeartOff className="h-4 w-4" /> : <Heart className="h-4 w-4" />}
-            {isFavorite ? 'Remove Favorite' : 'Add Favorite'}
+            {isFavorite ? 'Saved' : 'Save'}
           </Button>
         )}
       </div>
+    </div>
+  );
+
+  const ctaButtons = (
+    <div className="flex flex-wrap gap-2 mb-6">
+      {business.google_maps_uri && (
+        <Button variant="outline" className="gap-2" asChild>
+          <a href={business.google_maps_uri} target="_blank" rel="noopener noreferrer">
+            <Navigation className="h-4 w-4" /> Directions
+          </a>
+        </Button>
+      )}
+      {business.phone && (
+        <Button variant="outline" className="gap-2" asChild>
+          <a href={`tel:${business.phone}`}>
+            <Phone className="h-4 w-4" /> Call
+          </a>
+        </Button>
+      )}
+      {business.website && (
+        <Button variant="outline" className="gap-2" asChild>
+          <a href={business.website} target="_blank" rel="noopener noreferrer">
+            <Globe className="h-4 w-4" /> Website
+          </a>
+        </Button>
+      )}
+      <Button variant="outline" className="gap-2" onClick={handleShare}>
+        <Share2 className="h-4 w-4" /> Share
+      </Button>
+    </div>
+  );
+
+  const editorialSection = business.editorial_summary && (
+    <p className="text-muted-foreground italic text-sm border-l-2 border-primary/30 pl-4 mb-6">
+      {business.editorial_summary}
+    </p>
+  );
+
+  const detailsCard = (
+    <Card>
+      <CardHeader><CardTitle>Details</CardTitle></CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        {business.address_line_1 && (
+          <div className="flex items-start gap-2">
+            <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <span>
+              {business.address_line_1}
+              {business.city && `, ${business.city}`}
+              {business.state && `, ${business.state}`}
+              {business.zip_code && ` ${business.zip_code}`}
+            </span>
+          </div>
+        )}
+        {business.phone && (
+          <div className="flex items-center gap-2">
+            <Phone className="h-4 w-4 text-muted-foreground" />
+            <a href={`tel:${business.phone}`} className="hover:underline">{business.phone}</a>
+          </div>
+        )}
+        {business.website && (
+          <div className="flex items-center gap-2">
+            <Globe className="h-4 w-4 text-muted-foreground" />
+            <a href={business.website} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary truncate max-w-xs">
+              {business.website.replace(/^https?:\/\/(www\.)?/, '')}
+            </a>
+            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+          </div>
+        )}
+        {business.google_maps_uri && (
+          <div className="flex items-center gap-2">
+            <Navigation className="h-4 w-4 text-muted-foreground" />
+            <a href={business.google_maps_uri} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">
+              View on Google Maps
+            </a>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  const hoursCard = (business.weekday_descriptions && business.weekday_descriptions.length > 0) && (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Clock className="h-5 w-5" /> Hours
+          {business.is_open_now !== null && business.is_open_now !== undefined && (
+            <span className={`text-xs font-normal ml-2 ${business.is_open_now ? 'text-green-600' : 'text-red-500'}`}>
+              {business.is_open_now ? '• Open now' : '• Closed'}
+            </span>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-1.5 text-sm">
+          {business.weekday_descriptions.map((text: string, i: number) => {
+            const parts = text.split(': ');
+            return (
+              <div key={i} className="flex justify-between">
+                <span className="font-medium">{parts[0]}</span>
+                <span className="text-muted-foreground">{parts.slice(1).join(': ')}</span>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const mapSection = (
+    <Card>
+      <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" /> Location</CardTitle></CardHeader>
+      <CardContent>
+        <div className="rounded-lg overflow-hidden border h-[300px]">
+          <MapComponent
+            center={{ lat: business.latitude, lng: business.longitude }}
+            businesses={[{ id: business.id, name: business.name, latitude: business.latitude, longitude: business.longitude }]}
+            zoom={15}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const reviewsSection = (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold">Reviews ({reviews.length})</h2>
+        {isAuthenticated && !isGooglePlace && (
+          <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-2"><Star className="h-4 w-4" /> Write a Review</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Write a Review</DialogTitle></DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Rating</Label>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <button key={n} type="button" onClick={() => setNewReview(r => ({ ...r, rating: n }))}>
+                        <Star className={`h-6 w-6 ${n <= newReview.rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Title (optional)</Label>
+                  <Input value={newReview.title} onChange={e => setNewReview(r => ({ ...r, title: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Review</Label>
+                  <Textarea value={newReview.content} onChange={e => setNewReview(r => ({ ...r, content: e.target.value }))} rows={4} />
+                </div>
+                <Button onClick={submitReview} disabled={submitting} className="w-full">
+                  {submitting ? 'Submitting...' : 'Submit Review'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
+      {reviews.length === 0 ? (
+        <p className="text-muted-foreground py-6 text-center text-sm">No reviews yet.</p>
+      ) : (
+        reviews.map((r: any) => (
+          <Card key={r.id}>
+            <CardContent className="pt-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  {r.user?.profileImageUrl ? (
+                    <img
+                      src={r.user.profileImageUrl}
+                      alt={r.user.firstName || r.user.username}
+                      className="h-9 w-9 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
+                      {(r.user?.firstName || r.user?.username || '?')[0]}
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-medium text-sm">
+                      {r.user?.firstName}{r.user?.lastName ? ` ${r.user.lastName}` : ''}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(r.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} className={`h-4 w-4 ${i < r.rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/30'}`} />
+                  ))}
+                </div>
+              </div>
+              {r.title && <p className="font-semibold text-sm mb-1">{r.title}</p>}
+              {r.content && <p className="text-sm text-muted-foreground leading-relaxed">{r.content}</p>}
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+
+  // --- Google Places: single scroll layout ---
+  if (isGooglePlace) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        {photoGallery}
+        {headerSection}
+        {ctaButtons}
+        {editorialSection}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {detailsCard}
+          {hoursCard}
+        </div>
+
+        {mapSection}
+
+        <Separator className="my-8" />
+
+        {reviewsSection}
+      </div>
+    );
+  }
+
+  // --- Local DB business: tabbed layout ---
+  return (
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      {photoGallery}
+      {headerSection}
+      {ctaButtons}
+      {editorialSection}
 
       <Tabs defaultValue="about" className="space-y-6">
         <TabsList>
@@ -177,137 +477,13 @@ const BusinessDetail = () => {
         </TabsList>
 
         <TabsContent value="about">
-          {business.editorial_summary && (
-            <p className="text-muted-foreground italic mb-6 text-sm border-l-2 pl-4">
-              {business.editorial_summary}
-            </p>
-          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader><CardTitle>Details</CardTitle></CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                {business.description && !business.editorial_summary && <p>{business.description}</p>}
-                <Separator />
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span>{business.address_line_1}{business.address_line_2 ? `, ${business.address_line_2}` : ''}, {business.city}, {business.state} {business.zip_code}</span>
-                </div>
-                {business.phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <a href={`tel:${business.phone}`} className="hover:underline">{business.phone}</a>
-                  </div>
-                )}
-                {business.website && (
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-muted-foreground" />
-                    <a href={business.website} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">{business.website}</a>
-                  </div>
-                )}
-                {business.google_maps_uri && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <a href={business.google_maps_uri} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">View on Google Maps</a>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {((business.weekday_descriptions && business.weekday_descriptions.length > 0) ||
-              (business.hours && business.hours.length > 0)) && (
-              <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5" /> Hours</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm">
-                    {business.weekday_descriptions && business.weekday_descriptions.length > 0 ? (
-                      business.weekday_descriptions.map((text: string, i: number) => (
-                        <div key={i} className="flex justify-between">
-                          <span>{text}</span>
-                        </div>
-                      ))
-                    ) : (
-                      business.hours?.map(h => (
-                        <div key={h.day_of_week} className="flex justify-between">
-                          <span className="font-medium">{dayNames[h.day_of_week]}</span>
-                          <span className="text-muted-foreground">
-                            {h.is_closed ? 'Closed' : `${h.open_time} - ${h.close_time}`}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {detailsCard}
+            {hoursCard}
           </div>
         </TabsContent>
 
-        <TabsContent value="reviews">
-          <div className="space-y-4">
-            {isAuthenticated && (
-              <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2"><Star className="h-4 w-4" /> Write a Review</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader><DialogTitle>Write a Review</DialogTitle></DialogHeader>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Rating</Label>
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map(n => (
-                          <button key={n} type="button" onClick={() => setNewReview(r => ({ ...r, rating: n }))}>
-                            <Star className={`h-6 w-6 ${n <= newReview.rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Title (optional)</Label>
-                      <Input value={newReview.title} onChange={e => setNewReview(r => ({ ...r, title: e.target.value }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Review</Label>
-                      <Textarea value={newReview.content} onChange={e => setNewReview(r => ({ ...r, content: e.target.value }))} rows={4} />
-                    </div>
-                    <Button onClick={submitReview} disabled={submitting} className="w-full">
-                      {submitting ? 'Submitting...' : 'Submit Review'}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
-
-            {reviews.length === 0 ? (
-              <p className="text-muted-foreground py-8 text-center">No reviews yet. Be the first!</p>
-            ) : (
-              reviews.map(r => (
-                <Card key={r.id}>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
-                          {r.user.firstName?.[0] || r.user.username[0]}
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">{r.user.firstName} {r.user.lastName}</p>
-                          <p className="text-xs text-muted-foreground">{new Date(r.createdAt).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <div className="flex">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star key={i} className={`h-4 w-4 ${i < r.rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/30'}`} />
-                        ))}
-                      </div>
-                    </div>
-                    {r.title && <p className="font-semibold text-sm mb-1">{r.title}</p>}
-                    {r.content && <p className="text-sm text-muted-foreground">{r.content}</p>}
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        </TabsContent>
+        <TabsContent value="reviews">{reviewsSection}</TabsContent>
 
         <TabsContent value="deals">
           {deals.length === 0 ? (
@@ -328,14 +504,9 @@ const BusinessDetail = () => {
                         {d.discount_type === 'percent' ? `${d.discount_value}% off` : `$${d.discount_value} off`}
                       </Badge>
                       {isAuthenticated && (
-                        <Button size="sm" onClick={() => redeemDeal(d.id)}>Claim Deal</Button>
+                        <Button size="sm" onClick={() => dealApi.redeem(d.id)}>Claim Deal</Button>
                       )}
                     </div>
-                    {d.end_date && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Expires {new Date(d.end_date).toLocaleDateString()}
-                      </p>
-                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -343,15 +514,7 @@ const BusinessDetail = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="map">
-          <div className="rounded-lg overflow-hidden border h-[400px]">
-            <MapComponent
-              center={{ lat: business.latitude, lng: business.longitude }}
-              businesses={[{ id: business.id, name: business.name, latitude: business.latitude, longitude: business.longitude }]}
-              zoom={15}
-            />
-          </div>
-        </TabsContent>
+        <TabsContent value="map">{mapSection}</TabsContent>
       </Tabs>
     </div>
   );
