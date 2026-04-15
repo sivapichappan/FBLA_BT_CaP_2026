@@ -59,6 +59,9 @@ export interface Business {
   photo_url?: string | null;
   photos?: any[];
   reviews?: any[];
+  independence_score?: number | null;
+  customer_facing_score?: number | null;
+  local_badge?: 'verified_local' | 'likely_local' | null;
   source?: 'local' | 'google_places';
 }
 

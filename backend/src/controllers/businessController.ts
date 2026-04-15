@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { query, getClient } from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 import * as googlePlaces from '../services/googlePlaces';
+import { filterAndScoreBusinesses } from '../utils/localBusinessScorer';
 
 const slugify = (text: string): string =>
   text
@@ -176,7 +177,8 @@ export const searchBusinesses = async (req: Request, res: Response) => {
       places = await googlePlaces.searchNearbyDiverse(lat, lng, radiusMeters);
     }
 
-    const businesses = places.map(googlePlaces.formatPlace);
+    const formatted = places.map(googlePlaces.formatPlace);
+    const businesses = filterAndScoreBusinesses(formatted);
 
     // CDN cache for 5 minutes
     res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');

@@ -241,6 +241,9 @@ export const formatPlace = (place: any) => {
     photos: (place.photos || []).slice(0, 5).map((p: any) => ({
       url: getPhotoUrl(p.name, 800),
     })),
+    independence_score: null as number | null,
+    customer_facing_score: null as number | null,
+    local_badge: null as string | null,
     source: 'google_places' as const,
   };
 };

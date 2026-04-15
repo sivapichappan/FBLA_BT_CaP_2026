@@ -70,14 +70,24 @@ const BusinessCard: React.FC<BusinessCardProps> = ({ business, onClick }) => {
           {business.name}
         </h3>
 
-        {/* Category */}
-        {(business.primary_type_display_name || business.category_name) && (
-          <div className="mb-2">
+        {/* Category + Local Badge */}
+        <div className="flex flex-wrap gap-1 mb-2">
+          {(business.primary_type_display_name || business.category_name) && (
             <Badge variant="secondary" className="text-[11px] px-1.5 py-0">
               {business.primary_type_display_name || business.category_name}
             </Badge>
-          </div>
-        )}
+          )}
+          {business.local_badge === 'verified_local' && (
+            <Badge className="text-[11px] px-1.5 py-0 bg-green-600 hover:bg-green-700 text-white">
+              ✓ Verified Local
+            </Badge>
+          )}
+          {business.local_badge === 'likely_local' && (
+            <Badge variant="outline" className="text-[11px] px-1.5 py-0 border-green-600 text-green-700">
+              ~ Likely Local
+            </Badge>
+          )}
+        </div>
 
         {/* Rating */}
         <div className="flex items-center gap-2 mb-2">
