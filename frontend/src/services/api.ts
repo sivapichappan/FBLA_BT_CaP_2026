@@ -144,9 +144,22 @@ export const analyticsApi = {
   getDealAnalytics: (businessId: number) => api.get(`/analytics/business/${businessId}/deals`),
 };
 
+export interface AiSuggestion {
+  id: string;
+  name: string;
+  category: string;
+  rating: string;
+  review_count: number;
+  price_level: number | null;
+  distance_km: string;
+  is_open_now: boolean | null;
+  local_badge: string | null;
+  photo_url: string | null;
+}
+
 export const aiApi = {
   chat: (message: string, latitude?: number, longitude?: number, sessionToken?: string) =>
-    api.post<{ response: string; sessionToken: string; suggestions?: any[] }>('/ai/chat', {
+    api.post<{ response: string; sessionToken: string; suggestions?: AiSuggestion[] }>('/ai/chat', {
       message,
       latitude,
       longitude,

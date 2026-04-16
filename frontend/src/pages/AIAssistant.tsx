@@ -1,19 +1,22 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLocation } from '../contexts/LocationContext';
-import { aiApi } from '../services/api';
+import { aiApi, AiSuggestion } from '../services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { MessageCircle, Send, Bot, User } from 'lucide-react';
+import { MessageCircle, Send, Bot, User, Star, MapPin } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
-  suggestions?: Array<{ id: number; name: string; category: string; rating: string }>;
+  suggestions?: AiSuggestion[];
 }
 
 const AIAssistant = () => {
+  const navigate = useNavigate();
   const { location } = useLocation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -59,6 +62,11 @@ const AIAssistant = () => {
     }
   };
 
+  const priceDisplay = (level: number | null) => {
+    if (!level) return '';
+    return ' · ' + '$'.repeat(level);
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-3xl">
       <div className="flex items-center gap-3 mb-6">
@@ -98,15 +106,41 @@ const AIAssistant = () => {
               }`}>
                 <p className="whitespace-pre-wrap">{msg.content}</p>
                 {msg.suggestions && msg.suggestions.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-1">
+                  <div className="mt-3 space-y-1.5">
                     {msg.suggestions.map(s => (
-                      <a
+                      <button
                         key={s.id}
-                        href={`/business/${s.id}`}
-                        className="text-xs bg-background/50 rounded px-2 py-1 hover:bg-background transition-colors"
+                        onClick={() => navigate(`/business/${s.id}`)}
+                        className="w-full text-left bg-background/60 hover:bg-background rounded-md px-3 py-2 transition-colors border border-border/50"
                       >
-                        {s.name} ({s.rating})
-                      </a>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-xs truncate">{s.name}</span>
+                          {s.local_badge && (
+                            <Badge
+                              variant={s.local_badge === 'verified_local' ? 'default' : 'outline'}
+                              className="text-[10px] px-1 py-0 flex-shrink-0"
+                            >
+                              {s.local_badge === 'verified_local' ? '✓ Local' : '~ Local'}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+                          <span className="flex items-center gap-0.5">
+                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                            {s.rating}
+                          </span>
+                          <span className="flex items-center gap-0.5">
+                            <MapPin className="h-3 w-3" />
+                            {s.distance_km} km
+                          </span>
+                          {s.is_open_now !== null && (
+                            <span className={s.is_open_now ? 'text-green-600' : 'text-red-500'}>
+                              {s.is_open_now ? 'Open' : 'Closed'}
+                            </span>
+                          )}
+                          {s.price_level && <span>{priceDisplay(s.price_level)}</span>}
+                        </div>
+                      </button>
                     ))}
                   </div>
                 )}
