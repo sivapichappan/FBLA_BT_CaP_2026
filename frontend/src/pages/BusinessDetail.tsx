@@ -17,6 +17,7 @@ import {
   Star, Heart, HeartOff, MapPin, Phone, Globe, Clock, Tag,
   Navigation, Share2, DollarSign, ExternalLink,
 } from 'lucide-react';
+import BlurFade from '@/components/ui/blur-fade';
 
 const BusinessDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -125,12 +126,12 @@ const BusinessDetail = () => {
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8 space-y-4">
-        <Skeleton className="h-64 md:h-80 w-full rounded-lg" />
-        <Skeleton className="h-8 w-2/3" />
-        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-64 md:h-80 w-full rounded-xl bg-white/5" />
+        <Skeleton className="h-8 w-2/3 bg-white/5" />
+        <Skeleton className="h-12 w-full bg-white/5" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Skeleton className="h-48 rounded-lg" />
-          <Skeleton className="h-48 rounded-lg" />
+          <Skeleton className="h-48 rounded-xl bg-white/5" />
+          <Skeleton className="h-48 rounded-xl bg-white/5" />
         </div>
       </div>
     );
@@ -152,10 +153,10 @@ const BusinessDetail = () => {
       return <Badge variant="destructive">Permanently Closed</Badge>;
     }
     if (business.business_status === 'CLOSED_TEMPORARILY') {
-      return <Badge className="bg-yellow-500 text-white hover:bg-yellow-600">Temporarily Closed</Badge>;
+      return <Badge className="bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">Temporarily Closed</Badge>;
     }
     if (business.is_open_now === true) {
-      return <Badge className="bg-green-500 text-white hover:bg-green-600">Open Now</Badge>;
+      return <Badge className="bg-green-500/20 text-green-300 border border-green-500/30">Open Now</Badge>;
     }
     if (business.is_open_now === false) {
       return <Badge variant="destructive">Closed</Badge>;
@@ -167,7 +168,7 @@ const BusinessDetail = () => {
 
   const photoGallery = hasPhotos && (
     <div className="mb-6">
-      <div className="relative rounded-lg overflow-hidden h-64 md:h-80 mb-2">
+      <div className="relative rounded-xl overflow-hidden h-64 md:h-80 mb-2">
         <img
           src={photos[heroPhoto]?.url}
           alt={business.name}
@@ -249,27 +250,27 @@ const BusinessDetail = () => {
   const ctaButtons = (
     <div className="flex flex-wrap gap-2 mb-6">
       {business.google_maps_uri && (
-        <Button variant="outline" className="gap-2" asChild>
+        <Button variant="outline" className="gap-2 glass-subtle border-white/10 hover:bg-white/5" asChild>
           <a href={business.google_maps_uri} target="_blank" rel="noopener noreferrer">
             <Navigation className="h-4 w-4" /> Directions
           </a>
         </Button>
       )}
       {business.phone && (
-        <Button variant="outline" className="gap-2" asChild>
+        <Button variant="outline" className="gap-2 glass-subtle border-white/10 hover:bg-white/5" asChild>
           <a href={`tel:${business.phone}`}>
             <Phone className="h-4 w-4" /> Call
           </a>
         </Button>
       )}
       {business.website && (
-        <Button variant="outline" className="gap-2" asChild>
+        <Button variant="outline" className="gap-2 glass-subtle border-white/10 hover:bg-white/5" asChild>
           <a href={business.website} target="_blank" rel="noopener noreferrer">
             <Globe className="h-4 w-4" /> Website
           </a>
         </Button>
       )}
-      <Button variant="outline" className="gap-2" onClick={handleShare}>
+      <Button variant="outline" className="gap-2 glass-subtle border-white/10 hover:bg-white/5" onClick={handleShare}>
         <Share2 className="h-4 w-4" /> Share
       </Button>
     </div>
@@ -282,7 +283,7 @@ const BusinessDetail = () => {
   );
 
   const detailsCard = (
-    <Card>
+    <Card className="glass border-white/10">
       <CardHeader><CardTitle>Details</CardTitle></CardHeader>
       <CardContent className="space-y-3 text-sm">
         {business.address_line_1 && (
@@ -324,12 +325,12 @@ const BusinessDetail = () => {
   );
 
   const hoursCard = (business.weekday_descriptions && business.weekday_descriptions.length > 0) && (
-    <Card>
+    <Card className="glass border-white/10">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Clock className="h-5 w-5" /> Hours
           {business.is_open_now !== null && business.is_open_now !== undefined && (
-            <span className={`text-xs font-normal ml-2 ${business.is_open_now ? 'text-green-600' : 'text-red-500'}`}>
+            <span className={`text-xs font-normal ml-2 ${business.is_open_now ? 'text-green-400' : 'text-red-400'}`}>
               {business.is_open_now ? '• Open now' : '• Closed'}
             </span>
           )}
@@ -352,10 +353,10 @@ const BusinessDetail = () => {
   );
 
   const mapSection = (
-    <Card>
+    <Card className="glass border-white/10">
       <CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" /> Location</CardTitle></CardHeader>
       <CardContent>
-        <div className="rounded-lg overflow-hidden border h-[300px]">
+        <div className="rounded-xl overflow-hidden border border-white/5 h-[300px]">
           <MapComponent
             center={{ lat: business.latitude, lng: business.longitude }}
             businesses={[{ id: business.id, name: business.name, latitude: business.latitude, longitude: business.longitude }]}
@@ -373,7 +374,7 @@ const BusinessDetail = () => {
         {isAuthenticated && !isGooglePlace && (
           <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="gap-2"><Star className="h-4 w-4" /> Write a Review</Button>
+              <Button size="sm" className="gap-2 gradient-primary border-0 hover:opacity-90"><Star className="h-4 w-4" /> Write a Review</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Write a Review</DialogTitle></DialogHeader>
@@ -409,7 +410,7 @@ const BusinessDetail = () => {
         <p className="text-muted-foreground py-6 text-center text-sm">No reviews yet.</p>
       ) : (
         reviews.map((r: any) => (
-          <Card key={r.id}>
+          <Card key={r.id} className="glass border-white/10">
             <CardContent className="pt-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
@@ -452,21 +453,23 @@ const BusinessDetail = () => {
   if (isGooglePlace) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        {photoGallery}
-        {headerSection}
-        {ctaButtons}
-        {editorialSection}
+        <BlurFade delay={0}>{photoGallery}</BlurFade>
+        <BlurFade delay={0.1}>{headerSection}</BlurFade>
+        <BlurFade delay={0.15}>{ctaButtons}</BlurFade>
+        <BlurFade delay={0.2}>{editorialSection}</BlurFade>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {detailsCard}
-          {hoursCard}
-        </div>
+        <BlurFade delay={0.25}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {detailsCard}
+            {hoursCard}
+          </div>
+        </BlurFade>
 
-        {mapSection}
+        <BlurFade delay={0.3}>{mapSection}</BlurFade>
 
-        <Separator className="my-8" />
+        <Separator className="my-8 border-white/5" />
 
-        {reviewsSection}
+        <BlurFade delay={0.35}>{reviewsSection}</BlurFade>
       </div>
     );
   }
@@ -474,11 +477,12 @@ const BusinessDetail = () => {
   // --- Local DB business: tabbed layout ---
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {photoGallery}
-      {headerSection}
-      {ctaButtons}
-      {editorialSection}
+      <BlurFade delay={0}>{photoGallery}</BlurFade>
+      <BlurFade delay={0.1}>{headerSection}</BlurFade>
+      <BlurFade delay={0.15}>{ctaButtons}</BlurFade>
+      <BlurFade delay={0.2}>{editorialSection}</BlurFade>
 
+      <BlurFade delay={0.25}>
       <Tabs defaultValue="about" className="space-y-6">
         <TabsList>
           <TabsTrigger value="about">About</TabsTrigger>
@@ -502,7 +506,7 @@ const BusinessDetail = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {deals.map(d => (
-                <Card key={d.id}>
+                <Card key={d.id} className="glass border-white/10">
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Tag className="h-5 w-5 text-primary" /> {d.title}
@@ -527,6 +531,7 @@ const BusinessDetail = () => {
 
         <TabsContent value="map">{mapSection}</TabsContent>
       </Tabs>
+      </BlurFade>
     </div>
   );
 };
