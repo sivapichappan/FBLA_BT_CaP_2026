@@ -29,8 +29,8 @@ function App() {
               <Route path="/ai" element={<AIAssistant />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="*" element={
-                <div className="container mx-auto px-4 py-16 text-center">
-                  <h1 className="text-4xl font-bold mb-4">404</h1>
+                <div className="container mx-auto px-4 py-24 text-center">
+                  <h1 className="text-6xl font-bold mb-4 gradient-text">404</h1>
                   <p className="text-muted-foreground">Page not found</p>
                 </div>
               } />

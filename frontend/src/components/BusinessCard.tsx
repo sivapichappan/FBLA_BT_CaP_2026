@@ -1,4 +1,3 @@
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Star, MapPin, Clock, DollarSign } from 'lucide-react';
 import { Business } from '../services/api';
@@ -13,7 +12,7 @@ const priceLevelDisplay = (level?: number | null) => {
   return Array.from({ length: 4 }, (_, i) => (
     <DollarSign
       key={i}
-      className={`h-3.5 w-3.5 inline-block ${i < level ? 'text-foreground' : 'text-muted-foreground/30'}`}
+      className={`h-3.5 w-3.5 inline-block ${i < level ? 'text-green-400' : 'text-white/10'}`}
     />
   ));
 };
@@ -25,7 +24,7 @@ const ratingStars = (rating: number) => {
       className={`h-3.5 w-3.5 ${
         i < Math.round(rating)
           ? 'fill-yellow-400 text-yellow-400'
-          : 'text-muted-foreground/30'
+          : 'text-white/10'
       }`}
     />
   ));
@@ -34,8 +33,8 @@ const ratingStars = (rating: number) => {
 const BusinessCard: React.FC<BusinessCardProps> = ({ business, onClick }) => {
 
   return (
-    <Card
-      className="cursor-pointer hover:shadow-lg transition-all hover:-translate-y-0.5 overflow-hidden group"
+    <div
+      className="cursor-pointer glass rounded-xl overflow-hidden group hover:bg-white/[0.06] transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5"
       onClick={() => onClick(business.id)}
     >
       {/* Photo */}
@@ -47,24 +46,25 @@ const BusinessCard: React.FC<BusinessCardProps> = ({ business, onClick }) => {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
           />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
           {business.is_open_now !== null && business.is_open_now !== undefined && (
-            <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-medium ${
+            <div className={`absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-xs font-medium backdrop-blur-sm ${
               business.is_open_now
-                ? 'bg-green-500/90 text-white'
-                : 'bg-red-500/90 text-white'
+                ? 'bg-green-500/20 text-green-300 border border-green-500/30'
+                : 'bg-red-500/20 text-red-300 border border-red-500/30'
             }`}>
               {business.is_open_now ? 'Open' : 'Closed'}
             </div>
           )}
           {business.price_level && (
-            <div className="absolute top-2 left-2 bg-background/90 backdrop-blur-sm rounded-full px-2 py-0.5 flex">
+            <div className="absolute top-2.5 left-2.5 glass-subtle rounded-full px-2 py-0.5 flex">
               {priceLevelDisplay(business.price_level)}
             </div>
           )}
         </div>
       )}
 
-      <CardContent className={business.photo_url ? 'pt-3' : 'pt-5'}>
+      <div className={`p-4 ${business.photo_url ? 'pt-3' : ''}`}>
         {/* Name */}
         <h3 className="font-semibold text-base leading-tight mb-1.5 line-clamp-1 group-hover:text-primary transition-colors">
           {business.name}
@@ -73,17 +73,17 @@ const BusinessCard: React.FC<BusinessCardProps> = ({ business, onClick }) => {
         {/* Category + Local Badge */}
         <div className="flex flex-wrap gap-1 mb-2">
           {(business.primary_type_display_name || business.category_name) && (
-            <Badge variant="secondary" className="text-[11px] px-1.5 py-0">
+            <Badge variant="secondary" className="text-[11px] px-1.5 py-0 bg-white/5 border-white/10 text-muted-foreground">
               {business.primary_type_display_name || business.category_name}
             </Badge>
           )}
           {business.local_badge === 'verified_local' && (
-            <Badge className="text-[11px] px-1.5 py-0 bg-green-600 hover:bg-green-700 text-white">
+            <Badge className="text-[11px] px-1.5 py-0 bg-green-500/15 hover:bg-green-500/20 text-green-400 border border-green-500/20">
               ✓ Verified Local
             </Badge>
           )}
           {business.local_badge === 'likely_local' && (
-            <Badge variant="outline" className="text-[11px] px-1.5 py-0 border-green-600 text-green-700">
+            <Badge variant="outline" className="text-[11px] px-1.5 py-0 border-green-500/20 text-green-400/80">
               ~ Likely Local
             </Badge>
           )}
@@ -107,10 +107,10 @@ const BusinessCard: React.FC<BusinessCardProps> = ({ business, onClick }) => {
         )}
 
         {/* Bottom row: open status + distance */}
-        <div className="flex items-center justify-between mt-2 pt-2 border-t text-xs text-muted-foreground">
+        <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5 text-xs text-muted-foreground">
           {!business.photo_url && business.is_open_now !== null && business.is_open_now !== undefined ? (
             <span className={`flex items-center gap-1 font-medium ${
-              business.is_open_now ? 'text-green-600' : 'text-red-500'
+              business.is_open_now ? 'text-green-400' : 'text-red-400'
             }`}>
               <Clock className="h-3 w-3" />
               {business.is_open_now ? 'Open now' : 'Closed'}
@@ -131,8 +131,8 @@ const BusinessCard: React.FC<BusinessCardProps> = ({ business, onClick }) => {
             )}
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 

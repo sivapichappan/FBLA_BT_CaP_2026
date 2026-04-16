@@ -41,8 +41,12 @@ const Register = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-12rem)] px-4">
-      <Card className="w-full max-w-md">
+    <div className="flex items-center justify-center min-h-[calc(100vh-12rem)] px-4 relative">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full bg-accent/5 blur-3xl" />
+      </div>
+      <Card className="w-full max-w-md glass border-white/10 relative z-10">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Create Account</CardTitle>
           <CardDescription>Join LocalDiscover to find businesses near you</CardDescription>
@@ -70,7 +74,7 @@ const Register = () => {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full gradient-primary border-0 hover:opacity-90" disabled={loading}>
               {loading ? 'Creating account...' : 'Sign Up'}
             </Button>
             <p className="text-sm text-muted-foreground">

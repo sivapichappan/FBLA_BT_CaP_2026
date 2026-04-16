@@ -162,7 +162,7 @@ const Search = () => {
       <h1 className="text-3xl font-bold mb-6">Search Businesses</h1>
 
       {/* Location picker */}
-      <div className="p-3 bg-muted/50 rounded-lg border mb-4">
+      <div className="p-3 glass rounded-xl mb-4">
         <div className="flex items-center gap-2 text-sm mb-2">
           <MapPin className="h-4 w-4 text-primary" />
           <span className="font-medium">
@@ -181,12 +181,12 @@ const Search = () => {
             />
             {/* Autocomplete dropdown */}
             {showPredictions && predictions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg z-50 overflow-hidden">
+              <div className="absolute top-full left-0 right-0 mt-1 glass-strong rounded-xl shadow-lg z-50 overflow-hidden">
                 {predictions.map(p => (
                   <button
                     key={p.place_id}
                     onClick={() => selectPrediction(p)}
-                    className="w-full text-left px-3 py-2.5 hover:bg-muted transition-colors flex items-start gap-2 border-b last:border-b-0"
+                    className="w-full text-left px-3 py-2.5 hover:bg-white/5 transition-colors flex items-start gap-2 border-b border-white/5 last:border-b-0"
                   >
                     <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                     <div>
@@ -212,7 +212,7 @@ const Search = () => {
           onChange={e => setSearchQuery(e.target.value)}
           className="flex-1"
         />
-        <Button type="submit" className="gap-2">
+        <Button type="submit" className="gap-2 gradient-primary border-0 hover:opacity-90">
           <SearchIcon className="h-4 w-4" /> Search
         </Button>
       </form>
@@ -227,7 +227,11 @@ const Search = () => {
           >
             <Badge
               variant={selectedType === cat.type ? 'default' : 'outline'}
-              className="cursor-pointer px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+              className={`cursor-pointer px-3 py-1.5 text-sm transition-colors ${
+                selectedType === cat.type
+                  ? 'gradient-primary border-0 text-white'
+                  : 'bg-white/5 border-white/10 hover:bg-white/10'
+              }`}
             >
               {cat.emoji} {cat.label}
             </Badge>
@@ -253,7 +257,7 @@ const Search = () => {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-64 rounded-lg" />
+            <Skeleton key={i} className="h-64 rounded-xl bg-white/5" />
           ))}
         </div>
       ) : businesses.length > 0 ? (

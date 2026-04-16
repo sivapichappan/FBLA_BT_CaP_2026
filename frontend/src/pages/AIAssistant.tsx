@@ -74,17 +74,19 @@ const AIAssistant = () => {
         <h1 className="text-3xl font-bold">AI Assistant</h1>
       </div>
 
-      <Card className="flex flex-col h-[calc(100vh-16rem)]">
+      <Card className="flex flex-col h-[calc(100vh-16rem)] glass border-white/10">
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 && (
             <div className="text-center py-16 text-muted-foreground">
-              <Bot className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
+              <div className="h-16 w-16 rounded-2xl gradient-primary mx-auto mb-4 flex items-center justify-center opacity-30">
+                <Bot className="h-8 w-8 text-white" />
+              </div>
               <h2 className="text-lg font-semibold mb-2">How can I help?</h2>
               <p className="text-sm">Ask me about local businesses, restaurants, services, or anything nearby.</p>
               <div className="flex flex-wrap justify-center gap-2 mt-4">
                 {['Best coffee near me', 'Affordable restaurants', 'Dog-friendly places'].map(q => (
-                  <Button key={q} variant="outline" size="sm" onClick={() => { setInput(q); }}>
+                  <Button key={q} variant="outline" size="sm" onClick={() => { setInput(q); }} className="glass-subtle border-white/10 hover:bg-white/5">
                     {q}
                   </Button>
                 ))}
@@ -95,14 +97,14 @@ const AIAssistant = () => {
           {messages.map((msg, i) => (
             <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.role === 'assistant' && (
-                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-4 w-4" />
+                <div className="h-8 w-8 rounded-full gradient-primary flex items-center justify-center flex-shrink-0">
+                  <Bot className="h-4 w-4 text-white" />
                 </div>
               )}
-              <div className={`max-w-[80%] rounded-lg px-4 py-3 text-sm ${
+              <div className={`max-w-[80%] rounded-xl px-4 py-3 text-sm ${
                 msg.role === 'user'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted'
+                  ? 'gradient-primary text-white'
+                  : 'glass-subtle'
               }`}>
                 <p className="whitespace-pre-wrap">{msg.content}</p>
                 {msg.suggestions && msg.suggestions.length > 0 && (
@@ -111,7 +113,7 @@ const AIAssistant = () => {
                       <button
                         key={s.id}
                         onClick={() => navigate(`/business/${s.id}`)}
-                        className="w-full text-left bg-background/60 hover:bg-background rounded-md px-3 py-2 transition-colors border border-border/50"
+                        className="w-full text-left glass-subtle hover:bg-white/[0.06] rounded-lg px-3 py-2 transition-colors"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium text-xs truncate">{s.name}</span>
@@ -134,7 +136,7 @@ const AIAssistant = () => {
                             {s.distance_km} km
                           </span>
                           {s.is_open_now !== null && (
-                            <span className={s.is_open_now ? 'text-green-600' : 'text-red-500'}>
+                            <span className={s.is_open_now ? 'text-green-400' : 'text-red-400'}>
                               {s.is_open_now ? 'Open' : 'Closed'}
                             </span>
                           )}
@@ -146,8 +148,8 @@ const AIAssistant = () => {
                 )}
               </div>
               {msg.role === 'user' && (
-                <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                  <User className="h-4 w-4 text-primary-foreground" />
+                <div className="h-8 w-8 rounded-full glass-subtle flex items-center justify-center flex-shrink-0">
+                  <User className="h-4 w-4" />
                 </div>
               )}
             </div>
@@ -155,10 +157,10 @@ const AIAssistant = () => {
 
           {loading && (
             <div className="flex gap-3">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Bot className="h-4 w-4" />
+              <div className="h-8 w-8 rounded-full gradient-primary flex items-center justify-center flex-shrink-0">
+                <Bot className="h-4 w-4 text-white" />
               </div>
-              <Skeleton className="h-12 w-48 rounded-lg" />
+              <Skeleton className="h-12 w-48 rounded-xl bg-white/5" />
             </div>
           )}
 
@@ -166,7 +168,7 @@ const AIAssistant = () => {
         </div>
 
         {/* Input */}
-        <div className="border-t p-4">
+        <div className="border-t border-white/5 p-4">
           <form onSubmit={e => { e.preventDefault(); sendMessage(); }} className="flex gap-2">
             <Input
               value={input}
@@ -175,8 +177,8 @@ const AIAssistant = () => {
               disabled={loading}
               className="flex-1"
             />
-            <Button type="submit" disabled={loading || !input.trim()} size="icon">
-              <Send className="h-4 w-4" />
+            <Button type="submit" disabled={loading || !input.trim()} size="icon" className="gradient-primary border-0 hover:opacity-90">
+              <Send className="h-4 w-4 text-white" />
             </Button>
           </form>
           {!location && (
