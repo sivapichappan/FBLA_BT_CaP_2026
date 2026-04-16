@@ -1,3 +1,4 @@
+import { useRef, useState, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Star, MapPin, Clock, DollarSign } from 'lucide-react';
 import { Business } from '../services/api';
@@ -31,19 +32,48 @@ const ratingStars = (rating: number) => {
 };
 
 const BusinessCard: React.FC<BusinessCardProps> = ({ business, onClick }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [spotlight, setSpotlight] = useState({ x: 0, y: 0, visible: false });
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setSpotlight({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      visible: true,
+    });
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setSpotlight(s => ({ ...s, visible: false }));
+  }, []);
 
   return (
     <div
-      className="cursor-pointer glass rounded-xl overflow-hidden group hover:bg-white/[0.06] transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5"
+      ref={cardRef}
+      className="relative cursor-pointer glass rounded-xl overflow-hidden group hover:-translate-y-0.5 transition-all duration-300"
       onClick={() => onClick(business.id)}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
     >
+      {/* Spotlight overlay */}
+      <div
+        className="absolute inset-0 z-10 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+        style={{
+          background: spotlight.visible
+            ? `radial-gradient(300px circle at ${spotlight.x}px ${spotlight.y}px, rgba(59,130,246,0.08), transparent 70%)`
+            : 'none',
+        }}
+      />
+
       {/* Photo */}
       {business.photo_url && (
         <div className="relative h-40 overflow-hidden">
           <img
             src={business.photo_url}
             alt={business.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             loading="lazy"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -64,7 +94,7 @@ const BusinessCard: React.FC<BusinessCardProps> = ({ business, onClick }) => {
         </div>
       )}
 
-      <div className={`p-4 ${business.photo_url ? 'pt-3' : ''}`}>
+      <div className={`relative z-20 p-4 ${business.photo_url ? 'pt-3' : ''}`}>
         {/* Name */}
         <h3 className="font-semibold text-base leading-tight mb-1.5 line-clamp-1 group-hover:text-primary transition-colors">
           {business.name}

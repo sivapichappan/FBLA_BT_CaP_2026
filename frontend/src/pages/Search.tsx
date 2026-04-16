@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Search as SearchIcon, MapPin, Navigation } from 'lucide-react';
+import BlurFade from '@/components/ui/blur-fade';
 
 const CATEGORIES = [
   { label: 'Food & Drink', type: 'restaurant', emoji: '🍽️' },
@@ -159,7 +160,9 @@ const Search = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Search Businesses</h1>
+      <BlurFade delay={0}>
+        <h1 className="text-3xl font-bold mb-6">Search Businesses</h1>
+      </BlurFade>
 
       {/* Location picker */}
       <div className="p-3 glass rounded-xl mb-4">
@@ -247,6 +250,10 @@ const Search = () => {
             variant={radius === preset.value ? 'default' : 'outline'}
             size="sm"
             onClick={() => setRadius(preset.value)}
+            className={radius === preset.value
+              ? 'gradient-primary border-0 text-white'
+              : 'bg-white/5 border-white/10 hover:bg-white/10'
+            }
           >
             {preset.label} ({preset.desc})
           </Button>
@@ -262,20 +269,28 @@ const Search = () => {
         </div>
       ) : businesses.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {businesses.map(b => (
-            <BusinessCard key={b.id} business={b} onClick={id => navigate(`/business/${id}`)} />
+          {businesses.map((b, i) => (
+            <BlurFade key={b.id} delay={0.03 * i}>
+              <BusinessCard business={b} onClick={id => navigate(`/business/${id}`)} />
+            </BlurFade>
           ))}
         </div>
       ) : hasSearched ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <p className="text-lg">No businesses found nearby.</p>
-          <p className="text-sm mt-1">Try a larger radius, different category, or change your location.</p>
-        </div>
+        <BlurFade>
+          <div className="text-center py-16 glass rounded-xl">
+            <SearchIcon className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+            <p className="text-lg text-muted-foreground">No businesses found nearby.</p>
+            <p className="text-sm mt-1 text-muted-foreground/70">Try a larger radius, different category, or change your location.</p>
+          </div>
+        </BlurFade>
       ) : !location ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <p className="text-lg">Set a location to discover businesses.</p>
-          <Button className="mt-4" onClick={requestLocation}>Enable Location</Button>
-        </div>
+        <BlurFade>
+          <div className="text-center py-16 glass rounded-xl">
+            <MapPin className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+            <p className="text-lg text-muted-foreground">Set a location to discover businesses.</p>
+            <Button className="mt-4 gradient-primary border-0" onClick={requestLocation}>Enable Location</Button>
+          </div>
+        </BlurFade>
       ) : null}
     </div>
   );
