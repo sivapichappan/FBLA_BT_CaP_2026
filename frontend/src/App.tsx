@@ -9,7 +9,6 @@ import Search from './pages/Search';
 import BusinessDetail from './pages/BusinessDetail';
 import Favorites from './pages/Favorites';
 import Deals from './pages/Deals';
-import AIAssistant from './pages/AIAssistant';
 import Profile from './pages/Profile';
 
 function App() {
@@ -26,7 +25,6 @@ function App() {
               <Route path="/business/:id" element={<BusinessDetail />} />
               <Route path="/favorites" element={<Favorites />} />
               <Route path="/deals" element={<Deals />} />
-              <Route path="/ai" element={<AIAssistant />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="*" element={
                 <div className="container mx-auto px-4 py-24 text-center">

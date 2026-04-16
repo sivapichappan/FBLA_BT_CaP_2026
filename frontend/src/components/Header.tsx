@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, User, LogOut, Heart, Tag, MessageCircle, BarChart3, Search, MapPin } from 'lucide-react';
+import { Menu, User, LogOut, Heart, Tag, BarChart3, Search, MapPin } from 'lucide-react';
 import { useState } from 'react';
 
 const Header = () => {
@@ -30,7 +30,6 @@ const Header = () => {
 
   const authLinks = [
     { to: '/favorites', label: 'Favorites', icon: Heart },
-    { to: '/ai', label: 'AI Assistant', icon: MessageCircle },
   ];
 
   return (
