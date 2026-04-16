@@ -1,18 +1,18 @@
 import { Response } from 'express';
 import crypto from 'crypto';
-import OpenAI from 'openai';
+import Groq from 'groq-sdk';
 import { query } from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-let openaiClient: OpenAI | null = null;
-const getOpenAI = (): OpenAI => {
-  if (!openaiClient) {
-    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let groqClient: Groq | null = null;
+const getGroq = (): Groq => {
+  if (!groqClient) {
+    groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
   }
-  return openaiClient;
+  return groqClient;
 };
 
 export const chatWithAssistant = async (req: AuthRequest, res: Response) => {
@@ -108,8 +108,8 @@ When answering:
       [sessionId!, message]
     );
 
-    const completion = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o-mini',
+    const completion = await getGroq().chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message },
