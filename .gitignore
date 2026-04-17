@@ -33,3 +33,8 @@ logs/
 # Testing
 coverage/
 .nyc_output/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo

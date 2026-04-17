@@ -12,5 +12,5 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["api/**/*", "backend/src/**/*"]
+  "include": ["frontend/src/**/*"]
 }

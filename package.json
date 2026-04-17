@@ -4,22 +4,15 @@
   "description": "Full-stack local business discovery platform with AI assistant",
   "private": true,
   "workspaces": [
-    "backend",
     "frontend"
   ],
   "scripts": {
-    "install:all": "npm install && npm run install:backend && npm run install:frontend",
-    "install:backend": "cd backend && npm install",
     "install:frontend": "cd frontend && npm install",
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "cd backend && npm run dev",
+    "dev:backend": "cd backend_py && uvicorn app.main:app --reload --port 5000",
     "dev:frontend": "cd frontend && npm run dev",
-    "build": "npm run build:backend && npm run build:frontend",
-    "build:backend": "cd backend && npm run build",
     "build:frontend": "cd frontend && npm run build"
   },
   "devDependencies": {
-    "@vercel/node": "^5.7.3",
     "concurrently": "^8.2.2"
   }
 }

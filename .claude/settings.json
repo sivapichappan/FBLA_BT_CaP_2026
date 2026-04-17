@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:ui.aceternity.com)",
+      "WebFetch(domain:cult-ui.com)",
+      "Bash(git commit -m ':*)",
+      "Bash(git reset:*)",
+      "Bash(pip3 install:*)",
+      "Bash(python3 -c ':*)"
+    ]
+  }
+}
