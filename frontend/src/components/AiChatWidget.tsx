@@ -7,13 +7,15 @@ import { aiApi, AiSuggestion } from '../services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Send, Bot, User, Star, MapPin, Sparkles, X } from 'lucide-react';
+import { Send, Bot, User, Star, MapPin, Sparkles, X, MessageCircle } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
   suggestions?: AiSuggestion[];
 }
+
+const STORAGE_KEY = 'ai_chat_dismissed';
 
 const AiChatWidget = () => {
   const navigate = useNavigate();
@@ -24,13 +26,47 @@ const AiChatWidget = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [showBadge, setShowBadge] = useState(false);
+  const [hasAutoOpened, setHasAutoOpened] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-open on first visit + show "Try me!" badge
+  useEffect(() => {
+    const dismissed = localStorage.getItem(STORAGE_KEY);
+    if (!dismissed) {
+      setShowBadge(true);
+      // Auto-open after 2 seconds on first visit
+      const timer = setTimeout(() => {
+        if (!hasAutoOpened) {
+          setOpen(true);
+          setHasAutoOpened(true);
+          setMessages([{
+            role: 'assistant',
+            content: "Hey! 👋 I'm your AI assistant — I can help you find great local businesses nearby. Try asking me something like \"best coffee near me\" or \"affordable dinner spots\"!",
+          }]);
+        }
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   useEffect(() => {
     if (open) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, loading, open]);
+
+  const handleOpen = () => {
+    setOpen(true);
+    setShowBadge(false);
+    localStorage.setItem(STORAGE_KEY, 'true');
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    localStorage.setItem(STORAGE_KEY, 'true');
+    setShowBadge(false);
+  };
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
@@ -78,7 +114,7 @@ const AiChatWidget = () => {
 
   return (
     <>
-      {/* Floating trigger button */}
+      {/* Floating trigger button — pill with text */}
       <AnimatePresence>
         {!open && (
           <motion.button
@@ -86,12 +122,29 @@ const AiChatWidget = () => {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            onClick={() => setOpen(true)}
-            className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full gradient-primary flex items-center justify-center shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:scale-105 transition-all group"
+            onClick={handleOpen}
+            className="fixed bottom-6 right-6 z-50 rounded-full gradient-primary flex items-center gap-2.5 px-5 py-3.5 shadow-lg shadow-primary/40 hover:shadow-primary/60 hover:scale-105 active:scale-95 transition-all group"
           >
-            <Sparkles className="h-6 w-6 text-white" />
-            {/* Pulse ring */}
-            <span className="absolute inset-0 rounded-full gradient-primary animate-ping opacity-20" />
+            {/* Animated glow rings */}
+            <span className="absolute inset-0 rounded-full gradient-primary animate-ping opacity-15" />
+            <span className="absolute -inset-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{
+              background: 'radial-gradient(circle, hsl(217 91% 60% / 0.3), transparent 70%)',
+            }} />
+
+            <Sparkles className="h-5 w-5 text-white relative z-10" />
+            <span className="text-white font-semibold text-sm relative z-10">Ask AI</span>
+
+            {/* "Try me!" notification badge */}
+            {showBadge && (
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', delay: 0.5 }}
+                className="absolute -top-2 -right-1 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg shadow-red-500/30 z-20"
+              >
+                Try me!
+              </motion.span>
+            )}
           </motion.button>
         )}
       </AnimatePresence>
@@ -104,23 +157,23 @@ const AiChatWidget = () => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed bottom-6 right-6 z-50 w-[400px] max-w-[calc(100vw-2rem)] h-[500px] max-h-[70vh] glass-strong rounded-2xl shadow-2xl shadow-black/40 flex flex-col overflow-hidden border border-white/10"
+            className="fixed bottom-6 right-6 z-50 w-[400px] max-w-[calc(100vw-2rem)] h-[500px] max-h-[70vh] rounded-2xl shadow-2xl shadow-black/40 flex flex-col overflow-hidden border border-white/15 bg-popover"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.03]">
               <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-lg gradient-primary flex items-center justify-center">
+                <div className="h-8 w-8 rounded-lg gradient-primary flex items-center justify-center shadow-md shadow-primary/20">
                   <Sparkles className="h-4 w-4 text-white" />
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold">AI Assistant</h3>
-                  <p className="text-[11px] text-muted-foreground">Ask about local businesses</p>
+                  <p className="text-[11px] text-muted-foreground">Find local businesses instantly</p>
                 </div>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setOpen(false)}
+                onClick={handleClose}
                 className="h-8 w-8 hover:bg-white/5 rounded-lg"
               >
                 <X className="h-4 w-4" />
@@ -138,7 +191,9 @@ const AiChatWidget = () => {
                     exit={{ opacity: 0 }}
                     className="text-center py-10 text-muted-foreground"
                   >
-                    <Bot className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                    <div className="h-12 w-12 rounded-2xl gradient-primary mx-auto mb-3 flex items-center justify-center opacity-40">
+                      <MessageCircle className="h-6 w-6 text-white" />
+                    </div>
                     <p className="text-sm font-medium text-foreground mb-1">How can I help?</p>
                     <p className="text-xs mb-4">Ask about restaurants, shops, or services nearby.</p>
                     <div className="flex flex-wrap justify-center gap-1.5">
@@ -149,7 +204,7 @@ const AiChatWidget = () => {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: 0.2 + i * 0.08 }}
                           onClick={() => setInput(q)}
-                          className="text-xs glass-subtle rounded-full px-3 py-1.5 hover:bg-white/5 transition-colors border border-white/10"
+                          className="text-xs glass-subtle rounded-full px-3 py-1.5 hover:bg-white/8 transition-colors border border-white/15"
                         >
                           {q}
                         </motion.button>
@@ -167,14 +222,14 @@ const AiChatWidget = () => {
                     className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     {msg.role === 'assistant' && (
-                      <div className="h-6 w-6 rounded-full gradient-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <div className="h-6 w-6 rounded-full gradient-primary flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm shadow-primary/20">
                         <Bot className="h-3 w-3 text-white" />
                       </div>
                     )}
                     <div className={`max-w-[85%] rounded-xl px-3 py-2 text-[13px] ${
                       msg.role === 'user'
-                        ? 'gradient-primary text-white'
-                        : 'glass-subtle'
+                        ? 'gradient-primary text-white shadow-md shadow-primary/10'
+                        : 'bg-white/[0.06] border border-white/10'
                     }`}>
                       <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                       {msg.suggestions && msg.suggestions.length > 0 && (
@@ -186,7 +241,7 @@ const AiChatWidget = () => {
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: 0.08 + si * 0.04 }}
                               onClick={() => navigate(`/business/${s.id}`)}
-                              className="w-full text-left glass-subtle hover:bg-white/[0.06] rounded-lg px-2.5 py-1.5 transition-all"
+                              className="w-full text-left bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 rounded-lg px-2.5 py-1.5 transition-all hover:translate-x-0.5"
                             >
                               <div className="flex items-center justify-between gap-1">
                                 <span className="font-medium text-[11px] truncate">{s.name}</span>
@@ -222,7 +277,7 @@ const AiChatWidget = () => {
                       )}
                     </div>
                     {msg.role === 'user' && (
-                      <div className="h-6 w-6 rounded-full glass-subtle flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <div className="h-6 w-6 rounded-full bg-white/10 border border-white/15 flex items-center justify-center flex-shrink-0 mt-0.5">
                         <User className="h-3 w-3" />
                       </div>
                     )}
@@ -236,13 +291,13 @@ const AiChatWidget = () => {
                     animate={{ opacity: 1 }}
                     className="flex gap-2"
                   >
-                    <div className="h-6 w-6 rounded-full gradient-primary flex items-center justify-center flex-shrink-0">
+                    <div className="h-6 w-6 rounded-full gradient-primary flex items-center justify-center flex-shrink-0 shadow-sm shadow-primary/20">
                       <Bot className="h-3 w-3 text-white" />
                     </div>
-                    <div className="glass-subtle rounded-xl px-3 py-2 flex items-center gap-1">
-                      <motion.span className="w-1 h-1 rounded-full bg-primary" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0 }} />
-                      <motion.span className="w-1 h-1 rounded-full bg-primary" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0.2 }} />
-                      <motion.span className="w-1 h-1 rounded-full bg-accent" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0.4 }} />
+                    <div className="bg-white/[0.06] border border-white/10 rounded-xl px-3 py-2 flex items-center gap-1">
+                      <motion.span className="w-1.5 h-1.5 rounded-full bg-primary" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0 }} />
+                      <motion.span className="w-1.5 h-1.5 rounded-full bg-primary" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0.2 }} />
+                      <motion.span className="w-1.5 h-1.5 rounded-full bg-accent" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: 0.4 }} />
                     </div>
                   </motion.div>
                 )}
@@ -251,16 +306,16 @@ const AiChatWidget = () => {
             </div>
 
             {/* Input */}
-            <div className="border-t border-white/5 p-3">
+            <div className="border-t border-white/10 p-3 bg-white/[0.02]">
               <form onSubmit={e => { e.preventDefault(); sendMessage(); }} className="flex gap-2">
                 <Input
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   placeholder="Ask about local businesses..."
                   disabled={loading}
-                  className="flex-1 h-9 text-sm bg-white/5 border-white/10 focus:border-primary/40"
+                  className="flex-1 h-9 text-sm"
                 />
-                <Button type="submit" disabled={loading || !input.trim()} size="icon" className="h-9 w-9 gradient-primary border-0 hover:opacity-90">
+                <Button type="submit" disabled={loading || !input.trim()} size="icon" className="h-9 w-9 gradient-primary border-0 hover:opacity-90 shadow-md shadow-primary/20 disabled:shadow-none">
                   <Send className="h-3.5 w-3.5 text-white" />
                 </Button>
               </form>
