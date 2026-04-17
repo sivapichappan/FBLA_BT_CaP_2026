@@ -1,4 +1,5 @@
 import os
+import re
 import psycopg2
 import psycopg2.pool
 import psycopg2.extras
@@ -33,12 +34,17 @@ def get_pool():
     return _pool
 
 
+def _convert_placeholders(sql: str) -> str:
+    """Convert $1, $2, ... PostgreSQL placeholders to %s for psycopg2."""
+    return re.sub(r'\$\d+', '%s', sql)
+
+
 def query(text: str, params: list | tuple | None = None) -> dict:
     pool = get_pool()
     conn = pool.getconn()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(text, params)
+            cur.execute(_convert_placeholders(text), params)
             if cur.description:
                 rows = cur.fetchall()
                 return {"rows": [dict(r) for r in rows]}
