@@ -74,7 +74,7 @@ const Header = () => {
                   <span className="text-sm">{user?.firstName || user?.email?.split('@')[0]}</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="glass-strong w-48">
+              <DropdownMenuContent align="end" className="w-48 bg-popover border border-white/10">
                 <DropdownMenuItem onClick={() => navigate('/profile')}>
                   <User className="mr-2 h-4 w-4" /> Profile
                 </DropdownMenuItem>
