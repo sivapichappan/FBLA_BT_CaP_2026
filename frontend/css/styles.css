@@ -109,9 +109,14 @@ img { max-width: 100%; display: block; }
 .hidden { display: none; }
 .pointer-events-none { pointer-events: none; }
 
+@media (max-width: 480px) {
+  .container, .container-sm, .container-md { padding-left: 0.75rem; padding-right: 0.75rem; }
+  .xs-hidden { display: none; }
+}
 @media (max-width: 767px) {
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
   .md-hidden { display: none; }
+  .footer-grid { grid-template-columns: 1fr !important; }
 }
 @media (min-width: 768px) {
   .sm-hidden { display: none; }
@@ -632,6 +637,20 @@ img { max-width: 100%; display: block; }
 }
 .suggestion-card:hover { background: hsla(0, 0%, 100%, 0.1); transform: translateX(2px); }
 
+@media (max-width: 480px) {
+  .ai-fab { bottom: 1rem; right: 1rem; padding: 0.75rem 1rem; font-size: 0.8125rem; }
+  .ai-panel {
+    bottom: 0;
+    right: 0;
+    left: 0;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+  }
+}
+
 /* ─── Animations ────────────────────────────────────────────────────── */
 
 @keyframes fade-in-up {
@@ -697,8 +716,8 @@ img { max-width: 100%; display: block; }
   animation: glow-pulse 3s ease-in-out infinite;
   pointer-events: none;
 }
-.hero .orb-1 { width: 500px; height: 500px; top: -160px; right: -160px; background: hsla(217, 91%, 60%, 0.08); }
-.hero .orb-2 { width: 500px; height: 500px; bottom: -160px; left: -160px; background: hsla(262, 83%, 58%, 0.08); animation-delay: 1.5s; }
+.hero .orb-1 { width: min(500px, 80vw); height: min(500px, 80vw); top: -160px; right: -160px; background: hsla(217, 91%, 60%, 0.08); }
+.hero .orb-2 { width: min(500px, 80vw); height: min(500px, 80vw); bottom: -160px; left: -160px; background: hsla(262, 83%, 58%, 0.08); animation-delay: 1.5s; }
 
 .hero-pill {
   display: inline-flex;

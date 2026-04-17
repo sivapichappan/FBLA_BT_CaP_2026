@@ -56,7 +56,7 @@ async function businessDetailPage(container, id) {
     const detailsCard = `<div class="card glass" style="border-color:hsla(0,0%,100%,0.1)"><div class="card-header"><div class="card-title">Details</div></div><div class="card-body text-sm" style="display:flex;flex-direction:column;gap:0.75rem">
       ${biz.address_line_1 ? `<div class="flex items-start gap-2"><span class="icon icon-md text-muted">${icons.mapPin}</span><span>${biz.address_line_1}${biz.city ? ', ' + biz.city : ''}${biz.state ? ', ' + biz.state : ''}${biz.zip_code ? ' ' + biz.zip_code : ''}</span></div>` : ''}
       ${biz.phone ? `<div class="flex items-center gap-2"><span class="icon icon-md text-muted">${icons.phone}</span><a href="tel:${biz.phone}">${biz.phone}</a></div>` : ''}
-      ${biz.website ? `<div class="flex items-center gap-2"><span class="icon icon-md text-muted">${icons.globe}</span><a href="${biz.website}" target="_blank" class="text-primary truncate" style="max-width:16rem">${biz.website.replace(/^https?:\/\/(www\.)?/, '')}</a></div>` : ''}
+      ${biz.website ? `<div class="flex items-center gap-2"><span class="icon icon-md text-muted">${icons.globe}</span><a href="${biz.website}" target="_blank" class="text-primary truncate" style="max-width:min(16rem,60vw)">${biz.website.replace(/^https?:\/\/(www\.)?/, '')}</a></div>` : ''}
     </div></div>`;
 
     // Hours card

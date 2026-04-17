@@ -30,7 +30,7 @@ function homePage(container) {
 
     <!-- ═══ Section 2: How It Works — 3-Step Flow ═══ -->
     <section style="padding:5rem 1rem;position:relative">
-      <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:600px;height:1px;background:linear-gradient(to right,transparent,hsla(217,91%,60%,0.2),transparent)"></div>
+      <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:min(600px,80vw);height:1px;background:linear-gradient(to right,transparent,hsla(217,91%,60%,0.2),transparent)"></div>
       <div class="container">
         <div class="text-center animate-fade-in" style="margin-bottom:3rem">
           <span class="badge badge-secondary" style="margin-bottom:0.75rem">How it works</span>
@@ -98,7 +98,7 @@ function homePage(container) {
 
     <!-- ═══ Section 4: AI Spotlight — Interactive Teaser ═══ -->
     <section style="padding:4rem 1rem;position:relative">
-      <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:600px;height:1px;background:linear-gradient(to right,transparent,hsla(262,83%,58%,0.2),transparent)"></div>
+      <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:min(600px,80vw);height:1px;background:linear-gradient(to right,transparent,hsla(262,83%,58%,0.2),transparent)"></div>
       <div class="container" style="max-width:56rem">
         <div class="grid md-grid-2 gap-8 items-center">
           <!-- Left: explanation -->
@@ -113,7 +113,7 @@ function homePage(container) {
             </button>
           </div>
           <!-- Right: mock conversation -->
-          <div class="glass animate-fade-in animate-delay-2" style="border-radius:1rem;padding:1.25rem;max-width:24rem;margin-left:auto">
+          <div class="glass animate-fade-in animate-delay-2" style="border-radius:1rem;padding:1.25rem;max-width:min(24rem,calc(100vw - 3rem));margin-left:auto">
             <div class="flex items-center gap-2" style="margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid hsla(0,0%,100%,0.05)">
               <div class="gradient-primary" style="width:1.75rem;height:1.75rem;border-radius:0.375rem;display:flex;align-items:center;justify-content:center;color:white">${icons.sparkles}</div>
               <span class="text-sm font-semibold">AI Assistant</span>
@@ -152,7 +152,7 @@ function homePage(container) {
           <h2 class="text-2xl font-bold" style="margin-bottom:0.5rem">What are you looking for?</h2>
           <p class="text-sm text-muted">Jump straight to a category</p>
         </div>
-        <div class="grid grid-3 gap-3 md-grid-3 lg-grid-3" style="max-width:48rem;margin:0 auto">
+        <div class="grid grid-2 gap-3 md-grid-3" style="max-width:48rem;margin:0 auto">
           ${[
             { emoji: '🍽️', label: 'Food & Drink', type: 'restaurant' },
             { emoji: '☕', label: 'Coffee', type: 'cafe' },

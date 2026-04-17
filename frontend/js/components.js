@@ -210,7 +210,7 @@ function renderFooter() {
   document.getElementById('app-footer').innerHTML = `
     <div class="site-footer">
       <div class="container">
-        <div class="grid grid-3 footer-grid" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="grid grid-3 footer-grid">
           <div>
             <div class="header-logo" style="margin-bottom:0.75rem">
               <span class="logo-icon gradient-primary" style="width:1.75rem;height:1.75rem;border-radius:0.375rem"><span style="color:white;font-size:0.7rem">${icons.mapPin}</span></span>

@@ -30,8 +30,8 @@ function searchPage(container) {
           <span class="icon icon-sm text-primary">${icons.mapPin}</span>
           <span class="font-medium" id="search-loc-label">${loc ? 'Current location' : 'No location set'}</span>
         </div>
-        <div class="flex gap-2" style="position:relative" id="search-loc-wrapper">
-          <div style="position:relative;flex:1">
+        <div class="flex gap-2 flex-wrap" style="position:relative" id="search-loc-wrapper">
+          <div style="position:relative;flex:1;min-width:0">
             <input class="input" placeholder="Enter city, zip code, or address..." id="search-loc-input" style="height:2.25rem" />
             <div id="search-predictions" class="autocomplete-dropdown glass-strong" style="display:none"></div>
           </div>
@@ -40,8 +40,8 @@ function searchPage(container) {
       </div>
 
       <!-- Search bar -->
-      <form id="search-form" class="flex gap-2" style="margin-bottom:1rem">
-        <input class="input" placeholder="Search for anything nearby..." id="search-query" style="flex:1" />
+      <form id="search-form" class="flex gap-2 flex-wrap" style="margin-bottom:1rem">
+        <input class="input" placeholder="Search for anything nearby..." id="search-query" style="flex:1;min-width:0" />
         <button type="submit" class="btn btn-gradient">${icons.search} Search</button>
       </form>
 
@@ -63,12 +63,12 @@ function searchPage(container) {
       <div id="search-results" class="grid grid-3 gap-4 md-grid-2 lg-grid-3">
         ${loc ? renderSkeleton(6) : ''}
       </div>
-      <div id="search-empty" style="display:none" class="text-center glass" style="padding:4rem 1rem;border-radius:0.75rem">
+      <div id="search-empty" class="text-center glass" style="display:none;padding:4rem 1rem;border-radius:0.75rem">
         <span class="icon icon-xl text-muted" style="margin-bottom:0.75rem;display:block">${icons.search}</span>
         <p class="text-lg text-muted">No businesses found nearby.</p>
         <p class="text-sm text-muted" style="margin-top:0.25rem">Try a larger radius, different category, or change your location.</p>
       </div>
-      <div id="search-no-loc" style="display:${loc ? 'none' : 'block'}" class="text-center glass" style="padding:4rem 1rem;border-radius:0.75rem">
+      <div id="search-no-loc" class="text-center glass" style="display:${loc ? 'none' : 'block'};padding:4rem 1rem;border-radius:0.75rem">
         <span class="icon icon-xl text-muted" style="margin-bottom:0.75rem;display:block">${icons.mapPin}</span>
         <p class="text-lg text-muted">Set a location to discover businesses.</p>
         <button class="btn btn-gradient" style="margin-top:1rem" onclick="searchUseMyLocation()">Enable Location</button>
