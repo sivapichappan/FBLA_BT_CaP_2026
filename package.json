@@ -3,16 +3,8 @@
   "version": "1.0.0",
   "description": "Full-stack local business discovery platform with AI assistant",
   "private": true,
-  "workspaces": [
-    "frontend"
-  ],
   "scripts": {
-    "install:frontend": "cd frontend && npm install",
     "dev:backend": "cd backend_py && uvicorn app.main:app --reload --port 5000",
-    "dev:frontend": "cd frontend && npm run dev",
-    "build:frontend": "cd frontend && npm run build"
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.2"
+    "dev:frontend": "python3 -m http.server 3000 -d frontend"
   }
 }

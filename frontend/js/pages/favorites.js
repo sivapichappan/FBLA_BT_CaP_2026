@@ -1,0 +1,68 @@
+async function favoritesPage(container) {
+  if (!authIsAuthenticated()) {
+    container.innerHTML = `<div class="container text-center" style="padding:6rem 1rem"><div class="glass" style="border-radius:0.75rem;padding:3rem;max-width:28rem;margin:0 auto"><p class="text-muted">Please log in to view your favorites.</p><a href="#/login" class="btn btn-gradient" style="margin-top:1rem">Sign In</a></div></div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="container" style="padding:2rem 1rem">
+    <div class="flex items-center gap-3 animate-fade-in" style="margin-bottom:1.5rem">
+      <div style="width:2.25rem;height:2.25rem;border-radius:0.75rem;background:hsla(0,84%,60%,0.1);display:flex;align-items:center;justify-content:center;color:hsl(0,70%,60%)">${icons.heart}</div>
+      <h1 class="text-3xl font-bold">My Favorites</h1>
+      <span class="badge badge-secondary" id="fav-count"></span>
+    </div>
+    <div id="fav-grid" class="grid grid-3 gap-4 md-grid-2 lg-grid-3">${renderSkeleton(6)}</div>
+    <div id="fav-empty" style="display:none" class="text-center glass" style="padding:5rem 1rem;border-radius:0.75rem">
+      <span style="font-size:3.5rem;display:block;margin-bottom:1rem;opacity:0.2">${icons.heart}</span>
+      <h2 class="text-xl font-semibold" style="margin-bottom:0.5rem">No favorites yet</h2>
+      <p class="text-sm text-muted" style="margin-bottom:1.5rem">Browse businesses and click the heart to save your favorites.</p>
+      <a href="#/search" class="btn btn-gradient">Explore Businesses</a>
+    </div>
+  </div>`;
+
+  try {
+    const data = await favoriteApi.getAll();
+    const favs = data.favorites || [];
+    document.getElementById('fav-count').textContent = favs.length;
+
+    if (favs.length === 0) {
+      document.getElementById('fav-grid').innerHTML = '';
+      document.getElementById('fav-empty').style.display = 'block';
+      return;
+    }
+
+    document.getElementById('fav-grid').innerHTML = favs.map(f => `
+      <div class="biz-card glass" onclick="navigate('business/${f.id}')" id="fav-${f.id}">
+        ${f.photo_url ? `<div class="biz-photo"><img src="${f.photo_url}" alt="${f.name}" loading="lazy" /><div class="overlay"></div></div>` : ''}
+        <div class="biz-body">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="biz-name line-clamp-1">${f.name}</div>
+              ${f.primary_type_display_name ? `<span class="badge badge-secondary" style="margin-bottom:0.5rem">${f.primary_type_display_name}</span>` : ''}
+              <div class="flex items-center gap-2 text-sm" style="margin-bottom:0.25rem">
+                ${renderStars(f.average_rating || 0)} <span>${Number(f.average_rating || 0).toFixed(1)}</span>
+              </div>
+              ${f.address_line_1 ? `<p class="text-xs text-muted flex items-center gap-1 line-clamp-1"><span class="icon icon-sm">${icons.mapPin}</span>${f.address_line_1}</p>` : ''}
+            </div>
+            <button class="btn btn-ghost btn-icon-sm text-muted" style="color:var(--muted-foreground)" onclick="event.stopPropagation();removeFav('${f.id}')" title="Remove">
+              ${icons.trash}
+            </button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    console.error('Failed to load favorites:', e);
+  }
+}
+
+async function removeFav(id) {
+  try {
+    await favoriteApi.remove(id);
+    const el = document.getElementById(`fav-${id}`);
+    if (el) el.remove();
+    const count = document.getElementById('fav-count');
+    if (count) count.textContent = Math.max(0, parseInt(count.textContent || '0') - 1);
+  } catch (e) {
+    console.error('Remove favorite failed:', e);
+  }
+}
