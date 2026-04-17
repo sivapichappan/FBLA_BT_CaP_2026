@@ -5,16 +5,16 @@ function homePage(container) {
     <section class="hero text-center">
       <div class="orb orb-1"></div>
       <div class="orb orb-2"></div>
-      <div style="position:relative;z-index:1" class="container-sm">
+      <div style="position:relative;z-index:1;max-width:52rem;margin:0 auto;padding:0 1rem">
         <div class="hero-pill glass-subtle animate-fade-in">
           <span class="dot"></span>
           Support local. Discover more.
         </div>
-        <h1 class="font-extrabold tracking-tight animate-fade-in animate-delay-1" style="font-size:clamp(2.5rem,6vw,4.5rem);margin-bottom:1.25rem;line-height:1.08">
-          Your neighborhood has<br/>
-          <span class="gradient-text animate-gradient" style="display:inline-block;background-image:linear-gradient(90deg,var(--primary),var(--accent),var(--primary));background-size:200% auto">hidden gems</span>
+        <h1 class="font-extrabold tracking-tight animate-fade-in animate-delay-1" style="font-size:clamp(2.5rem,7vw,5rem);margin-bottom:1.5rem;line-height:1.08">
+          Your neighborhood has
+          <span class="gradient-text animate-gradient" style="display:inline;background-image:linear-gradient(90deg,var(--primary),var(--accent),var(--primary));background-size:200% auto">hidden gems</span>
         </h1>
-        <p class="text-lg text-muted animate-fade-in animate-delay-2" style="margin-bottom:2.5rem;max-width:32rem;margin-left:auto;margin-right:auto;line-height:1.7">
+        <p class="text-lg text-muted animate-fade-in animate-delay-2" style="margin-bottom:2.5rem;max-width:38rem;margin-left:auto;margin-right:auto;line-height:1.7">
           Independent coffee shops, family-owned restaurants, one-of-a-kind boutiques — they're all around you. We help you find them.
         </p>
         <div class="flex justify-center gap-3 flex-wrap animate-fade-in animate-delay-3">
