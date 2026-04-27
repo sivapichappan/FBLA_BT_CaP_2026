@@ -43,6 +43,34 @@ class LocationBody(BaseModel):
     state: str | None = None
 
 
+class PasswordChangeBody(BaseModel):
+    currentPassword: str
+    newPassword: str
+
+
+class EmailChangeBody(BaseModel):
+    newEmail: EmailStr
+    currentPassword: str
+
+
+class ProfileUpdateBody(BaseModel):
+    firstName: str | None = None
+    lastName: str | None = None
+    defaultCity: str | None = None
+    defaultState: str | None = None
+
+
+class AccountDeleteBody(BaseModel):
+    currentPassword: str
+
+
+def _verify_user_password(user_id: str, password: str) -> bool:
+    result = query("SELECT password_hash FROM users WHERE id = $1", [user_id])
+    if not result["rows"]:
+        return False
+    return bcrypt.checkpw(password.encode(), result["rows"][0]["password_hash"].encode())
+
+
 # --- Routes ---
 
 @router.post("/register")
@@ -197,4 +225,85 @@ async def update_location(body: LocationBody, user: dict = Depends(get_current_u
         return {"message": "Location updated successfully"}
     except Exception as e:
         print(f"Update location error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.put("/password")
+async def change_password(body: PasswordChangeBody, user: dict = Depends(get_current_user)):
+    try:
+        if len(body.newPassword) < 8:
+            raise HTTPException(status_code=400, detail="New password must be at least 8 characters")
+
+        if not _verify_user_password(user["userId"], body.currentPassword):
+            raise HTTPException(status_code=401, detail="Current password is incorrect")
+
+        new_hash = bcrypt.hashpw(body.newPassword.encode(), bcrypt.gensalt(10)).decode()
+        query("UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2",
+              [new_hash, user["userId"]])
+        return {"message": "Password updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Change password error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.put("/email")
+async def change_email(body: EmailChangeBody, user: dict = Depends(get_current_user)):
+    try:
+        if not _verify_user_password(user["userId"], body.currentPassword):
+            raise HTTPException(status_code=401, detail="Current password is incorrect")
+
+        existing = query("SELECT id FROM users WHERE email = $1 AND id != $2",
+                         [body.newEmail, user["userId"]])
+        if existing["rows"]:
+            raise HTTPException(status_code=409, detail="Email is already in use")
+
+        query("UPDATE users SET email = $1, updated_at = NOW() WHERE id = $2",
+              [body.newEmail, user["userId"]])
+        return {"message": "Email updated successfully", "email": body.newEmail}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Change email error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.put("/profile")
+async def update_profile(body: ProfileUpdateBody, user: dict = Depends(get_current_user)):
+    try:
+        result = query(
+            """UPDATE users
+               SET first_name = COALESCE($1, first_name),
+                   last_name = COALESCE($2, last_name),
+                   default_city = COALESCE($3, default_city),
+                   default_state = COALESCE($4, default_state),
+                   updated_at = NOW()
+               WHERE id = $5
+               RETURNING id, email, username, first_name, last_name,
+                         default_city, default_state""",
+            [body.firstName, body.lastName, body.defaultCity, body.defaultState, user["userId"]],
+        )
+        if not result["rows"]:
+            raise HTTPException(status_code=404, detail="User not found")
+        return {"message": "Profile updated successfully", "user": result["rows"][0]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Update profile error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.delete("/account")
+async def delete_account(body: AccountDeleteBody, user: dict = Depends(get_current_user)):
+    try:
+        if not _verify_user_password(user["userId"], body.currentPassword):
+            raise HTTPException(status_code=401, detail="Current password is incorrect")
+
+        query("DELETE FROM users WHERE id = $1", [user["userId"]])
+        return {"message": "Account deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Delete account error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

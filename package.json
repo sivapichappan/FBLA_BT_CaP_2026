@@ -1,7 +1,7 @@
 {
-  "name": "local-business-discovery",
+  "name": "locallens",
   "version": "1.0.0",
-  "description": "Full-stack local business discovery platform with AI assistant",
+  "description": "LocalLens — discover local independent businesses near you",
   "private": true,
   "scripts": {
     "dev:backend": "cd backend_py && uvicorn app.main:app --reload --port 5000",

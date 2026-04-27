@@ -27,6 +27,7 @@ const icons = {
   calendar: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>',
   bot: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>',
   messageCircle: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>',
+  settings: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>',
 };
 
 /* ─── Reusable Render Functions ──────────────────────────────────────── */
@@ -93,6 +94,23 @@ function renderSkeleton(count, height = '16rem') {
   ).join('');
 }
 
+function setButtonLoading(button, loading, loadingLabel = 'Saving...') {
+  if (!button) return;
+  if (loading) {
+    if (!button.dataset.originalLabel) {
+      button.dataset.originalLabel = button.innerHTML;
+    }
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner"></span> ${loadingLabel}`;
+  } else {
+    button.disabled = false;
+    if (button.dataset.originalLabel) {
+      button.innerHTML = button.dataset.originalLabel;
+      delete button.dataset.originalLabel;
+    }
+  }
+}
+
 /* ─── Header ─────────────────────────────────────────────────────────── */
 
 function renderHeader() {
@@ -118,6 +136,7 @@ function renderHeader() {
       <div class="dropdown-content" id="user-dropdown">
         <button class="dropdown-item" onclick="navigate('profile');closeDropdowns()">${icons.user} Profile</button>
         <button class="dropdown-item" onclick="navigate('favorites');closeDropdowns()">${icons.heart} Favorites</button>
+        <button class="dropdown-item" onclick="navigate('settings');closeDropdowns()">${icons.settings} Settings</button>
         <div class="dropdown-separator"></div>
         <button class="dropdown-item" style="color:var(--destructive)" onclick="authLogout();closeDropdowns()">${icons.logOut} Logout</button>
       </div>
@@ -151,6 +170,7 @@ function renderHeader() {
         ${navLinks.replace(/btn-sm/g, 'btn-sm" style="justify-content:flex-start')}
         ${isAuth ? `
           <a href="#/profile" class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="closeMobileMenu()">${icons.user} Profile</a>
+          <a href="#/settings" class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="closeMobileMenu()">${icons.settings} Settings</a>
           <div class="separator"></div>
           <button class="btn btn-ghost btn-sm" style="justify-content:flex-start;color:var(--destructive)" onclick="authLogout();closeMobileMenu()">${icons.logOut} Logout</button>
         ` : `

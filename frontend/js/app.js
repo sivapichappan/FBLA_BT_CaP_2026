@@ -44,6 +44,9 @@ async function router() {
     case 'profile':
       await profilePage(main);
       break;
+    case 'settings':
+      await settingsPage(main);
+      break;
     default:
       main.innerHTML = `<div class="container text-center" style="padding:6rem 1rem">
         <h1 class="text-6xl font-bold gradient-text" style="margin-bottom:1rem">404</h1>

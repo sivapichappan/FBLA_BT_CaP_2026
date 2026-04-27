@@ -59,11 +59,10 @@ async function apiPut(path, body) {
   return res.json();
 }
 
-async function apiDelete(path) {
-  const res = await fetch(API_BASE + path, {
-    method: 'DELETE',
-    headers: getAuthHeaders(),
-  });
+async function apiDelete(path, body) {
+  const opts = { method: 'DELETE', headers: getAuthHeaders() };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const res = await fetch(API_BASE + path, opts);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     const e = new Error(err.detail || err.error || `HTTP ${res.status}`);

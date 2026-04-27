@@ -44,6 +44,7 @@ async function dealsPage(container) {
     `).join('');
   } catch (e) {
     console.error('Failed to load deals:', e);
+    document.getElementById('deals-grid').innerHTML = '<p class="text-muted text-center" style="padding:2rem;grid-column:1/-1">Failed to load deals.</p>';
   }
 }
 

@@ -35,8 +35,7 @@ function loginPage(container) {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
 
-    btn.disabled = true;
-    btn.textContent = 'Signing in...';
+    setButtonLoading(btn, true, 'Signing in...');
     errEl.style.display = 'none';
 
     try {
@@ -49,8 +48,7 @@ function loginPage(container) {
       errEl.style.borderRadius = 'var(--radius)';
       errEl.style.background = 'hsla(0,84%,60%,0.1)';
       errEl.style.color = 'var(--destructive)';
-      btn.disabled = false;
-      btn.textContent = 'Sign In';
+      setButtonLoading(btn, false);
     }
   });
 }

@@ -313,6 +313,19 @@ img { max-width: 100%; display: block; }
 }
 @keyframes skeleton-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
+.spinner {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: -0.15em;
+  margin-right: 0.35em;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ─── Separator ─────────────────────────────────────────────────────── */
 
 .separator { height: 1px; background: hsla(0, 0%, 100%, 0.05); width: 100%; margin: 1rem 0; }

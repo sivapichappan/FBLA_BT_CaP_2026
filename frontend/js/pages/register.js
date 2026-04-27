@@ -66,8 +66,7 @@ function registerPage(container) {
       return;
     }
 
-    btn.disabled = true;
-    btn.textContent = 'Creating account...';
+    setButtonLoading(btn, true, 'Creating account...');
 
     const parts = fullName.split(/\s+/);
     const firstName = parts[0] || '';
@@ -83,8 +82,7 @@ function registerPage(container) {
       errEl.style.borderRadius = 'var(--radius)';
       errEl.style.background = 'hsla(0,84%,60%,0.1)';
       errEl.style.color = 'var(--destructive)';
-      btn.disabled = false;
-      btn.textContent = 'Sign Up';
+      setButtonLoading(btn, false);
     }
   });
 }
