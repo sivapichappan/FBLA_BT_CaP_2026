@@ -144,10 +144,15 @@ async def chat_with_assistant(request: Request, user: dict = Depends(get_current
         session_id = None
 
         if session_token:
-            existing = query("SELECT id FROM chat_sessions WHERE session_token = $1", [session_token])
-            if existing["rows"]:
-                session_id = existing["rows"][0]["id"]
-                query("UPDATE chat_sessions SET last_activity = NOW() WHERE id = $1", [session_id])
+            # Atomic lookup-and-touch — RETURNING confirms the row still exists.
+            # If the session was deleted (e.g. cascade from a removed user, or DB reset),
+            # rows is empty and we fall through to creating a new one.
+            touched = query(
+                "UPDATE chat_sessions SET last_activity = NOW() WHERE session_token = $1 RETURNING id",
+                [session_token],
+            )
+            if touched["rows"]:
+                session_id = touched["rows"][0]["id"]
             else:
                 session_token = None
 

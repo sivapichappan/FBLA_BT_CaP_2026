@@ -34,9 +34,23 @@ def get_pool():
     return _pool
 
 
-def _convert_placeholders(sql: str) -> str:
-    """Convert $1, $2, ... PostgreSQL placeholders to %s for psycopg2."""
-    return re.sub(r'\$\d+', '%s', sql)
+def _convert_placeholders(sql: str, params):
+    """Convert $1, $2, ... PostgreSQL placeholders to %s for psycopg2.
+
+    Handles repeated references: $1 used multiple times in the SQL gets the
+    same value duplicated in the output params list, so the count of %s
+    placeholders matches the count of values passed to psycopg2.
+    """
+    if not params:
+        return re.sub(r'\$\d+', '%s', sql), params
+
+    new_params = []
+    def replace(match):
+        idx = int(match.group(1)) - 1
+        new_params.append(params[idx])
+        return '%s'
+    new_sql = re.sub(r'\$(\d+)', replace, sql)
+    return new_sql, new_params
 
 
 def query(text: str, params: list | tuple | None = None) -> dict:
@@ -44,7 +58,8 @@ def query(text: str, params: list | tuple | None = None) -> dict:
     conn = pool.getconn()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(_convert_placeholders(text), params)
+            converted_sql, converted_params = _convert_placeholders(text, params)
+            cur.execute(converted_sql, converted_params)
             if cur.description:
                 rows = cur.fetchall()
                 return {"rows": [dict(r) for r in rows]}
