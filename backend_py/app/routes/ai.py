@@ -229,5 +229,7 @@ async def chat_with_assistant(request: Request, user: dict = Depends(get_current
             ],
         }
     except Exception as e:
-        print(f"AI chat error: {e}")
+        import traceback
+        print(f"AI chat error: {type(e).__name__}: {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="Internal server error")

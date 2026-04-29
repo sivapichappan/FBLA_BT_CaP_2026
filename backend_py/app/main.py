@@ -46,5 +46,7 @@ async def health():
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    print(f"Unhandled error: {exc}")
+    import traceback
+    print(f"Unhandled error on {request.method} {request.url.path}: {type(exc).__name__}: {exc}")
+    traceback.print_exc()
     return JSONResponse(status_code=500, content={"error": "Internal server error"})
