@@ -62,6 +62,7 @@ def query(text: str, params: list | tuple | None = None) -> dict:
             cur.execute(converted_sql, converted_params)
             if cur.description:
                 rows = cur.fetchall()
+                conn.commit()
                 return {"rows": [dict(r) for r in rows]}
             conn.commit()
             return {"rows": []}
