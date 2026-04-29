@@ -46,10 +46,10 @@ async function businessDetailPage(container, id) {
       <button class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText(location.href);alert('Link copied!')">${icons.share} Share</button>
     </div>`;
 
-    // Favorite button
+    // Favorite button — minimal icon-only, red when favorited
     const favBtnHtml = authIsAuthenticated() ? `
-      <button class="btn ${isFav ? 'btn-primary' : 'btn-outline'} btn-sm" id="detail-fav-btn" onclick="detailToggleFav('${id}')">
-        ${icons.heart} ${isFav ? 'Saved' : 'Save'}
+      <button class="fav-btn ${isFav ? 'is-fav' : ''}" id="detail-fav-btn" onclick="detailToggleFav('${id}')" aria-label="${isFav ? 'Remove from favorites' : 'Add to favorites'}" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
+        ${isFav ? icons.heartFilled : icons.heart}
       </button>` : '';
 
     // Details card
@@ -123,8 +123,10 @@ async function detailToggleFav(id) {
     const check = await favoriteApi.check(id);
     if (check.isFavorite) {
       await favoriteApi.remove(id);
-      btn.className = 'btn btn-outline btn-sm';
-      btn.innerHTML = `${icons.heart} Save`;
+      btn.classList.remove('is-fav');
+      btn.innerHTML = icons.heart;
+      btn.setAttribute('aria-label', 'Add to favorites');
+      btn.setAttribute('title', 'Add to favorites');
     } else {
       const isGP = String(id).startsWith('gp_');
       if (isGP) {
@@ -133,8 +135,10 @@ async function detailToggleFav(id) {
       } else {
         await favoriteApi.add({ businessId: parseInt(id) });
       }
-      btn.className = 'btn btn-primary btn-sm';
-      btn.innerHTML = `${icons.heart} Saved`;
+      btn.classList.add('is-fav');
+      btn.innerHTML = icons.heartFilled;
+      btn.setAttribute('aria-label', 'Remove from favorites');
+      btn.setAttribute('title', 'Remove from favorites');
     }
   } catch (e) {
     console.error('Toggle favorite failed:', e);

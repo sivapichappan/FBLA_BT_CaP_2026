@@ -125,14 +125,14 @@ function homePage(container) {
               <div class="msg-row">
                 <div class="msg-avatar gradient-primary" style="color:white;width:1.25rem;height:1.25rem">${icons.bot}</div>
                 <div class="msg-bubble assistant" style="font-size:0.8rem">
-                  I'd check out <strong>Oak & Bean</strong> — it's a cozy neighborhood roaster just 0.3 miles away with a 4.6 rating. ☕ Regulars love the oat milk latte!
+                  I'd check out <strong>Oak & Bean</strong> — it's a cozy neighborhood roaster just 0.3 miles away with a 4.6 rating. Regulars love the oat milk latte.
                   <div class="suggestion-card" style="margin-top:0.5rem;pointer-events:none;cursor:default">
                     <div class="flex items-center justify-between">
                       <span class="font-medium" style="font-size:0.7rem">Oak & Bean Coffee</span>
-                      <span class="badge badge-green" style="font-size:0.5rem;padding:0 0.25rem">✓</span>
+                      <span class="badge badge-green" style="font-size:0.5rem;padding:0 0.25rem">Local</span>
                     </div>
                     <div class="flex items-center gap-1-5 text-xs text-muted" style="margin-top:0.125rem;font-size:0.65rem">
-                      <span>⭐ 4.6</span>
+                      <span>4.6</span>
                       <span>0.3km</span>
                       <span style="color:var(--green)">Open</span>
                     </div>
@@ -154,19 +154,18 @@ function homePage(container) {
         </div>
         <div class="grid grid-2 gap-3 md-grid-3" style="max-width:48rem;margin:0 auto">
           ${[
-            { emoji: '🍽️', label: 'Food & Drink', type: 'restaurant' },
-            { emoji: '☕', label: 'Coffee', type: 'cafe' },
-            { emoji: '🛍️', label: 'Shopping', type: 'clothing_store' },
-            { emoji: '💆', label: 'Beauty & Spa', type: 'beauty_salon' },
-            { emoji: '🏋️', label: 'Fitness', type: 'gym' },
-            { emoji: '🍸', label: 'Nightlife', type: 'bar' },
+            { label: 'Food & Drink', type: 'restaurant' },
+            { label: 'Coffee', type: 'cafe' },
+            { label: 'Shopping', type: 'clothing_store' },
+            { label: 'Beauty & Spa', type: 'beauty_salon' },
+            { label: 'Fitness', type: 'gym' },
+            { label: 'Nightlife', type: 'bar' },
           ].map((c, i) => `
             <a href="#/search" onclick="setTimeout(()=>searchToggleCategory&&searchToggleCategory('${c.type}'),100)"
                class="glass text-center animate-fade-in" style="border-radius:0.75rem;padding:1.5rem 1rem;cursor:pointer;transition:all 0.2s;animation-delay:${0.05 * i}s"
                onmouseover="this.style.background='hsla(224,30%,14%,0.6)';this.style.transform='translateY(-2px)'"
                onmouseout="this.style.background='';this.style.transform=''">
-              <div style="font-size:2rem;margin-bottom:0.5rem">${c.emoji}</div>
-              <div class="font-medium text-sm">${c.label}</div>
+              <div class="font-medium text-base">${c.label}</div>
             </a>
           `).join('')}
         </div>
@@ -248,15 +247,15 @@ async function loadHomeHighlights() {
 
     // "Verified Local" — highest independence score
     const verified = businesses.find(b => b.local_badge === 'verified_local');
-    if (verified) picks.push({ biz: verified, label: '✓ Verified Local', sublabel: 'Confirmed independent business' });
+    if (verified) picks.push({ biz: verified, label: 'Verified Local', sublabel: 'Confirmed independent business' });
 
     // "Highest Rated" — best rating with enough reviews
     const rated = [...businesses].sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0)).find(b => !picks.some(p => p.biz.id === b.id));
-    if (rated) picks.push({ biz: rated, label: '⭐ Highest Rated', sublabel: `${Number(rated.average_rating || 0).toFixed(1)} stars from ${rated.review_count || 0} reviews` });
+    if (rated) picks.push({ biz: rated, label: 'Highest Rated', sublabel: `${Number(rated.average_rating || 0).toFixed(1)} stars from ${rated.review_count || 0} reviews` });
 
     // "Closest" — nearest business
     const closest = businesses.find(b => !picks.some(p => p.biz.id === b.id));
-    if (closest) picks.push({ biz: closest, label: '📍 Closest to You', sublabel: `${Number(closest.distance_km || 0).toFixed(1)} km away` });
+    if (closest) picks.push({ biz: closest, label: 'Closest to You', sublabel: `${Number(closest.distance_km || 0).toFixed(1)} km away` });
 
     el.innerHTML = picks.map((pick, i) => `
       <div class="glass animate-fade-in" style="border-radius:0.75rem;overflow:hidden;cursor:pointer;transition:all 0.3s;animation-delay:${i * 0.1}s"

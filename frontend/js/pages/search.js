@@ -1,13 +1,13 @@
 const SEARCH_CATEGORIES = [
-  { label: 'Food & Drink', type: 'restaurant', emoji: '🍽️' },
-  { label: 'Coffee', type: 'cafe', emoji: '☕' },
-  { label: 'Shopping', type: 'clothing_store', emoji: '🛍️' },
-  { label: 'Groceries', type: 'grocery_store', emoji: '🛒' },
-  { label: 'Beauty & Spa', type: 'beauty_salon', emoji: '💆' },
-  { label: 'Fitness', type: 'gym', emoji: '🏋️' },
-  { label: 'Auto', type: 'car_repair', emoji: '🚗' },
-  { label: 'Health', type: 'dentist', emoji: '🏥' },
-  { label: 'Nightlife', type: 'bar', emoji: '🍸' },
+  { label: 'Food & Drink', type: 'restaurant' },
+  { label: 'Coffee', type: 'cafe' },
+  { label: 'Shopping', type: 'clothing_store' },
+  { label: 'Groceries', type: 'grocery_store' },
+  { label: 'Beauty & Spa', type: 'beauty_salon' },
+  { label: 'Fitness', type: 'gym' },
+  { label: 'Auto', type: 'car_repair' },
+  { label: 'Health', type: 'dentist' },
+  { label: 'Nightlife', type: 'bar' },
 ];
 const RADIUS_PRESETS = [
   { label: 'Walking', value: 1000, desc: '1 km' },
@@ -48,7 +48,7 @@ function searchPage(container) {
       <!-- Category chips -->
       <div class="flex gap-2 overflow-x-auto scrollbar-hide" style="padding-bottom:0.5rem;margin-bottom:0.75rem" id="search-chips">
         ${SEARCH_CATEGORIES.map(c => `
-          <button class="chip" data-type="${c.type}" onclick="searchToggleCategory('${c.type}')">${c.emoji} ${c.label}</button>
+          <button class="chip" data-type="${c.type}" onclick="searchToggleCategory('${c.type}')">${c.label}</button>
         `).join('')}
       </div>
 

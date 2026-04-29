@@ -31,23 +31,11 @@ async function favoritesPage(container) {
     }
 
     document.getElementById('fav-grid').innerHTML = favs.map(f => `
-      <div class="biz-card glass" onclick="navigate('business/${f.id}')" id="fav-${f.id}">
-        ${f.photo_url ? `<div class="biz-photo"><img src="${f.photo_url}" alt="${f.name}" loading="lazy" /><div class="overlay"></div></div>` : ''}
-        <div class="biz-body">
-          <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0 flex-1">
-              <div class="biz-name line-clamp-1">${f.name}</div>
-              ${f.primary_type_display_name ? `<span class="badge badge-secondary" style="margin-bottom:0.5rem">${f.primary_type_display_name}</span>` : ''}
-              <div class="flex items-center gap-2 text-sm" style="margin-bottom:0.25rem">
-                ${renderStars(f.average_rating || 0)} <span>${Number(f.average_rating || 0).toFixed(1)}</span>
-              </div>
-              ${f.address_line_1 ? `<p class="text-xs text-muted flex items-center gap-1 line-clamp-1"><span class="icon icon-sm">${icons.mapPin}</span>${f.address_line_1}</p>` : ''}
-            </div>
-            <button class="btn btn-ghost btn-icon-sm text-muted" style="color:var(--muted-foreground)" onclick="event.stopPropagation();removeFav('${f.id}')" title="Remove">
-              ${icons.trash}
-            </button>
-          </div>
-        </div>
+      <div class="fav-card-wrap" style="position:relative" id="fav-${f.id}">
+        ${renderBusinessCard(f)}
+        <button class="fav-btn fav-btn-overlay is-fav" onclick="event.stopPropagation();removeFav('${f.id}')" aria-label="Remove from favorites" title="Remove from favorites">
+          ${icons.heartFilled}
+        </button>
       </div>
     `).join('');
   } catch (e) {
