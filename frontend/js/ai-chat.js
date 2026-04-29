@@ -95,7 +95,7 @@ function renderAiMessages() {
     if (msg.role === 'user') {
       return `<div class="msg-row user">
         <div class="msg-bubble user gradient-primary">${escapeHtml(msg.content)}</div>
-        <div class="msg-avatar" style="background:hsla(0,0%,100%,0.1);border:1px solid hsla(0,0%,100%,0.15)">${icons.user}</div>
+        <div class="msg-avatar" style="background:var(--rule);border:1px solid var(--rule)">${icons.user}</div>
       </div>`;
     }
     let suggestionsHtml = '';

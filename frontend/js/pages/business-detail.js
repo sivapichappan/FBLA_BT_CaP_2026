@@ -53,7 +53,7 @@ async function businessDetailPage(container, id) {
       </button>` : '';
 
     // Details card
-    const detailsCard = `<div class="card glass" style="border-color:hsla(0,0%,100%,0.1)"><div class="card-header"><div class="card-title">Details</div></div><div class="card-body text-sm" style="display:flex;flex-direction:column;gap:0.75rem">
+    const detailsCard = `<div class="card glass" style="border-color:var(--rule)"><div class="card-header"><div class="card-title">Details</div></div><div class="card-body text-sm" style="display:flex;flex-direction:column;gap:0.75rem">
       ${biz.address_line_1 ? `<div class="flex items-start gap-2"><span class="icon icon-md text-muted">${icons.mapPin}</span><span>${biz.address_line_1}${biz.city ? ', ' + biz.city : ''}${biz.state ? ', ' + biz.state : ''}${biz.zip_code ? ' ' + biz.zip_code : ''}</span></div>` : ''}
       ${biz.phone ? `<div class="flex items-center gap-2"><span class="icon icon-md text-muted">${icons.phone}</span><a href="tel:${biz.phone}">${biz.phone}</a></div>` : ''}
       ${biz.website ? `<div class="flex items-center gap-2"><span class="icon icon-md text-muted">${icons.globe}</span><a href="${biz.website}" target="_blank" class="text-primary truncate" style="max-width:min(16rem,60vw)">${biz.website.replace(/^https?:\/\/(www\.)?/, '')}</a></div>` : ''}
@@ -61,7 +61,7 @@ async function businessDetailPage(container, id) {
 
     // Hours card
     const hoursCard = (biz.weekday_descriptions && biz.weekday_descriptions.length > 0) ? `
-      <div class="card glass" style="border-color:hsla(0,0%,100%,0.1)"><div class="card-header"><div class="card-title flex items-center gap-2">${icons.clock} Hours ${biz.is_open_now != null ? `<span class="text-xs font-medium" style="color:${biz.is_open_now ? 'var(--green)' : 'var(--red)'}">${biz.is_open_now ? '• Open now' : '• Closed'}</span>` : ''}</div></div>
+      <div class="card glass" style="border-color:var(--rule)"><div class="card-header"><div class="card-title flex items-center gap-2">${icons.clock} Hours ${biz.is_open_now != null ? `<span class="text-xs font-medium" style="color:${biz.is_open_now ? 'var(--green)' : 'var(--red)'}">${biz.is_open_now ? '• Open now' : '• Closed'}</span>` : ''}</div></div>
         <div class="card-body text-sm" style="display:flex;flex-direction:column;gap:0.375rem">
           ${biz.weekday_descriptions.map(t => { const p = t.split(': '); return `<div class="flex justify-between"><span class="font-medium">${p[0]}</span><span class="text-muted">${p.slice(1).join(': ')}</span></div>`; }).join('')}
         </div>
@@ -71,7 +71,7 @@ async function businessDetailPage(container, id) {
     const reviews = biz.reviews || [];
     const reviewsHtml = `<div style="margin-top:2rem"><h2 class="text-xl font-bold" style="margin-bottom:1rem">Reviews (${reviews.length})</h2>
       ${reviews.length === 0 ? '<p class="text-muted text-center" style="padding:1.5rem">No reviews yet.</p>' :
-        reviews.map(r => `<div class="card glass" style="margin-bottom:0.75rem;border-color:hsla(0,0%,100%,0.1)"><div class="card-body">
+        reviews.map(r => `<div class="card glass" style="margin-bottom:0.75rem;border-color:var(--rule)"><div class="card-body">
           <div class="flex items-center justify-between" style="margin-bottom:0.75rem">
             <div class="flex items-center gap-3">
               <div style="width:2.25rem;height:2.25rem;border-radius:9999px;background:hsla(217,91%,60%,0.1);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:600">${(r.user?.firstName || r.user?.username || '?')[0]}</div>
