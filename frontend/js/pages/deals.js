@@ -35,7 +35,7 @@ async function dealsPage(container) {
           </div>
           ${d.business_name ? `<a href="#/business/${d.business_id}" class="text-sm text-primary flex items-center gap-1" style="margin-bottom:0.75rem"><span class="icon icon-sm">${icons.mapPin}</span>${d.business_name}</a>` : ''}
           ${d.description ? `<p class="text-sm text-muted line-clamp-2" style="margin-bottom:1rem">${d.description}</p>` : ''}
-          <div class="flex items-center justify-between" style="padding-top:0.75rem;border-top:1px solid var(--rule)">
+          <div class="flex items-center justify-between" style="padding-top:0.75rem;border-top:1px solid hsla(0,0%,100%,0.05)">
             ${d.end_date ? `<span class="text-xs text-muted flex items-center gap-1">${icons.clock} Expires ${new Date(d.end_date).toLocaleDateString()}</span>` : '<span></span>'}
             ${authIsAuthenticated() ? `<button class="btn btn-gradient btn-sm" onclick="claimDeal(${d.id})">Claim</button>` : ''}
           </div>

@@ -114,7 +114,7 @@ function homePage(container) {
           </div>
           <!-- Right: mock conversation -->
           <div class="glass animate-fade-in animate-delay-2" style="border-radius:1rem;padding:1.25rem;max-width:min(24rem,calc(100vw - 3rem));margin-left:auto">
-            <div class="flex items-center gap-2" style="margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid var(--rule)">
+            <div class="flex items-center gap-2" style="margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid hsla(0,0%,100%,0.05)">
               <div class="gradient-primary" style="width:1.75rem;height:1.75rem;border-radius:0.375rem;display:flex;align-items:center;justify-content:center;color:white">${icons.sparkles}</div>
               <span class="text-sm font-semibold">AI Assistant</span>
             </div>

@@ -68,11 +68,11 @@ async function profilePage(container) {
 
       <!-- Info -->
       <div class="glass animate-fade-in animate-delay-2" style="border-radius:0.75rem;overflow:hidden">
-        <div class="flex items-center gap-3" style="padding:0.875rem 1rem;border-bottom:1px solid var(--rule)">
+        <div class="flex items-center gap-3" style="padding:0.875rem 1rem;border-bottom:1px solid hsla(0,0%,100%,0.05)">
           <span class="icon icon-md text-muted">${icons.mail}</span>
           <div><p class="text-xs text-muted">Email</p><p class="text-sm">${p.email}</p></div>
         </div>
-        <div class="flex items-center gap-3" style="padding:0.875rem 1rem;border-bottom:1px solid var(--rule)">
+        <div class="flex items-center gap-3" style="padding:0.875rem 1rem;border-bottom:1px solid hsla(0,0%,100%,0.05)">
           <span class="icon icon-md text-muted">${icons.mapPin}</span>
           <div><p class="text-xs text-muted">Location</p><p class="text-sm">${p.default_city && p.default_state ? p.default_city + ', ' + p.default_state : locationGet() ? 'Using current location' : 'Not set'}</p></div>
         </div>
@@ -84,12 +84,12 @@ async function profilePage(container) {
 
       <!-- Quick links -->
       <div class="glass animate-fade-in animate-delay-3" style="border-radius:0.75rem;overflow:hidden;margin-top:1rem">
-        <a href="#/favorites" class="flex items-center gap-3" style="padding:0.875rem 1rem;border-bottom:1px solid var(--rule);transition:background 0.15s" onmouseover="this.style.background='var(--rule)'" onmouseout="this.style.background=''">
+        <a href="#/favorites" class="flex items-center gap-3" style="padding:0.875rem 1rem;border-bottom:1px solid hsla(0,0%,100%,0.05);transition:background 0.15s" onmouseover="this.style.background='hsla(0,0%,100%,0.03)'" onmouseout="this.style.background=''">
           <span style="color:hsl(0,70%,60%)">${icons.heart}</span>
           <span class="text-sm flex-1">My Favorites</span>
           <span class="text-muted">${icons.chevronRight}</span>
         </a>
-        <a href="#/search" class="flex items-center gap-3" style="padding:0.875rem 1rem;transition:background 0.15s" onmouseover="this.style.background='var(--rule)'" onmouseout="this.style.background=''">
+        <a href="#/search" class="flex items-center gap-3" style="padding:0.875rem 1rem;transition:background 0.15s" onmouseover="this.style.background='hsla(0,0%,100%,0.03)'" onmouseout="this.style.background=''">
           <span style="color:var(--primary)">${icons.messageCircle}</span>
           <span class="text-sm flex-1">My Reviews</span>
           <span class="text-muted">${icons.chevronRight}</span>
