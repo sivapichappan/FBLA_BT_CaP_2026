@@ -16,6 +16,10 @@ SEARCH_FIELDS = ",".join([
     "places.rating", "places.userRatingCount", "places.priceLevel",
     "places.primaryType", "places.primaryTypeDisplayName",
     "places.regularOpeningHours.openNow", "places.photos", "places.businessStatus",
+    # Used by chain_detector signals (website domain match, toll-free phone)
+    "places.websiteUri", "places.internationalPhoneNumber",
+    # Used by editorial signal — Google's natural-language summary, when present
+    "places.editorialSummary",
 ])
 
 DETAIL_FIELDS = ",".join([
@@ -193,6 +197,10 @@ def format_place(place: dict) -> dict:
         "categories": [{"id": 0, "name": display_name, "slug": primary_type or "", "icon": None}] if display_name else [],
         "is_open_now": (place.get("regularOpeningHours") or {}).get("openNow"),
         "business_status": place.get("businessStatus"),
+        # Surfaced from search results so chain_detector signals (website,
+        # phone, editorial) can fire without a separate detail call.
+        "website": place.get("websiteUri"),
+        "phone": place.get("internationalPhoneNumber"),
         "photo_url": get_photo_url(photo_name, 800) if photo_name else None,
         "photos": [{"url": get_photo_url(p["name"], 800)} for p in photos_raw[:5] if "name" in p],
         "independence_score": None,
