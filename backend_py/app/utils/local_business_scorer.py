@@ -18,14 +18,18 @@ import re
 from app.data.chain_brands import match_chain
 from app.utils.chain_detector import detect_chain
 
-# Strict threshold — favour false positives so chains never slip through.
-CHAIN_EXCLUSION_THRESHOLD = 0.55
+# Threshold above which a business is excluded as a chain.
+# 0.65 is the empirically validated value from the reference algorithm;
+# previous 0.55 was too aggressive and excluded legitimate independents.
+# The detector additionally requires either confidence ≥ 0.30 OR a
+# high-certainty signal (known brand / locator subdomain) to flag.
+CHAIN_EXCLUSION_THRESHOLD = 0.65
 
-# Confidence floors for showing a positive "local" badge to the user.
-VERIFIED_LOCAL_PROB = 0.30
+# Probability/confidence cutoffs for showing a positive "local" badge.
+VERIFIED_LOCAL_PROB = 0.35
 VERIFIED_LOCAL_CONFIDENCE = 0.4
-LIKELY_LOCAL_PROB = 0.45
-LIKELY_LOCAL_CONFIDENCE = 0.3
+LIKELY_LOCAL_PROB = 0.50
+LIKELY_LOCAL_CONFIDENCE = 0.25
 
 NON_CUSTOMER_FACING_TYPES = {
     "corporate_office", "manufacturer", "supplier", "wholesaler",

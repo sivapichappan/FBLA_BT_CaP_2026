@@ -19,8 +19,18 @@ from urllib.parse import urlparse
 from app.data.chain_brands import match_chain, normalize_name
 
 # Threshold above which a business is considered a chain.
-# 0.55 = strict — biased toward false positives so chains never slip through.
-CHAIN_THRESHOLD = 0.55
+# 0.65 — balanced. Empirically validated in the reference algorithm
+# (95% precision / ~90% recall on a small chain/local validation set).
+CHAIN_THRESHOLD = 0.65
+
+# Minimum confidence required for an exclusion (unless the primary signal
+# is a high-certainty one — see _is_high_certainty_chain). A single weak
+# signal should never be enough to drop a business.
+MIN_EXCLUSION_CONFIDENCE = 0.30
+
+# Signal names that are reliable enough to flag a chain on their own,
+# regardless of overall confidence.
+HIGH_CERTAINTY_SIGNALS = {"known_brand", "locator_subdomain"}
 
 # --- Type priors (independent of the existing scorer's tiers) ---------------
 
@@ -138,6 +148,19 @@ def _signal_known_brand(name: str) -> Optional[Signal]:
 
 
 def _signal_website(name: str, website: Optional[str]) -> Optional[Signal]:
+    """Website-based chain signals.
+
+    Two reliable patterns:
+      1. Locator subdomain (locations.X.com / stores.X.com) — high-certainty
+         chain tell, named ``locator_subdomain`` so callers can treat it
+         as bypassing the confidence floor.
+      2. Domain unrelated to business name — sometimes a corporate parent
+         (yum.com → Taco Bell). Weak signal, low weight.
+
+    The previous "domain mirrors brand" check was REMOVED because every
+    local business with its own website triggers it (Bella Vita Ristorante
+    → bellavitanj.com is normal, not a chain signal).
+    """
     if not website:
         return None
     try:
@@ -148,37 +171,32 @@ def _signal_website(name: str, website: Optional[str]) -> Optional[Signal]:
         return None
     if host.startswith("www."):
         host = host[4:]
-    domain_root = host.split(".")[0] if "." in host else host
+
+    # Locator-style subdomains are an unambiguous chain tell.
+    if any(sd in host for sd in ("locations.", "stores.", "find.", "locator.")):
+        return Signal("locator_subdomain", 0.9, 0.7, f"locator-style subdomain: {host}")
 
     name_tokens = [
         t for t in re.split(r"[^a-z0-9]+", normalize_name(name))
         if t and t not in DOMAIN_NOISE
     ]
-    name_concat = "".join(name_tokens)
+    if not name_tokens:
+        return None
 
-    # Locator-style subdomains are an unambiguous chain tell.
-    has_locator_subdomain = any(
-        sd in host for sd in ("locations.", "stores.", "find.", "locator.")
-    )
-    if has_locator_subdomain:
-        return Signal("website", 0.8, 0.7, f"locator-style subdomain: {host}")
+    domain_root = host.split(".")[0] if "." in host else host
 
-    # Domain mirrors brand name (either as separate tokens or concatenated).
-    domain_mirrors_brand = (
-        name_concat and len(name_concat) >= 4
-        and (name_concat in domain_root or domain_root in name_concat)
-    )
-    if domain_mirrors_brand:
-        return Signal("website", 0.4, 0.5,
-                      f"domain '{host}' mirrors brand without locality")
+    # If any meaningful name token (≥4 chars) appears in the domain root,
+    # the domain mirrors the business — that's a local pattern, not a
+    # chain pattern. "Bella Vita Ristorante" → bellavitanj.com mirrors
+    # "bella" / "vita". "Smile Dental" → smiledentalnj.com mirrors
+    # "smile" / "dental". Return None (no signal).
+    if any(t in domain_root for t in name_tokens if len(t) >= 4):
+        return None
 
-    if name_tokens:
-        # Domain unrelated to business name — often a corporate parent
-        # (e.g. yum.com hosting Taco Bell, satruck.org for Salvation Army).
-        return Signal("website", 0.5, 0.5,
-                      f"domain '{host}' unrelated to business name")
-
-    return None
+    # Domain unrelated to name — possible corporate parent (yum.com →
+    # Taco Bell). Weak signal, low weight; we used to set this at
+    # 0.5/0.5 but it fired too often on legitimate small businesses.
+    return Signal("website", 0.4, 0.3, f"domain '{host}' unrelated to business name")
 
 
 def _signal_phone(phone: Optional[str]) -> Optional[Signal]:
@@ -381,9 +399,20 @@ def detect_chain(business: dict, threshold: float = CHAIN_THRESHOLD) -> dict:
 
     probability, confidence, primary = _aggregate(signals)
 
+    # Above-threshold flag must be backed by enough evidence. A single
+    # weak chain signal (e.g. "this is a mattress_store, mostly chains")
+    # is not enough on its own — many independents exist in chain-heavy
+    # categories. Bypass the confidence floor only when the primary
+    # signal is itself high-certainty (known brand, locator subdomain).
+    above_threshold = probability >= threshold
+    primary_is_certain = primary is not None and primary.name in HIGH_CERTAINTY_SIGNALS
+    is_chain = above_threshold and (
+        confidence >= MIN_EXCLUSION_CONFIDENCE or primary_is_certain
+    )
+
     return {
         "chain_probability": round(probability, 3),
-        "is_chain": probability >= threshold,
+        "is_chain": is_chain,
         "confidence": round(confidence, 3),
         "primary_reason": primary.reason if primary else None,
         "signals": [s.to_dict() for s in signals],

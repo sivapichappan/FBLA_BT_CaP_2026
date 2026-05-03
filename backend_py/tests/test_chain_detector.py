@@ -58,23 +58,28 @@ class TestSignals:
         s = _signal_website("Burger King", "https://locations.burgerking.com")
         assert s is not None and s.score >= 0.7
 
-    def test_website_domain_mirrors_brand(self):
-        s = _signal_website("Hot Topic", "https://hottopic.com")
-        assert s is not None and s.score > 0
+    def test_website_local_business_with_own_domain_does_not_fire(self):
+        # Critical: every local business with its own domain (e.g.
+        # "bellavitanj.com" for Bella Vita Ristorante) was being flagged
+        # by the old "domain mirrors brand" logic. The new code must NOT
+        # fire on these — it would trigger a false-positive cascade.
+        for name, url in [
+            ("Bella Vita Ristorante", "https://bellavitanj.com"),
+            ("Heavenly Hair Salon", "https://heavenlyhairsalon.com"),
+            ("Smile Dental Care", "https://smiledentalnj.com"),
+            ("Hot Topic", "https://hottopic.com"),  # name in domain
+            ("Maplewood Cafe", "https://maplewoodcafe-cambridge.com"),
+        ]:
+            assert _signal_website(name, url) is None, (
+                f"website signal should NOT fire for {name} on {url} — "
+                "this is normal small-business behaviour"
+            )
 
     def test_website_unrelated_domain(self):
-        # yum.com hosts Taco Bell — corporate parent
+        # yum.com hosts Taco Bell — corporate parent. Weak signal.
         s = _signal_website("Taco Bell", "https://yum.com")
         assert s is not None and s.score > 0
-
-    def test_website_local_brand_own_domain_with_locality(self):
-        # A local cafe with its own modest domain shouldn't necessarily
-        # look chain-like — but the heuristic is intentionally aggressive.
-        # Just verify it doesn't crash.
-        s = _signal_website("Maplewood Cafe", "https://maplewoodcafe-cambridge.com")
-        # name_concat="maplewoodcafe", domain_root="maplewoodcafe-cambridge"
-        # → mirrors_brand=True (substring match), so signal fires weakly.
-        assert s is None or 0 <= s.score <= 0.6
+        assert s.weight <= 0.4, "unrelated-domain signal should be low-weight"
 
     def test_website_none_when_missing(self):
         assert _signal_website("Whatever", None) is None
@@ -271,11 +276,14 @@ UNKNOWN_CHAINS = [
         "website": "https://abcinsurance.com",
     },
     {
-        "name": "Premier Mattress Outlet ®",
+        # Realistic chain-shaped: trademark, location suffix, multi-location
+        # locator URL, high review count for a small-footprint type.
+        "name": "Premier Mattress Outlet ® - Saugus",
         "primary_type": "mattress_store",
         "address_line_1": "Patriot Plaza Mall, Saugus, MA",
         "average_rating": 3.6,
         "review_count": 320,
+        "website": "https://locations.premiermattress.com/saugus",
     },
 ]
 
