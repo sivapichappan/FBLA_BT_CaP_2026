@@ -108,6 +108,64 @@ async def create_business(request: Request, user: dict = Depends(get_current_use
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    from math import radians, sin, cos, asin, sqrt
+    dLat = radians(lat2 - lat1)
+    dLng = radians(lng2 - lng1)
+    a = sin(dLat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dLng / 2) ** 2
+    return 2 * 6371 * asin(sqrt(a))
+
+
+def _bayesian_rating(rating: float, count: int, m: int = 15, prior: float = 3.7) -> float:
+    """Smooth rating 
+    toward a prior so 5.0 (1 review) doesn't beat 4.6 (200)."""
+    if not rating:
+        return prior
+    return (rating * count + prior * m) / (count + m)
+
+
+def _apply_filters_and_sort(businesses: list[dict], *,
+                            latitude: float, longitude: float,
+                            min_rating: float, price_levels: set[int] | None,
+                            independent_only: bool, sort: str) -> list[dict]:
+    """Annotate distance, then apply UI filters + chosen sort. Pure-Python,
+    runs over the (typically <50) results returned by the scorer."""
+    annotated = []
+    for b in businesses:
+        bl, bn = b.get("latitude"), b.get("longitude")
+        b["distance_km"] = _haversine_km(latitude, longitude, bl, bn) if bl and bn else None
+        annotated.append(b)
+
+    def passes(b: dict) -> bool:
+        if min_rating and (b.get("average_rating") or 0) < min_rating:
+            return False
+        if price_levels:
+            pl = b.get("price_level")
+            # If the business has no price_level info, only include it when "any"
+            # was requested (price_levels is None / empty above). When the user
+            # actively picked tiers, exclude unknowns to keep the filter honest.
+            if pl is None or pl not in price_levels:
+                return False
+        if independent_only and b.get("local_badge") not in ("verified_local", "likely_local"):
+            return False
+        return True
+
+    filtered = [b for b in annotated if passes(b)]
+
+    if sort == "distance":
+        filtered.sort(key=lambda b: b.get("distance_km") if b.get("distance_km") is not None else 1e9)
+    elif sort == "rating":
+        filtered.sort(
+            key=lambda b: _bayesian_rating(b.get("average_rating") or 0, b.get("review_count") or 0),
+            reverse=True,
+        )
+    elif sort == "most_reviewed":
+        filtered.sort(key=lambda b: b.get("review_count") or 0, reverse=True)
+    # best_match: keep existing order from scorer (independence_score DESC)
+
+    return filtered
+
+
 @router.get("/search")
 @limiter.limit(SEARCH_LIMIT)
 async def search_businesses(request: Request,
@@ -115,7 +173,11 @@ async def search_businesses(request: Request,
                             latitude: float = Query(None),
                             longitude: float = Query(None),
                             radius: int = Query(1000),
-                            type: str = Query(None)):
+                            type: str = Query(None),
+                            min_rating: float = Query(0.0),
+                            price_levels: str = Query(""),
+                            independent_only: bool = Query(True),
+                            sort: str = Query("best_match")):
     try:
         if not latitude or not longitude:
             return {"businesses": [], "total": 0}
@@ -131,14 +193,41 @@ async def search_businesses(request: Request,
 
         formatted = [google_places.format_place(p) for p in places]
 
-        # Import scorer lazily to avoid circular imports during stub phase
         from app.utils.local_business_scorer import filter_and_score_businesses
-        businesses = filter_and_score_businesses(formatted)
+        scored = filter_and_score_businesses(formatted)
+        unfiltered_total = len(scored)
 
-        return {
+        # Parse price tier set ("1,2,3" → {1, 2, 3})
+        price_set: set[int] | None = None
+        if price_levels:
+            try:
+                price_set = {int(x) for x in price_levels.split(",") if x.strip()}
+            except ValueError:
+                price_set = None
+
+        businesses = _apply_filters_and_sort(
+            scored,
+            latitude=latitude, longitude=longitude,
+            min_rating=min_rating, price_levels=price_set,
+            independent_only=independent_only, sort=sort,
+        )
+
+        response: dict = {
             "businesses": businesses,
             "total": len(businesses),
+            "unfiltered_total": unfiltered_total,
         }
+
+        # Graceful zero-results: surface the 5 closest pre-filter survivors
+        # so the UI can offer "here are the closest matches anyway".
+        if not businesses and scored:
+            scored_with_dist = sorted(
+                scored,
+                key=lambda b: _haversine_km(latitude, longitude, b.get("latitude") or 0, b.get("longitude") or 0),
+            )[:5]
+            response["nearest_fallback"] = scored_with_dist
+
+        return response
     except Exception as e:
         print(f"Search businesses error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
