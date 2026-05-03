@@ -43,13 +43,10 @@ function searchPage(container) {
           </div>
         </div>
 
-        <!-- Manual location override -->
-        <div class="flex gap-2 flex-wrap" style="position:relative;margin-top:0.5rem" id="search-loc-wrapper">
-          <div style="position:relative;flex:1;min-width:0">
-            <input class="input" placeholder="Or enter a different city, zip, or address…" id="search-loc-input" style="height:2.25rem" />
-            <div id="search-predictions" class="autocomplete-dropdown glass-strong" style="display:none"></div>
-          </div>
-          <button class="btn btn-ghost btn-sm" onclick="searchUseMyLocation()">${icons.navigation} My Location</button>
+        <!-- Manual location override (typing a city/address) -->
+        <div style="position:relative;margin-top:0.5rem" id="search-loc-wrapper">
+          <input class="input" placeholder="Or search a different city, zip, or address…" id="search-loc-input" style="height:2.25rem" />
+          <div id="search-predictions" class="autocomplete-dropdown glass-strong" style="display:none"></div>
         </div>
       </div>
 
