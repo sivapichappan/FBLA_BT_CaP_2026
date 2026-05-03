@@ -27,18 +27,44 @@ let _searchState = {
   radius: 1000,
   debounceTimer: null,
   locationName: null,
-  // New filter state (Wave 1)
+  // Filter state (defaults — non-defaults count toward the Filters badge)
   minRating: 0,
   priceLevels: new Set(),       // empty = "any price"
   independentOnly: true,         // default ON — LocalLens's thesis
   sort: 'best_match',
-  // Map / hover state (Wave 2)
+  // UI state
+  filtersOpen: false,
+  // Map / hover state
   results: [],
   resultsMap: null,
   resultsMarkers: [],
   resultsInfoWindow: null,
   hoveredId: null,
 };
+
+const FILTER_DEFAULTS = {
+  radius: 1000,
+  minRating: 0,
+  priceLevels: 0,        // size, not the set itself
+  independentOnly: true,
+};
+
+function _activeFilterCount() {
+  let n = 0;
+  if (_searchState.radius !== FILTER_DEFAULTS.radius) n++;
+  if (_searchState.minRating !== FILTER_DEFAULTS.minRating) n++;
+  if (_searchState.priceLevels.size !== FILTER_DEFAULTS.priceLevels) n++;
+  if (_searchState.independentOnly !== FILTER_DEFAULTS.independentOnly) n++;
+  return n;
+}
+
+function _refreshFiltersBadge() {
+  const badge = document.getElementById('filters-badge');
+  if (!badge) return;
+  const n = _activeFilterCount();
+  badge.textContent = n > 0 ? String(n) : '';
+  badge.style.display = n > 0 ? 'inline-flex' : 'none';
+}
 
 function searchPage(container) {
   const loc = locationGet();
@@ -70,59 +96,87 @@ function searchPage(container) {
       </div>
 
       <!-- Search bar -->
-      <form id="search-form" class="flex gap-2 flex-wrap" style="margin-bottom:1rem">
+      <form id="search-form" class="flex gap-2 flex-wrap" style="margin-bottom:0.75rem">
         <input class="input" placeholder="Search for anything nearby…" id="search-query" style="flex:1;min-width:0" />
         <button type="submit" class="btn btn-gradient">${icons.search} Search</button>
       </form>
 
-      <!-- Category chips -->
-      <div class="flex gap-2 overflow-x-auto scrollbar-hide" style="padding-bottom:0.5rem;margin-bottom:0.75rem" id="search-chips">
-        ${SEARCH_CATEGORIES.map(c => `
-          <button class="chip" data-type="${c.type}" onclick="searchToggleCategory('${c.type}')">${c.label}</button>
-        `).join('')}
+      <!-- Compact toolbar: Filters · Sort · category chips -->
+      <div class="search-toolbar" style="margin-bottom:0.75rem">
+        <button class="btn btn-outline btn-sm" id="filters-btn" onclick="searchToggleFilters()">
+          ${icons.shield} Filters
+          <span class="filters-btn-badge" id="filters-badge" style="display:none"></span>
+        </button>
+        <div class="flex items-center gap-1" style="font-size:0.8125rem">
+          <label class="text-xs text-muted" for="toolbar-sort">Sort</label>
+          <select id="toolbar-sort" class="input" style="height:2rem;width:auto;padding:0.125rem 1.5rem 0.125rem 0.5rem;font-size:0.8125rem"
+                  onchange="searchSetSort(this.value)">
+            <option value="best_match">Best match</option>
+            <option value="distance">Distance</option>
+            <option value="rating">Rating</option>
+            <option value="most_reviewed">Most reviewed</option>
+          </select>
+        </div>
+        <div class="search-toolbar-chips flex gap-2 overflow-x-auto scrollbar-hide" id="search-chips">
+          ${SEARCH_CATEGORIES.map(c => `
+            <button class="chip chip-sm" data-type="${c.type}" onclick="searchToggleCategory('${c.type}')">${c.label}</button>
+          `).join('')}
+        </div>
       </div>
 
-      <!-- Radius presets -->
-      <div class="flex gap-2 flex-wrap" style="margin-bottom:1rem" id="search-radius">
-        ${RADIUS_PRESETS.map(p => `
-          <button class="chip ${p.value === _searchState.radius ? 'active' : ''}" data-radius="${p.value}" onclick="searchSetRadius(${p.value})">${p.label} (${p.desc})</button>
-        `).join('')}
-      </div>
-
-      <!-- Filter drawer: independent toggle + rating + price + sort -->
-      <div class="search-filter-drawer glass" style="padding:0.875rem 1rem;border-radius:0.75rem;margin-bottom:1rem">
-        <div class="flex items-center justify-between gap-3 flex-wrap" style="margin-bottom:0.75rem">
-          <label class="flex items-center gap-2" style="cursor:pointer;font-size:0.875rem">
-            <input type="checkbox" id="filter-independent" ${_searchState.independentOnly ? 'checked' : ''}
-                   onchange="searchSetIndependentOnly(this.checked)" style="width:1rem;height:1rem;accent-color:var(--primary)" />
-            <span class="font-medium">Independent only</span>
-            <span class="text-xs text-muted" title="LocalLens prioritizes independent businesses by default">${icons.shield}</span>
-          </label>
-          <div class="flex items-center gap-2">
-            <label class="text-xs text-muted" for="filter-sort" style="margin-right:0.25rem">Sort by</label>
-            <select id="filter-sort" class="input" style="height:2rem;width:auto;padding:0.125rem 0.5rem;font-size:0.8125rem"
-                    onchange="searchSetSort(this.value)">
-              <option value="best_match">Best match</option>
-              <option value="distance">Distance</option>
-              <option value="rating">Rating</option>
-              <option value="most_reviewed">Most reviewed</option>
-            </select>
+      <!-- Filter panel (collapsed by default; opens via Filters button) -->
+      <div class="search-filters-panel glass" id="search-filters-panel" style="margin-bottom:0.75rem">
+        <div class="filters-panel-inner" style="padding:1rem">
+          <div class="flex items-center justify-between" style="margin-bottom:0.75rem">
+            <span class="font-semibold text-sm">Filters</span>
+            <button class="btn btn-ghost btn-icon-sm" onclick="searchToggleFilters()" aria-label="Close filters">${icons.x}</button>
           </div>
-        </div>
 
-        <div class="flex items-center gap-2 flex-wrap" style="margin-bottom:0.5rem">
-          <span class="text-xs text-muted" style="min-width:3rem">Rating:</span>
-          ${RATING_PRESETS.map(r => `
-            <button class="chip chip-sm ${r.value === _searchState.minRating ? 'active' : ''}"
-                    data-rating="${r.value}" onclick="searchSetMinRating(${r.value})">${r.label}</button>
-          `).join('')}
-        </div>
+          <!-- Distance -->
+          <div style="margin-bottom:0.875rem">
+            <div class="text-xs text-muted" style="margin-bottom:0.375rem">Distance</div>
+            <div class="flex gap-2 flex-wrap" id="search-radius">
+              ${RADIUS_PRESETS.map(p => `
+                <button class="chip chip-sm ${p.value === _searchState.radius ? 'active' : ''}" data-radius="${p.value}" onclick="searchSetRadius(${p.value})">${p.label} (${p.desc})</button>
+              `).join('')}
+            </div>
+          </div>
 
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="text-xs text-muted" style="min-width:3rem">Price:</span>
-          ${[1, 2, 3, 4].map(p => `
-            <button class="chip chip-sm" data-price="${p}" onclick="searchTogglePrice(${p})">${'$'.repeat(p)}</button>
-          `).join('')}
+          <!-- Independent only -->
+          <div style="margin-bottom:0.875rem">
+            <label class="flex items-center gap-2" style="cursor:pointer;font-size:0.875rem">
+              <input type="checkbox" id="filter-independent" ${_searchState.independentOnly ? 'checked' : ''}
+                     onchange="searchSetIndependentOnly(this.checked)" style="width:1rem;height:1rem;accent-color:var(--primary)" />
+              <span class="font-medium">Independent only</span>
+              <span class="text-xs text-muted" title="LocalLens prioritizes independent businesses by default">${icons.shield}</span>
+            </label>
+          </div>
+
+          <!-- Min rating -->
+          <div style="margin-bottom:0.875rem">
+            <div class="text-xs text-muted" style="margin-bottom:0.375rem">Min rating</div>
+            <div class="flex gap-2 flex-wrap">
+              ${RATING_PRESETS.map(r => `
+                <button class="chip chip-sm ${r.value === _searchState.minRating ? 'active' : ''}"
+                        data-rating="${r.value}" onclick="searchSetMinRating(${r.value})">${r.label}</button>
+              `).join('')}
+            </div>
+          </div>
+
+          <!-- Price -->
+          <div style="margin-bottom:0.875rem">
+            <div class="text-xs text-muted" style="margin-bottom:0.375rem">Price</div>
+            <div class="flex gap-2 flex-wrap">
+              ${[1, 2, 3, 4].map(p => `
+                <button class="chip chip-sm" data-price="${p}" onclick="searchTogglePrice(${p})">${'$'.repeat(p)}</button>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between" style="padding-top:0.5rem;border-top:1px solid var(--border)">
+            <button class="btn btn-ghost btn-sm" onclick="searchResetFilters()">Reset</button>
+            <button class="btn btn-gradient btn-sm" onclick="searchToggleFilters()">Done</button>
+          </div>
         </div>
       </div>
 
@@ -200,15 +254,16 @@ function _debouncedFetch() {
 
 function searchSetIndependentOnly(on) {
   _searchState.independentOnly = !!on;
+  _refreshFiltersBadge();
   _debouncedFetch();
 }
 
 function searchSetMinRating(value) {
   _searchState.minRating = value;
-  document.querySelectorAll('#search-filter-drawer [data-rating]').forEach(() => {});
   document.querySelectorAll('[data-rating]').forEach((btn) => {
     btn.classList.toggle('active', Number(btn.dataset.rating) === value);
   });
+  _refreshFiltersBadge();
   _debouncedFetch();
 }
 
@@ -218,12 +273,40 @@ function searchTogglePrice(p) {
   document.querySelectorAll('[data-price]').forEach((btn) => {
     btn.classList.toggle('active', _searchState.priceLevels.has(Number(btn.dataset.price)));
   });
+  _refreshFiltersBadge();
   _debouncedFetch();
 }
 
 function searchSetSort(value) {
   _searchState.sort = value;
+  // Sort isn't an "active filter" — keep both selectors in sync but don't badge it
+  document.querySelectorAll('select#toolbar-sort, select#filter-sort').forEach((el) => {
+    if (el.value !== value) el.value = value;
+  });
   _debouncedFetch();
+}
+
+function searchToggleFilters() {
+  _searchState.filtersOpen = !_searchState.filtersOpen;
+  const panel = document.getElementById('search-filters-panel');
+  if (panel) panel.classList.toggle('open', _searchState.filtersOpen);
+}
+
+function searchResetFilters() {
+  _searchState.radius = FILTER_DEFAULTS.radius;
+  _searchState.minRating = FILTER_DEFAULTS.minRating;
+  _searchState.priceLevels = new Set();
+  _searchState.independentOnly = FILTER_DEFAULTS.independentOnly;
+  // Refresh visual state of all chips/inputs in the panel
+  document.querySelectorAll('[data-radius]').forEach((btn) =>
+    btn.classList.toggle('active', Number(btn.dataset.radius) === _searchState.radius));
+  document.querySelectorAll('[data-rating]').forEach((btn) =>
+    btn.classList.toggle('active', Number(btn.dataset.rating) === _searchState.minRating));
+  document.querySelectorAll('[data-price]').forEach((btn) => btn.classList.remove('active'));
+  const indep = document.getElementById('filter-independent');
+  if (indep) indep.checked = _searchState.independentOnly;
+  _refreshFiltersBadge();
+  searchFetch();
 }
 
 /* ─── Reverse geocode + location pill ─────────────────────────────────── */
@@ -379,6 +462,7 @@ function searchSetRadius(val) {
   document.querySelectorAll('#search-radius .chip').forEach((btn) => {
     btn.classList.toggle('active', Number(btn.dataset.radius) === val);
   });
+  _refreshFiltersBadge();
   searchFetch();
 }
 

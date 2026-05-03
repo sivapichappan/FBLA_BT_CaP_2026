@@ -843,9 +843,74 @@ img { max-width: 100%; display: block; }
 
 .chip-sm { padding: 0.25rem 0.625rem; font-size: 0.8125rem; }
 
-/* Filter drawer */
-.search-filter-drawer { font-size: 0.875rem; }
-.search-filter-drawer select.input { background-color: var(--card); }
+/* Compact toolbar: Filters · Sort · category chips strip on one line */
+.search-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.search-toolbar .search-toolbar-chips {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-bottom: 0.25rem;
+}
+.search-toolbar select.input { background-color: var(--card); }
+
+/* Active-filter count badge on the Filters button */
+.filters-btn-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.3125rem;
+  border-radius: 9999px;
+  background: var(--primary);
+  color: white;
+  font-size: 0.625rem;
+  font-weight: 700;
+  margin-left: 0.25rem;
+}
+
+/* Collapsible filter panel — slides down on desktop, modal sheet on mobile */
+.search-filters-panel {
+  max-height: 0;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  transition: max-height 220ms ease, opacity 220ms ease, margin-bottom 220ms ease;
+  opacity: 0;
+  margin-bottom: 0 !important;
+}
+.search-filters-panel.open {
+  max-height: 600px;
+  opacity: 1;
+  margin-bottom: 0.75rem !important;
+}
+.search-filters-panel .filters-panel-inner { font-size: 0.875rem; }
+
+/* Mobile: panel becomes a fixed bottom sheet so it doesn't crowd the page */
+@media (max-width: 767px) {
+  .search-filters-panel {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 90;
+    border-radius: 0.75rem 0.75rem 0 0;
+    transform: translateY(100%);
+    max-height: none;
+    opacity: 1;
+    transition: transform 220ms ease;
+    box-shadow: 0 -8px 32px hsla(0, 0%, 0%, 0.4);
+  }
+  .search-filters-panel.open {
+    transform: translateY(0);
+    margin-bottom: 0 !important;
+  }
+  .search-filters-panel .filters-panel-inner {
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+}
 
 /* Split view: list on the left, sticky map on the right (desktop only) */
 .search-layout {
