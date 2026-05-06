@@ -128,10 +128,8 @@ function renderHeader() {
 
   const authSection = isAuth ? `
     <div class="dropdown">
-      <button class="btn btn-ghost btn-sm glass-subtle" style="border-radius:9999px;padding-left:0.5rem" onclick="toggleDropdown(this)">
-        <span class="gradient-primary" style="width:1.5rem;height:1.5rem;border-radius:9999px;display:flex;align-items:center;justify-content:center">
-          <span style="color:white;font-size:0.65rem">${icons.user}</span>
-        </span>
+      <button class="btn btn-outline btn-sm" style="border-radius:9999px;padding:0.4rem 0.75rem" onclick="toggleDropdown(this)">
+        <span class="icon icon-md" style="color:var(--primary)">${icons.user}</span>
         <span class="text-sm">${user?.first_name || user?.firstName || user?.email?.split('@')[0] || 'User'}</span>
       </button>
       <div class="dropdown-content" id="user-dropdown">
@@ -151,8 +149,8 @@ function renderHeader() {
     <div class="site-header">
       <div class="container flex items-center justify-between inner">
         <a href="#/" class="header-logo">
-          <span class="logo-icon gradient-primary"><span style="color:white">${icons.mapPin}</span></span>
-          LocalDiscover
+          <span class="logo-icon">${icons.mapPin}</span>
+          LocalLens
         </a>
         <nav class="flex items-center gap-1 md-hidden sm-hidden" style="display:none" id="desktop-nav">
           ${navLinks}
@@ -234,8 +232,8 @@ function renderFooter() {
         <div class="grid grid-3 footer-grid">
           <div>
             <div class="header-logo" style="margin-bottom:0.75rem">
-              <span class="logo-icon gradient-primary" style="width:1.75rem;height:1.75rem;border-radius:0.375rem"><span style="color:white;font-size:0.7rem">${icons.mapPin}</span></span>
-              <span class="font-bold text-lg">LocalDiscover</span>
+              <span class="logo-icon">${icons.mapPin}</span>
+              <span>LocalLens</span>
             </div>
             <p class="text-sm text-muted">Discover and support local businesses in your community.</p>
           </div>
@@ -252,7 +250,7 @@ function renderFooter() {
           </div>
         </div>
         <div class="footer-bottom text-center">
-          &copy; ${new Date().getFullYear()} LocalDiscover. Built for FBLA Business Technology.
+          &copy; ${new Date().getFullYear()} LocalLens. Built for FBLA Business Technology.
         </div>
       </div>
     </div>`;

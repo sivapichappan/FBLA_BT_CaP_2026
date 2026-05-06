@@ -34,7 +34,7 @@ async function profilePage(container) {
             <p class="text-sm text-muted">@${p.username || p.email.split('@')[0]}</p>
             <div class="flex items-center gap-2" style="margin-top:0.5rem">
               <span class="badge glass-subtle">${icons.trophy} Level ${p.level || 1}</span>
-              ${p.is_admin ? `<span class="badge" style="background:hsla(217,91%,60%,0.2);color:var(--primary);border:1px solid hsla(217,91%,60%,0.3)">${icons.shield} Admin</span>` : ''}
+              ${p.is_admin ? `<span class="badge" style="background:hsl(var(--primary-h) var(--primary-s) var(--primary-l) / 0.1);color:var(--primary);border-color:hsl(var(--primary-h) var(--primary-s) var(--primary-l) / 0.3)">${icons.shield} Admin</span>` : ''}
             </div>
           </div>
         </div>

@@ -85,7 +85,7 @@ async function businessDetailPage(container, id) {
     </div>`;
 
     // Editorial
-    const editorialHtml = biz.editorial_summary ? `<p class="text-muted text-sm" style="border-left:2px solid hsla(217,91%,60%,0.3);padding-left:1rem;margin-bottom:1.5rem;font-style:italic">${biz.editorial_summary}</p>` : '';
+    const editorialHtml = biz.editorial_summary ? `<p class="text-muted text-sm" style="border-left:2px solid var(--primary);padding-left:1rem;margin-bottom:1.5rem;font-style:italic">${biz.editorial_summary}</p>` : '';
 
     container.innerHTML = `<div class="container-md" style="padding:2rem 1rem">
       ${photoHtml}
