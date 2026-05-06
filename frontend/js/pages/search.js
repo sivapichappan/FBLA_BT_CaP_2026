@@ -29,7 +29,10 @@ const FILTER_DEFAULTS = {
   minRating: 0,
   maxDistanceKm: 5,
   categoriesSize: 0,      // size of the Set
-  localOnly: true,
+  localOnly: false,        // OFF by default — the differentiator badges still
+                           // ride on every card; turning the toggle ON hides
+                           // anything not flagged. Defaulting ON in sparse
+                           // areas can produce zero results.
 };
 
 let _searchState = {
@@ -42,7 +45,7 @@ let _searchState = {
   minRating: 0,
   maxDistanceKm: 5,
   categories: new Set(),  // Set of type slugs
-  localOnly: true,
+  localOnly: false,
   sort: 'best_match',
   // Mobile sidebar toggle
   sidebarOpen: false,
@@ -488,13 +491,18 @@ async function searchFetch() {
       const titleEl = document.getElementById('search-empty-title');
       const subEl = document.getElementById('search-empty-sub');
       const fbEl = document.getElementById('search-fallback');
+      const activeCount = _activeFilterCount();
       if (fallback.length) {
         if (titleEl) titleEl.textContent = "No matches with those filters in this area.";
         if (subEl) subEl.textContent = `Here are the ${fallback.length} closest local businesses:`;
         if (fbEl) fbEl.innerHTML = fallback.map((b) => renderBusinessCard(b)).join('');
+      } else if (activeCount > 0) {
+        if (titleEl) titleEl.textContent = 'No matches with the current filters.';
+        if (subEl) subEl.innerHTML = 'Try <button onclick="searchClearFilters()" class="text-primary" style="background:none;border:none;cursor:pointer;text-decoration:underline;font:inherit;color:var(--primary);padding:0">clearing all filters</button> or expanding the distance.';
+        if (fbEl) fbEl.innerHTML = '';
       } else {
-        if (titleEl) titleEl.textContent = 'No matches in this area.';
-        if (subEl) subEl.textContent = 'Try a larger radius, fewer filters, or change your location.';
+        if (titleEl) titleEl.textContent = 'No local businesses found in this area.';
+        if (subEl) subEl.textContent = 'Try a larger distance, a different category, or change your location.';
         if (fbEl) fbEl.innerHTML = '';
       }
       emptyEl.style.display = 'block';
