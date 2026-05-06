@@ -9,31 +9,43 @@ const SEARCH_CATEGORIES = [
   { label: 'Health', type: 'dentist' },
   { label: 'Nightlife', type: 'bar' },
 ];
-const RADIUS_PRESETS = [
-  { label: 'Walking', value: 1000, desc: '1 km' },
-  { label: 'Biking', value: 3000, desc: '3 km' },
-  { label: 'Driving', value: 10000, desc: '10 km' },
-];
+
 const RATING_PRESETS = [
-  { label: 'Any', value: 0 },
-  { label: '3.5+', value: 3.5 },
-  { label: '4.0+', value: 4.0 },
-  { label: '4.5+', value: 4.5 },
+  { label: 'Any rating', value: 0 },
+  { label: '3★ & up', value: 3 },
+  { label: '4★ & up', value: 4 },
+  { label: '4.5★ & up', value: 4.5 },
 ];
+
+const SORT_OPTIONS = [
+  { label: 'Best', value: 'best_match' },
+  { label: 'Closest', value: 'distance' },
+  { label: 'Top rated', value: 'rating' },
+];
+
+const FILTER_DEFAULTS = {
+  openNow: false,
+  priceLevels: 0,         // size of the Set
+  minRating: 0,
+  maxDistanceKm: 5,
+  categoriesSize: 0,      // size of the Set
+  localOnly: true,
+};
 
 let _searchState = {
   query: '',
-  type: null,
-  radius: 1000,
   debounceTimer: null,
   locationName: null,
-  // Filter state (defaults — non-defaults count toward the Filters badge)
+  // Filter state
+  openNow: false,
+  priceLevels: new Set(),
   minRating: 0,
-  priceLevels: new Set(),       // empty = "any price"
-  independentOnly: true,         // default ON — LocalLens's thesis
+  maxDistanceKm: 5,
+  categories: new Set(),  // Set of type slugs
+  localOnly: true,
   sort: 'best_match',
-  // UI state
-  filtersOpen: false,
+  // Mobile sidebar toggle
+  sidebarOpen: false,
   // Map / hover state
   results: [],
   resultsMap: null,
@@ -42,29 +54,25 @@ let _searchState = {
   hoveredId: null,
 };
 
-const FILTER_DEFAULTS = {
-  radius: 1000,
-  minRating: 0,
-  priceLevels: 0,        // size, not the set itself
-  independentOnly: true,
-};
+/* ─── Filter helpers ──────────────────────────────────────────────────── */
 
 function _activeFilterCount() {
   let n = 0;
-  if (_searchState.radius !== FILTER_DEFAULTS.radius) n++;
-  if (_searchState.minRating !== FILTER_DEFAULTS.minRating) n++;
+  if (_searchState.openNow !== FILTER_DEFAULTS.openNow) n++;
   if (_searchState.priceLevels.size !== FILTER_DEFAULTS.priceLevels) n++;
-  if (_searchState.independentOnly !== FILTER_DEFAULTS.independentOnly) n++;
+  if (_searchState.minRating !== FILTER_DEFAULTS.minRating) n++;
+  if (_searchState.maxDistanceKm !== FILTER_DEFAULTS.maxDistanceKm) n++;
+  if (_searchState.categories.size !== FILTER_DEFAULTS.categoriesSize) n++;
+  if (_searchState.localOnly !== FILTER_DEFAULTS.localOnly) n++;
   return n;
 }
 
-function _refreshFiltersBadge() {
-  const badge = document.getElementById('filters-badge');
-  if (!badge) return;
-  const n = _activeFilterCount();
-  badge.textContent = n > 0 ? String(n) : '';
-  badge.style.display = n > 0 ? 'inline-flex' : 'none';
+function _debouncedFetch() {
+  clearTimeout(_searchState.debounceTimer);
+  _searchState.debounceTimer = setTimeout(() => searchFetch(), 250);
 }
+
+/* ─── Page render ─────────────────────────────────────────────────────── */
 
 function searchPage(container) {
   const loc = locationGet();
@@ -73,21 +81,36 @@ function searchPage(container) {
     <div class="container" style="padding-top:2rem;padding-bottom:2rem">
       <h1 class="text-3xl font-bold animate-fade-in" style="margin-bottom:1.5rem">Search Businesses</h1>
 
-      <!-- Location pill (auto-detect + click to expand map) -->
-      <div class="glass animate-fade-in animate-delay-1" style="padding:0.75rem;border-radius:0.75rem;margin-bottom:1rem">
-        <button id="search-loc-toggle" onclick="searchToggleLocationDetails()"
-                style="display:flex;align-items:center;gap:0.5rem;width:100%;text-align:left;background:transparent;border:none;cursor:pointer;color:var(--foreground);padding:0;font-family:inherit;font-size:inherit">
-          <span class="icon icon-sm text-primary">${icons.mapPin}</span>
-          <span class="font-medium text-sm" id="search-loc-label">${loc ? 'Detecting location…' : 'No location set'}</span>
-          <span class="icon icon-sm text-muted" id="search-loc-chevron"
-                style="margin-left:auto;transition:transform 200ms ease">${icons.chevronRight}</span>
+      <!-- TOP BAR: location pill + search input + segmented sort -->
+      <div class="sidebar-topbar animate-fade-in animate-delay-1">
+        <button class="location-pill" id="search-loc-toggle" onclick="searchToggleLocationDetails()">
+          <span class="icon icon-md">${icons.mapPin}</span>
+          <span id="search-loc-label">${loc ? 'Detecting location…' : 'No location set'}</span>
+          <span style="font-size:0.65rem;opacity:0.6" id="search-loc-chevron">▾</span>
         </button>
-        <div id="search-loc-details" style="display:none;margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border)">
-          <div id="search-loc-map" style="width:100%;height:200px;border-radius:6px;overflow:hidden;margin-bottom:0.5rem;background:var(--muted)"></div>
-          <div class="flex justify-between items-center text-xs text-muted">
-            <span id="search-loc-coords">—</span>
-            <button class="btn btn-ghost btn-sm" onclick="searchUseMyLocation()" style="padding:0.25rem 0.5rem;font-size:0.7rem">${icons.navigation} Re-detect</button>
-          </div>
+
+        <form id="search-form" class="search-input-wrap" style="position:relative;flex:1;min-width:200px">
+          <span class="icon icon-md icon-abs">${icons.search}</span>
+          <input class="input" placeholder="Search businesses…" id="search-query" style="height:2.25rem" />
+        </form>
+
+        <div class="seg-sort" role="tablist" id="seg-sort">
+          ${SORT_OPTIONS.map((s) => `
+            <button data-sort="${s.value}" class="${s.value === _searchState.sort ? 'active' : ''}" onclick="searchSetSort('${s.value}')">${s.label}</button>
+          `).join('')}
+        </div>
+
+        <button class="mobile-filters-fab btn btn-gradient btn-sm" onclick="searchToggleSidebar()">
+          ${icons.shield} Filters <span class="filters-btn-badge" id="mobile-filters-badge" style="display:none"></span>
+        </button>
+      </div>
+
+      <!-- Location details panel (collapsible map under the location pill) -->
+      <div id="search-loc-details" class="glass" style="display:none;margin-bottom:0.75rem;padding:0.75rem;border-radius:0.75rem">
+        <div id="search-loc-map" style="width:100%;height:200px;border-radius:6px;overflow:hidden;margin-bottom:0.5rem;background:var(--muted)"></div>
+        <div class="flex justify-between items-center text-xs text-muted">
+          <span id="search-loc-coords">—</span>
+          <button class="btn btn-ghost btn-sm" onclick="searchUseMyLocation()" style="padding:0.25rem 0.5rem;font-size:0.7rem">${icons.navigation} Re-detect</button>
         </div>
         <div style="position:relative;margin-top:0.5rem" id="search-loc-wrapper">
           <input class="input" placeholder="Or search a different city, zip, or address…" id="search-loc-input" style="height:2.25rem" />
@@ -95,97 +118,81 @@ function searchPage(container) {
         </div>
       </div>
 
-      <!-- Search bar -->
-      <form id="search-form" class="flex gap-2 flex-wrap" style="margin-bottom:0.75rem">
-        <input class="input" placeholder="Search for anything nearby…" id="search-query" style="flex:1;min-width:0" />
-        <button type="submit" class="btn btn-gradient">${icons.search} Search</button>
-      </form>
+      <!-- Results count line -->
+      <div id="search-count" class="text-sm text-muted" style="margin-bottom:0.75rem">&nbsp;</div>
 
-      <!-- Compact toolbar: Filters · Sort · category chips -->
-      <div class="search-toolbar" style="margin-bottom:0.75rem">
-        <button class="btn btn-outline btn-sm" id="filters-btn" onclick="searchToggleFilters()">
-          ${icons.shield} Filters
-          <span class="filters-btn-badge" id="filters-badge" style="display:none"></span>
-        </button>
-        <div class="flex items-center gap-1" style="font-size:0.8125rem">
-          <label class="text-xs text-muted" for="toolbar-sort">Sort</label>
-          <select id="toolbar-sort" class="input" style="height:2rem;width:auto;padding:0.125rem 1.5rem 0.125rem 0.5rem;font-size:0.8125rem"
-                  onchange="searchSetSort(this.value)">
-            <option value="best_match">Best match</option>
-            <option value="distance">Distance</option>
-            <option value="rating">Rating</option>
-            <option value="most_reviewed">Most reviewed</option>
-          </select>
-        </div>
-        <div class="search-toolbar-chips flex gap-2 overflow-x-auto scrollbar-hide" id="search-chips">
-          ${SEARCH_CATEGORIES.map(c => `
-            <button class="chip chip-sm" data-type="${c.type}" onclick="searchToggleCategory('${c.type}')">${c.label}</button>
-          `).join('')}
-        </div>
-      </div>
+      <!-- 3-COLUMN LAYOUT: sidebar | results | map -->
+      <div class="search-layout">
 
-      <!-- Filter panel (collapsed by default; opens via Filters button) -->
-      <div class="search-filters-panel glass" id="search-filters-panel" style="margin-bottom:0.75rem">
-        <div class="filters-panel-inner" style="padding:1rem">
-          <div class="flex items-center justify-between" style="margin-bottom:0.75rem">
-            <span class="font-semibold text-sm">Filters</span>
-            <button class="btn btn-ghost btn-icon-sm" onclick="searchToggleFilters()" aria-label="Close filters">${icons.x}</button>
+        <!-- ── FILTER SIDEBAR ── -->
+        <aside class="filter-sidebar" id="filter-sidebar">
+          <div class="flex items-center justify-between">
+            <h4 style="margin:0">Filters</h4>
+            <button class="sb-clear" onclick="searchClearFilters()">Clear all</button>
           </div>
 
-          <!-- Distance -->
-          <div style="margin-bottom:0.875rem">
-            <div class="text-xs text-muted" style="margin-bottom:0.375rem">Distance</div>
-            <div class="flex gap-2 flex-wrap" id="search-radius">
-              ${RADIUS_PRESETS.map(p => `
-                <button class="chip chip-sm ${p.value === _searchState.radius ? 'active' : ''}" data-radius="${p.value}" onclick="searchSetRadius(${p.value})">${p.label} (${p.desc})</button>
-              `).join('')}
-            </div>
-          </div>
-
-          <!-- Independent only -->
-          <div style="margin-bottom:0.875rem">
-            <label class="flex items-center gap-2" style="cursor:pointer;font-size:0.875rem">
-              <input type="checkbox" id="filter-independent" ${_searchState.independentOnly ? 'checked' : ''}
-                     onchange="searchSetIndependentOnly(this.checked)" style="width:1rem;height:1rem;accent-color:var(--primary)" />
-              <span class="font-medium">Independent only</span>
-              <span class="text-xs text-muted" title="LocalLens prioritizes independent businesses by default">${icons.shield}</span>
-            </label>
-          </div>
-
-          <!-- Min rating -->
-          <div style="margin-bottom:0.875rem">
-            <div class="text-xs text-muted" style="margin-bottom:0.375rem">Min rating</div>
-            <div class="flex gap-2 flex-wrap">
-              ${RATING_PRESETS.map(r => `
-                <button class="chip chip-sm ${r.value === _searchState.minRating ? 'active' : ''}"
-                        data-rating="${r.value}" onclick="searchSetMinRating(${r.value})">${r.label}</button>
-              `).join('')}
-            </div>
+          <!-- Open now -->
+          <div class="sb-toggle ${_searchState.openNow ? 'is-on' : ''}" id="sb-open-toggle" onclick="searchToggleOpenNow()" role="switch" aria-checked="${_searchState.openNow}">
+            <span class="label">Open now</span>
+            <span class="switch"></span>
           </div>
 
           <!-- Price -->
-          <div style="margin-bottom:0.875rem">
-            <div class="text-xs text-muted" style="margin-bottom:0.375rem">Price</div>
-            <div class="flex gap-2 flex-wrap">
-              ${[1, 2, 3, 4].map(p => `
-                <button class="chip chip-sm" data-price="${p}" onclick="searchTogglePrice(${p})">${'$'.repeat(p)}</button>
+          <div class="sb-section">
+            <h4>Price</h4>
+            <div class="price-row" id="sb-price-row">
+              ${[1, 2, 3, 4].map((p) => `
+                <button class="price-btn" data-price="${p}" onclick="searchTogglePrice(${p})">${'$'.repeat(p)}</button>
               `).join('')}
             </div>
           </div>
 
-          <div class="flex items-center justify-between" style="padding-top:0.5rem;border-top:1px solid var(--border)">
-            <button class="btn btn-ghost btn-sm" onclick="searchResetFilters()">Reset</button>
-            <button class="btn btn-gradient btn-sm" onclick="searchToggleFilters()">Done</button>
+          <!-- Minimum rating -->
+          <div class="sb-section">
+            <h4>Minimum rating</h4>
+            ${RATING_PRESETS.map((r) => `
+              <label class="row">
+                <input type="radio" name="sb-rating" value="${r.value}" ${r.value === _searchState.minRating ? 'checked' : ''} onchange="searchSetMinRating(${r.value})" />
+                ${r.label}
+              </label>
+            `).join('')}
           </div>
-        </div>
-      </div>
 
-      <!-- Result count -->
-      <div id="search-count" class="text-sm text-muted" style="margin-bottom:0.75rem">&nbsp;</div>
+          <!-- Distance -->
+          <div class="sb-section">
+            <h4>Distance</h4>
+            <input type="range" min="1" max="25" value="${_searchState.maxDistanceKm}" id="sb-distance" oninput="searchSetMaxDistanceKm(this.value)"
+                   style="accent-color:var(--primary);width:100%" />
+            <div class="flex justify-between text-xs text-muted" style="margin-top:0.25rem">
+              <span>1 km</span>
+              <span id="sb-distance-current">${_searchState.maxDistanceKm} km</span>
+              <span>25 km</span>
+            </div>
+          </div>
 
-      <!-- Split view: results list + map -->
-      <div class="search-layout">
-        <div id="search-list-col">
+          <!-- Category -->
+          <div class="sb-section">
+            <h4>Category</h4>
+            ${SEARCH_CATEGORIES.map((c) => `
+              <label class="row">
+                <input type="checkbox" value="${c.type}" ${_searchState.categories.has(c.type) ? 'checked' : ''} onchange="searchToggleCategoryCheckbox('${c.type}', this.checked)" />
+                ${c.label}
+              </label>
+            `).join('')}
+          </div>
+
+          <!-- Verified local only -->
+          <div class="sb-toggle green ${_searchState.localOnly ? 'is-on' : ''}" id="sb-local-toggle" onclick="searchToggleLocalOnly()" role="switch" aria-checked="${_searchState.localOnly}">
+            <span class="label" style="display:flex;align-items:center;gap:0.375rem">
+              <span style="width:6px;height:6px;border-radius:50%;background:var(--green)"></span>
+              Verified local only
+            </span>
+            <span class="switch"></span>
+          </div>
+        </aside>
+
+        <!-- ── RESULTS GRID ── -->
+        <div class="search-results-col">
           <div id="search-results" class="grid grid-2 gap-3 search-results-list">
             ${loc ? renderSkeleton(6) : ''}
           </div>
@@ -201,10 +208,14 @@ function searchPage(container) {
           </div>
         </div>
 
-        <div id="search-map-col" class="search-map-col">
+        <!-- ── MAP COLUMN ── -->
+        <div class="search-map-col">
           <div id="search-results-map" class="search-results-map"></div>
         </div>
       </div>
+
+      <!-- Mobile-only backdrop for the sidebar bottom sheet -->
+      <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="searchToggleSidebar()"></div>
     </div>`;
 
   // Form submit
@@ -214,16 +225,18 @@ function searchPage(container) {
     searchFetch();
   });
 
-  // Location autocomplete
+  // Location autocomplete (only fires when the details panel is open)
   const locInput = document.getElementById('search-loc-input');
-  locInput.addEventListener('input', () => searchAutocomplete(locInput.value));
-  locInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const first = document.querySelector('#search-predictions .autocomplete-item');
-      if (first) first.click();
-    }
-  });
+  if (locInput) {
+    locInput.addEventListener('input', () => searchAutocomplete(locInput.value));
+    locInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const first = document.querySelector('#search-predictions .autocomplete-item');
+        if (first) first.click();
+      }
+    });
+  }
   document.addEventListener('click', (e) => {
     if (!document.getElementById('search-loc-wrapper')?.contains(e.target)) {
       const pred = document.getElementById('search-predictions');
@@ -240,73 +253,112 @@ function searchPage(container) {
     locationRequest()
       .then(() => { searchUpdateLocationName(); searchFetch(); })
       .catch(() => {
-        document.getElementById('search-loc-label').textContent = 'Location unavailable — enter one below';
+        document.getElementById('search-loc-label').textContent = 'Location unavailable';
       });
   }
+
+  _refreshMobileBadge();
 }
 
-/* ─── Filter setters (debounced refetch) ──────────────────────────────── */
+/* ─── Filter handlers ─────────────────────────────────────────────────── */
 
-function _debouncedFetch() {
-  clearTimeout(_searchState.debounceTimer);
-  _searchState.debounceTimer = setTimeout(() => searchFetch(), 250);
+function _refreshMobileBadge() {
+  const badge = document.getElementById('mobile-filters-badge');
+  if (!badge) return;
+  const n = _activeFilterCount();
+  badge.textContent = n > 0 ? String(n) : '';
+  badge.style.display = n > 0 ? 'inline-flex' : 'none';
 }
 
-function searchSetIndependentOnly(on) {
-  _searchState.independentOnly = !!on;
-  _refreshFiltersBadge();
+function searchToggleOpenNow() {
+  _searchState.openNow = !_searchState.openNow;
+  const el = document.getElementById('sb-open-toggle');
+  if (el) {
+    el.classList.toggle('is-on', _searchState.openNow);
+    el.setAttribute('aria-checked', String(_searchState.openNow));
+  }
+  _refreshMobileBadge();
   _debouncedFetch();
 }
 
-function searchSetMinRating(value) {
-  _searchState.minRating = value;
-  document.querySelectorAll('[data-rating]').forEach((btn) => {
-    btn.classList.toggle('active', Number(btn.dataset.rating) === value);
-  });
-  _refreshFiltersBadge();
+function searchToggleLocalOnly() {
+  _searchState.localOnly = !_searchState.localOnly;
+  const el = document.getElementById('sb-local-toggle');
+  if (el) {
+    el.classList.toggle('is-on', _searchState.localOnly);
+    el.setAttribute('aria-checked', String(_searchState.localOnly));
+  }
+  _refreshMobileBadge();
   _debouncedFetch();
 }
 
 function searchTogglePrice(p) {
   if (_searchState.priceLevels.has(p)) _searchState.priceLevels.delete(p);
   else _searchState.priceLevels.add(p);
-  document.querySelectorAll('[data-price]').forEach((btn) => {
+  document.querySelectorAll('#sb-price-row [data-price]').forEach((btn) => {
     btn.classList.toggle('active', _searchState.priceLevels.has(Number(btn.dataset.price)));
   });
-  _refreshFiltersBadge();
+  _refreshMobileBadge();
+  _debouncedFetch();
+}
+
+function searchSetMinRating(value) {
+  _searchState.minRating = Number(value);
+  _refreshMobileBadge();
+  _debouncedFetch();
+}
+
+function searchSetMaxDistanceKm(value) {
+  _searchState.maxDistanceKm = Number(value);
+  const lab = document.getElementById('sb-distance-current');
+  if (lab) lab.textContent = `${_searchState.maxDistanceKm} km`;
+  _refreshMobileBadge();
+  _debouncedFetch();
+}
+
+function searchToggleCategoryCheckbox(slug, checked) {
+  if (checked) _searchState.categories.add(slug);
+  else _searchState.categories.delete(slug);
+  _refreshMobileBadge();
   _debouncedFetch();
 }
 
 function searchSetSort(value) {
   _searchState.sort = value;
-  // Sort isn't an "active filter" — keep both selectors in sync but don't badge it
-  document.querySelectorAll('select#toolbar-sort, select#filter-sort').forEach((el) => {
-    if (el.value !== value) el.value = value;
-  });
+  document.querySelectorAll('#seg-sort button').forEach((b) =>
+    b.classList.toggle('active', b.dataset.sort === value));
   _debouncedFetch();
 }
 
-function searchToggleFilters() {
-  _searchState.filtersOpen = !_searchState.filtersOpen;
-  const panel = document.getElementById('search-filters-panel');
-  if (panel) panel.classList.toggle('open', _searchState.filtersOpen);
+function searchClearFilters() {
+  _searchState.openNow = FILTER_DEFAULTS.openNow;
+  _searchState.priceLevels = new Set();
+  _searchState.minRating = FILTER_DEFAULTS.minRating;
+  _searchState.maxDistanceKm = FILTER_DEFAULTS.maxDistanceKm;
+  _searchState.categories = new Set();
+  _searchState.localOnly = FILTER_DEFAULTS.localOnly;
+  // Refresh visual state of all sidebar controls
+  const openEl = document.getElementById('sb-open-toggle');
+  if (openEl) { openEl.classList.toggle('is-on', _searchState.openNow); openEl.setAttribute('aria-checked', String(_searchState.openNow)); }
+  const localEl = document.getElementById('sb-local-toggle');
+  if (localEl) { localEl.classList.toggle('is-on', _searchState.localOnly); localEl.setAttribute('aria-checked', String(_searchState.localOnly)); }
+  document.querySelectorAll('#sb-price-row [data-price]').forEach((btn) => btn.classList.remove('active'));
+  document.querySelectorAll('input[name="sb-rating"]').forEach((r) => { r.checked = (Number(r.value) === _searchState.minRating); });
+  const dist = document.getElementById('sb-distance');
+  if (dist) dist.value = String(_searchState.maxDistanceKm);
+  const distLab = document.getElementById('sb-distance-current');
+  if (distLab) distLab.textContent = `${_searchState.maxDistanceKm} km`;
+  document.querySelectorAll('.filter-sidebar input[type="checkbox"]').forEach((c) => { c.checked = false; });
+  _refreshMobileBadge();
+  searchFetch();
 }
 
-function searchResetFilters() {
-  _searchState.radius = FILTER_DEFAULTS.radius;
-  _searchState.minRating = FILTER_DEFAULTS.minRating;
-  _searchState.priceLevels = new Set();
-  _searchState.independentOnly = FILTER_DEFAULTS.independentOnly;
-  // Refresh visual state of all chips/inputs in the panel
-  document.querySelectorAll('[data-radius]').forEach((btn) =>
-    btn.classList.toggle('active', Number(btn.dataset.radius) === _searchState.radius));
-  document.querySelectorAll('[data-rating]').forEach((btn) =>
-    btn.classList.toggle('active', Number(btn.dataset.rating) === _searchState.minRating));
-  document.querySelectorAll('[data-price]').forEach((btn) => btn.classList.remove('active'));
-  const indep = document.getElementById('filter-independent');
-  if (indep) indep.checked = _searchState.independentOnly;
-  _refreshFiltersBadge();
-  searchFetch();
+function searchToggleSidebar() {
+  _searchState.sidebarOpen = !_searchState.sidebarOpen;
+  const sb = document.getElementById('filter-sidebar');
+  const bd = document.getElementById('sidebar-backdrop');
+  if (sb) sb.classList.toggle('open', _searchState.sidebarOpen);
+  if (bd) bd.classList.toggle('open', _searchState.sidebarOpen);
 }
 
 /* ─── Reverse geocode + location pill ─────────────────────────────────── */
@@ -357,7 +409,7 @@ function searchToggleLocationDetails() {
   if (!details) return;
   const isOpen = details.style.display !== 'none';
   details.style.display = isOpen ? 'none' : 'block';
-  if (chevron) chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
+  if (chevron) chevron.textContent = isOpen ? '▾' : '▴';
 
   if (!isOpen) {
     const loc = locationGet();
@@ -393,12 +445,16 @@ async function searchFetch() {
 
   try {
     const params = {
-      latitude: loc.latitude, longitude: loc.longitude, radius: _searchState.radius,
-      independent_only: _searchState.independentOnly,
+      latitude: loc.latitude, longitude: loc.longitude,
+      radius: _searchState.maxDistanceKm * 1000,    // km → m
+      independent_only: _searchState.localOnly,
+      open_now: _searchState.openNow,
       sort: _searchState.sort,
     };
     if (_searchState.query) params.query = _searchState.query;
-    if (_searchState.type) params.type = _searchState.type;
+    // Backend currently accepts a single `type` — pass the first selected category.
+    // Multi-category requires backend changes (parking lot for v2).
+    if (_searchState.categories.size) params.type = Array.from(_searchState.categories)[0];
     if (_searchState.minRating) params.min_rating = _searchState.minRating;
     if (_searchState.priceLevels.size) params.price_levels = Array.from(_searchState.priceLevels).sort().join(',');
 
@@ -409,9 +465,11 @@ async function searchFetch() {
     if (countEl) {
       const total = data.total ?? businesses.length;
       const unfiltered = data.unfiltered_total;
+      const activeCount = _activeFilterCount();
+      const filterText = activeCount > 0 ? ` · ${activeCount} ${activeCount === 1 ? 'filter' : 'filters'} applied` : '';
       countEl.textContent = unfiltered && unfiltered !== total
-        ? `Showing ${total} of ${unfiltered} nearby (filters applied)`
-        : `Showing ${total} ${total === 1 ? 'result' : 'results'}`;
+        ? `Showing ${total} of ${unfiltered} nearby${filterText}`
+        : `Showing ${total} ${total === 1 ? 'result' : 'results'}${filterText}`;
     }
 
     if (businesses.length > 0) {
@@ -426,7 +484,6 @@ async function searchFetch() {
     } else {
       resultsEl.innerHTML = '';
       _renderResultsMap([], loc);
-      // Zero-results: show fallback if backend offered the closest pre-filter survivors
       const fallback = data.nearest_fallback || [];
       const titleEl = document.getElementById('search-empty-title');
       const subEl = document.getElementById('search-empty-sub');
@@ -434,7 +491,7 @@ async function searchFetch() {
       if (fallback.length) {
         if (titleEl) titleEl.textContent = "No matches with those filters in this area.";
         if (subEl) subEl.textContent = `Here are the ${fallback.length} closest local businesses:`;
-        if (fbEl) fbEl.innerHTML = fallback.map(b => renderBusinessCard(b)).join('');
+        if (fbEl) fbEl.innerHTML = fallback.map((b) => renderBusinessCard(b)).join('');
       } else {
         if (titleEl) titleEl.textContent = 'No matches in this area.';
         if (subEl) subEl.textContent = 'Try a larger radius, fewer filters, or change your location.';
@@ -449,34 +506,15 @@ async function searchFetch() {
   }
 }
 
-function searchToggleCategory(type) {
-  _searchState.type = _searchState.type === type ? null : type;
-  document.querySelectorAll('#search-chips .chip').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.type === _searchState.type);
-  });
-  searchFetch();
-}
-
-function searchSetRadius(val) {
-  _searchState.radius = val;
-  document.querySelectorAll('#search-radius .chip').forEach((btn) => {
-    btn.classList.toggle('active', Number(btn.dataset.radius) === val);
-  });
-  _refreshFiltersBadge();
-  searchFetch();
-}
-
-/* ─── Map + hover sync (Wave 2) ───────────────────────────────────────── */
+/* ─── Map + hover sync ────────────────────────────────────────────────── */
 
 function _badgeColor(badge) {
-  // Pin color encodes our differentiator: chain-vs-local
-  if (badge === 'verified_local') return '#1f8a4c';   // strong green
-  if (badge === 'likely_local') return '#7fb98a';     // light green
-  return '#9aa1ac';                                    // neutral gray
+  if (badge === 'verified_local') return '#1f8a4c';
+  if (badge === 'likely_local') return '#7fb98a';
+  return '#9aa1ac';
 }
 
 function _pinSvg(color, label) {
-  // Simple teardrop pin with a numeric label centered above the point.
   const safe = String(label).slice(0, 3);
   return {
     url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
@@ -495,14 +533,11 @@ function _renderResultsMap(businesses, center) {
   const mapEl = document.getElementById('search-results-map');
   if (!mapEl || !window.google || !google.maps) return;
 
-  // Clear any previous pins / info window
   if (_searchState.resultsMarkers.length) {
     _searchState.resultsMarkers.forEach((m) => m.setMap(null));
     _searchState.resultsMarkers = [];
   }
-  if (_searchState.resultsInfoWindow) {
-    _searchState.resultsInfoWindow.close();
-  }
+  if (_searchState.resultsInfoWindow) _searchState.resultsInfoWindow.close();
 
   if (!_searchState.resultsMap) {
     _searchState.resultsMap = new google.maps.Map(mapEl, {
@@ -550,16 +585,14 @@ function _renderResultsMap(businesses, center) {
     bounds.extend(pos);
   });
 
-  // Fit bounds with a sensible cap so a single far-away result doesn't zoom way out
   if (_searchState.resultsMarkers.length > 1) {
     _searchState.resultsMap.fitBounds(bounds, 60);
-    const listener = google.maps.event.addListenerOnce(_searchState.resultsMap, 'bounds_changed', () => {
+    google.maps.event.addListenerOnce(_searchState.resultsMap, 'bounds_changed', () => {
       if (_searchState.resultsMap.getZoom() > 16) _searchState.resultsMap.setZoom(16);
     });
   }
 }
 
-/* Hover state: card → pin */
 function searchHoverCard(bizId) {
   if (_searchState.hoveredId === bizId) return;
   _searchState.hoveredId = bizId;
@@ -571,7 +604,6 @@ function searchHoverCard(bizId) {
     marker.setIcon(_pinSvg(_badgeColor(biz.local_badge), idx + 1));
     if (isHovered) {
       marker.setZIndex(google.maps.Marker.MAX_ZINDEX + 1);
-      // Bigger pin for hover via re-icon at larger size
       const icon = marker.getIcon();
       if (icon && typeof icon === 'object') {
         marker.setIcon({ ...icon, scaledSize: new google.maps.Size(40, 52), anchor: new google.maps.Point(20, 52) });
@@ -582,9 +614,7 @@ function searchHoverCard(bizId) {
   });
 }
 
-/* Hover state: pin → card */
 function searchHoverPin(bizId) {
-  // Reuse the same hover logic, then highlight + scroll the card
   document.querySelectorAll('.search-card-wrap.is-highlighted').forEach((el) => el.classList.remove('is-highlighted'));
   if (bizId) {
     const card = document.querySelector(`.search-card-wrap[data-biz-id="${bizId}"]`);
@@ -634,7 +664,7 @@ async function searchSelectPrediction(description) {
     const details = document.getElementById('search-loc-details');
     if (details) details.style.display = 'none';
     const chevron = document.getElementById('search-loc-chevron');
-    if (chevron) chevron.style.transform = 'rotate(0deg)';
+    if (chevron) chevron.textContent = '▾';
     await searchUpdateLocationName();
     searchFetch();
   } catch (e) {
@@ -650,7 +680,7 @@ function searchUseMyLocation() {
     const details = document.getElementById('search-loc-details');
     if (details) details.style.display = 'none';
     const chevron = document.getElementById('search-loc-chevron');
-    if (chevron) chevron.style.transform = 'rotate(0deg)';
+    if (chevron) chevron.textContent = '▾';
     await searchUpdateLocationName();
     searchFetch();
   }).catch(() => {

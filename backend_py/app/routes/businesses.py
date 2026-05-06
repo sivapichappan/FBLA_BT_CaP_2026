@@ -127,7 +127,8 @@ def _bayesian_rating(rating: float, count: int, m: int = 15, prior: float = 3.7)
 def _apply_filters_and_sort(businesses: list[dict], *,
                             latitude: float, longitude: float,
                             min_rating: float, price_levels: set[int] | None,
-                            independent_only: bool, sort: str) -> list[dict]:
+                            independent_only: bool, sort: str,
+                            open_now: bool = False) -> list[dict]:
     """Annotate distance, then apply UI filters + chosen sort. Pure-Python,
     runs over the (typically <50) results returned by the scorer."""
     annotated = []
@@ -137,6 +138,8 @@ def _apply_filters_and_sort(businesses: list[dict], *,
         annotated.append(b)
 
     def passes(b: dict) -> bool:
+        if open_now and b.get("is_open_now") is not True:
+            return False
         if min_rating and (b.get("average_rating") or 0) < min_rating:
             return False
         if price_levels:
@@ -177,6 +180,7 @@ async def search_businesses(request: Request,
                             min_rating: float = Query(0.0),
                             price_levels: str = Query(""),
                             independent_only: bool = Query(True),
+                            open_now: bool = Query(False),
                             sort: str = Query("best_match")):
     try:
         if not latitude or not longitude:
@@ -210,6 +214,7 @@ async def search_businesses(request: Request,
             latitude=latitude, longitude=longitude,
             min_rating=min_rating, price_levels=price_set,
             independent_only=independent_only, sort=sort,
+            open_now=open_now,
         )
 
         response: dict = {

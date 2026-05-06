@@ -843,21 +843,7 @@ img { max-width: 100%; display: block; }
 
 .chip-sm { padding: 0.25rem 0.625rem; font-size: 0.8125rem; }
 
-/* Compact toolbar: Filters · Sort · category chips strip on one line */
-.search-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-.search-toolbar .search-toolbar-chips {
-  flex: 1 1 0;
-  min-width: 0;
-  padding-bottom: 0.25rem;
-}
-.search-toolbar select.input { background-color: var(--card); }
-
-/* Active-filter count badge on the Filters button */
+/* Active-filter count badge — used by the mobile-only Filters FAB */
 .filters-btn-badge {
   display: inline-flex;
   align-items: center;
@@ -866,67 +852,109 @@ img { max-width: 100%; display: block; }
   height: 1.125rem;
   padding: 0 0.3125rem;
   border-radius: 9999px;
-  background: var(--primary);
+  background: hsla(0, 0%, 100%, 0.25);
   color: white;
   font-size: 0.625rem;
   font-weight: 700;
   margin-left: 0.25rem;
 }
 
-/* Collapsible filter panel — slides down on desktop, modal sheet on mobile */
-.search-filters-panel {
-  max-height: 0;
-  overflow: hidden;
-  border-radius: 0.75rem;
-  transition: max-height 220ms ease, opacity 220ms ease, margin-bottom 220ms ease;
-  opacity: 0;
-  margin-bottom: 0 !important;
-}
-.search-filters-panel.open {
-  max-height: 600px;
-  opacity: 1;
-  margin-bottom: 0.75rem !important;
-}
-.search-filters-panel .filters-panel-inner { font-size: 0.875rem; }
+/* ─── Search top bar (location pill + search input + segmented sort) ─── */
 
-/* Mobile: panel becomes a fixed bottom sheet so it doesn't crowd the page */
-@media (max-width: 767px) {
-  .search-filters-panel {
-    position: fixed;
-    inset: auto 0 0 0;
-    z-index: 90;
-    border-radius: 0.75rem 0.75rem 0 0;
-    transform: translateY(100%);
-    max-height: none;
-    opacity: 1;
-    transition: transform 220ms ease;
-    box-shadow: 0 -8px 32px hsla(0, 0%, 0%, 0.4);
-  }
-  .search-filters-panel.open {
-    transform: translateY(0);
-    margin-bottom: 0 !important;
-  }
-  .search-filters-panel .filters-panel-inner {
-    max-height: 80vh;
-    overflow-y: auto;
-  }
+.sidebar-topbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+.sidebar-topbar .search-input-wrap {
+  flex: 1 1 0;
+  min-width: 200px;
+  position: relative;
+}
+.sidebar-topbar .search-input-wrap input {
+  padding-left: 2.25rem;
+}
+.sidebar-topbar .search-input-wrap .icon-abs {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted-foreground);
+  pointer-events: none;
 }
 
-/* Split view: list on the left, sticky map on the right (desktop only) */
+/* Location pill */
+.location-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  height: 2.25rem;
+  background: hsla(214, 100%, 64%, 0.08);
+  border: 1px solid hsla(214, 100%, 64%, 0.2);
+  border-radius: 9999px;
+  cursor: pointer;
+  color: var(--foreground);
+  font: 600 0.8125rem 'Inter', sans-serif;
+  white-space: nowrap;
+}
+.location-pill:hover { background: hsla(214, 100%, 64%, 0.13); }
+.location-pill .icon { color: var(--primary); }
+
+/* Segmented sort */
+.seg-sort {
+  display: inline-flex;
+  background: hsla(0, 0%, 100%, 0.04);
+  border: 1px solid hsla(0, 0%, 100%, 0.1);
+  border-radius: 9999px;
+  padding: 2px;
+}
+.seg-sort button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.3rem 0.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  color: var(--muted-foreground);
+  font: 500 0.75rem 'Inter', sans-serif;
+}
+.seg-sort button.active {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: white;
+}
+
+/* Mobile-only floating Filters button (only visible <721px) */
+.mobile-filters-fab { display: none; }
+@media (max-width: 720px) {
+  .mobile-filters-fab { display: inline-flex; }
+}
+
+/* ─── 3-column search layout ──────────────────────────────────────── */
+/* Desktop ≥1101px: sidebar | results | map
+   Tablet 721-1100px: sidebar | results (map hidden)
+   Mobile ≤720px: results only (sidebar becomes bottom sheet via toggle) */
+
 .search-layout {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1rem;
 }
-@media (min-width: 1024px) {
-  .search-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@media (min-width: 1101px) {
+  .search-layout { grid-template-columns: 240px minmax(0, 1fr) 320px; }
   .search-results-list { grid-template-columns: 1fr !important; }
-  .search-map-col { display: block; }
-  .search-results-map { position: sticky; top: 1rem; height: calc(100vh - 4rem); min-height: 480px; }
 }
-@media (max-width: 1023px) {
+@media (min-width: 721px) and (max-width: 1100px) {
+  .search-layout { grid-template-columns: 220px minmax(0, 1fr); }
   .search-map-col { display: none; }
 }
+@media (max-width: 720px) {
+  .search-layout { grid-template-columns: 1fr; }
+  .search-map-col { display: none; }
+}
+
 .search-results-map {
   width: 100%;
   height: 360px;
@@ -934,6 +962,167 @@ img { max-width: 100%; display: block; }
   overflow: hidden;
   border: 1px solid var(--border);
   background: var(--muted);
+  position: sticky;
+  top: 1rem;
+}
+@media (min-width: 1101px) {
+  .search-results-map { height: calc(100vh - 4rem); min-height: 480px; }
+}
+
+/* Hover sync: card highlight when its pin is hovered */
+.search-card-wrap { transition: transform 150ms ease; }
+.search-card-wrap.is-highlighted .biz-card,
+.search-card-wrap.is-highlighted > * {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 2px hsla(217, 91%, 60%, 0.4);
+}
+
+/* ─── Filter sidebar ─────────────────────────────────────────────── */
+
+.filter-sidebar {
+  background: hsla(0, 0%, 100%, 0.03);
+  border: 1px solid hsla(0, 0%, 100%, 0.08);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  align-self: start;
+}
+@media (min-width: 1101px) {
+  .filter-sidebar { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
+}
+.filter-sidebar h4 {
+  font: 600 0.7rem 'Inter', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted-foreground);
+  margin: 0 0 0.5rem;
+}
+.filter-sidebar .sb-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.filter-sidebar label.row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  padding: 0.25rem 0;
+}
+.filter-sidebar input[type="checkbox"],
+.filter-sidebar input[type="radio"] {
+  accent-color: var(--primary);
+  width: 14px;
+  height: 14px;
+}
+.filter-sidebar .count {
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  margin-left: auto;
+}
+
+/* Toggles (Open now, Verified local) */
+.filter-sidebar .sb-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.625rem;
+  background: hsla(214, 100%, 64%, 0.08);
+  border: 1px solid hsla(214, 100%, 64%, 0.2);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+.filter-sidebar .sb-toggle .label { font-size: 0.8rem; font-weight: 500; }
+.filter-sidebar .sb-toggle .switch {
+  width: 28px;
+  height: 16px;
+  border-radius: 9999px;
+  background: hsla(0, 0%, 100%, 0.15);
+  position: relative;
+  transition: background 0.2s ease;
+}
+.filter-sidebar .sb-toggle .switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: white;
+  transition: left 0.2s ease;
+}
+.filter-sidebar .sb-toggle.is-on .switch { background: var(--primary); }
+.filter-sidebar .sb-toggle.is-on .switch::after { left: 14px; }
+.filter-sidebar .sb-toggle.green {
+  background: hsla(150, 80%, 50%, 0.08);
+  border-color: hsla(150, 80%, 50%, 0.25);
+}
+.filter-sidebar .sb-toggle.green.is-on .switch { background: var(--green); }
+
+/* Clear all button */
+.filter-sidebar .sb-clear {
+  background: transparent;
+  border: 1px solid hsla(0, 0%, 100%, 0.1);
+  color: var(--muted-foreground);
+  padding: 0.4rem 0.625rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+.filter-sidebar .sb-clear:hover {
+  color: var(--foreground);
+  border-color: hsla(0, 0%, 100%, 0.2);
+}
+
+/* Price buttons */
+.filter-sidebar .price-row { display: flex; gap: 0.25rem; }
+.filter-sidebar .price-btn {
+  flex: 1;
+  padding: 0.4rem;
+  background: hsla(0, 0%, 100%, 0.04);
+  border: 1px solid hsla(0, 0%, 100%, 0.1);
+  border-radius: 0.4rem;
+  cursor: pointer;
+  color: var(--muted-foreground);
+  font: 500 0.8rem 'Inter', sans-serif;
+  font-family: inherit;
+}
+.filter-sidebar .price-btn.active {
+  background: hsla(214, 100%, 64%, 0.15);
+  border-color: hsla(214, 100%, 64%, 0.4);
+  color: hsl(214, 100%, 80%);
+}
+
+/* ─── Mobile: sidebar becomes a fixed bottom sheet ───────────────── */
+
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: hsla(0, 0%, 0%, 0.6);
+  z-index: 89;
+}
+.sidebar-backdrop.open { display: block; }
+
+@media (max-width: 720px) {
+  .filter-sidebar {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 90;
+    transform: translateY(100%);
+    transition: transform 220ms ease;
+    max-height: 80vh;
+    overflow-y: auto;
+    border-radius: 0.75rem 0.75rem 0 0;
+    box-shadow: 0 -8px 32px hsla(0, 0%, 0%, 0.4);
+  }
+  .filter-sidebar.open { transform: translateY(0); }
 }
 
 /* Hover sync: card highlight when its pin is hovered */
