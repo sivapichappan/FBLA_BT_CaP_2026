@@ -50,6 +50,23 @@ PRICE_LEVEL_MAP = {
 
 # --- Core API functions ---
 
+def _places_headers() -> dict:
+    return {
+        "X-Goog-Api-Key": API_KEY,
+        "X-Goog-FieldMask": SEARCH_FIELDS,
+        "Content-Type": "application/json",
+    }
+
+
+def _log_places_error(endpoint: str, resp: httpx.Response) -> None:
+    """Surface Google's error body so 4xx failures aren't opaque in Vercel logs.
+    Google returns JSON like {"error": {"status": "PERMISSION_DENIED",
+    "message": "Places API (New) has not been used in project ..."}} — that
+    message is the actionable signal, not the bare status code."""
+    body = resp.text[:600] if resp.text else "<empty>"
+    print(f"Places API {endpoint} {resp.status_code} {resp.reason_phrase}: {body}")
+
+
 async def search_nearby(latitude: float, longitude: float, radius: int = 1000,
                         included_types: list[str] | None = None, max_result_count: int = 10) -> list:
     if not API_KEY:
@@ -71,17 +88,15 @@ async def search_nearby(latitude: float, longitude: float, radius: int = 1000,
             resp = await client.post(
                 f"{BASE_URL}/places:searchNearby",
                 json=body,
-                headers={
-                    "X-Goog-Api-Key": API_KEY,
-                    "X-Goog-FieldMask": SEARCH_FIELDS,
-                    "Content-Type": "application/json",
-                },
+                headers=_places_headers(),
                 timeout=10,
             )
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                _log_places_error("searchNearby", resp)
+                return []
             return resp.json().get("places", [])
     except Exception as e:
-        print(f"Places API nearby search error: {e}")
+        print(f"Places API nearby search error: {type(e).__name__}: {e}")
         return []
 
 
@@ -126,17 +141,15 @@ async def search_text(text_query: str, latitude: float, longitude: float, radius
                     },
                     "maxResultCount": 20,
                 },
-                headers={
-                    "X-Goog-Api-Key": API_KEY,
-                    "X-Goog-FieldMask": SEARCH_FIELDS,
-                    "Content-Type": "application/json",
-                },
+                headers=_places_headers(),
                 timeout=10,
             )
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                _log_places_error("searchText", resp)
+                return []
             return resp.json().get("places", [])
     except Exception as e:
-        print(f"Places API text search error: {e}")
+        print(f"Places API text search error: {type(e).__name__}: {e}")
         return []
 
 
@@ -153,10 +166,12 @@ async def get_place_details(place_id: str):
                 },
                 timeout=10,
             )
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                _log_places_error("placeDetails", resp)
+                return None
             return resp.json()
     except Exception as e:
-        print(f"Places API detail error: {e}")
+        print(f"Places API detail error: {type(e).__name__}: {e}")
         return None
 
 

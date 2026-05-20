@@ -1,3 +1,4 @@
+import logging
 import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +8,11 @@ from slowapi.errors import RateLimitExceeded
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# httpx logs every outbound request URL at INFO. The Geocoding API requires
+# the key in the query string (no header alternative), so those INFO lines
+# leak the API key into Vercel logs. Suppress to WARNING.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 from app.middleware.rate_limiter import limiter
 from app.routes import auth, businesses, reviews, favorites, deals, analytics, ai, photos

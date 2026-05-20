@@ -262,6 +262,9 @@ async def autocomplete_location(input: str = Query(None)):
                 },
                 timeout=10,
             )
+            if resp.status_code >= 400:
+                print(f"Places autocomplete {resp.status_code} {resp.reason_phrase}: {resp.text[:600]}")
+                return {"predictions": []}
             data = resp.json()
 
         suggestions = data.get("suggestions") or []
@@ -302,6 +305,9 @@ async def geocode_location(address: str = Query(None)):
             data = resp.json()
 
         if data.get("status") != "OK" or not data.get("results"):
+            # Surface Google's status + error_message so REQUEST_DENIED /
+            # billing / quota issues aren't indistinguishable from a real miss.
+            print(f"Geocode {data.get('status')}: {data.get('error_message', '<no message>')}")
             raise HTTPException(status_code=404, detail="Location not found")
 
         result = data["results"][0]
