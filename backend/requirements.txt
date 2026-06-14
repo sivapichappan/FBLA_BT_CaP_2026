@@ -1,0 +1,17 @@
+# ── LocalLens v2 backend dependencies ──────────────────────────────────────
+# Pinned to current, well-supported releases. Each line notes WHY it's here so
+# the dependency list is defensible in Q&A and the ATTRIBUTION doc can cite it.
+
+fastapi==0.115.6           # ASGI web framework — routing, dependency injection, OpenAPI schema
+uvicorn[standard]==0.34.0  # ASGI server (dev + prod); [standard] adds websockets/uvloop/httptools
+pydantic==2.13.4           # request/response models + validation at the framework boundary (2.13: cp314 wheels for Vercel)
+pydantic-settings==2.7.1   # typed settings loaded from environment / .env (config.py)
+email-validator==2.2.0     # backs Pydantic EmailStr (validates email syntax + domain)
+psycopg[binary,pool]==3.2.13  # PostgreSQL driver (v3) + built-in connection pool (3.2.13: ships Python 3.14 wheels for Vercel)
+PyJWT==2.10.1              # sign/verify JWT bearer tokens (auth)
+bcrypt==5.0.0              # password hashing (slow, salted) for the anti-bot requirement (5.0: cp314 wheels for Vercel)
+slowapi==0.1.9             # per-route rate limiting (anti-bot / abuse protection)
+httpx==0.28.1              # async HTTP client for Google Places / Geocoding / the LLM endpoint
+pillow==12.2.0             # image analysis at enrich time (smart-crop focal points)
+python-dotenv==1.0.1       # load backend/.env in local dev
+pytest==8.3.4              # tests, incl. the detector accuracy harness

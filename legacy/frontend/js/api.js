@@ -1,6 +1,11 @@
 /* ─── API Client ─────────────────────────────────────────────────────── */
 
-const API_BASE = '/api';
+// On Vercel the frontend and API share an origin, so a relative '/api' is rewritten
+// to the serverless function. In local dev the static server (:3000) and the FastAPI
+// backend (:5001) are separate origins, so point straight at the backend port.
+const API_BASE = ['localhost', '127.0.0.1'].includes(location.hostname)
+  ? `http://${location.hostname}:5001/api`
+  : '/api';
 
 function getAuthHeaders() {
   const token = localStorage.getItem('token');

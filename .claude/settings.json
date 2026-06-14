@@ -9,7 +9,32 @@
       "Bash(git reset:*)",
       "Bash(pip3 install:*)",
       "Bash(python3 -c ':*)",
-      "Bash(grep -E \"\\\\.tsx$\")"
+      "Bash(grep -E \"\\\\.tsx$\")",
+      "Bash(grep -E \"\\\\.\\(sql|md\\)$\")",
+      "Bash(node --check /Users/sivapichappan/FBLA2526/frontend/js/pages/settings.js)",
+      "Bash(node --check /Users/sivapichappan/FBLA2526/frontend/js/api.js)",
+      "Bash(node --check /Users/sivapichappan/FBLA2526/frontend/js/components.js)",
+      "Bash(node --check /Users/sivapichappan/FBLA2526/frontend/js/app.js)",
+      "Bash(node --check /Users/sivapichappan/FBLA2526/frontend/js/pages/login.js)",
+      "Bash(git commit -m ' *)",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('/Users/sivapichappan/FBLA2526/backend_py/app/config/database.py'\\).read\\(\\)\\); ast.parse\\(open\\('/Users/sivapichappan/FBLA2526/backend_py/app/routes/ai.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('/Users/sivapichappan/FBLA2526/backend_py/app/routes/ai.py'\\).read\\(\\)\\); ast.parse\\(open\\('/Users/sivapichappan/FBLA2526/backend_py/app/main.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('/Users/sivapichappan/FBLA2526/backend_py/app/config/database.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(git revert *)",
+      "Bash(python3 -m pytest tests/test_chain_detector.py -v)",
+      "Bash(node --check frontend/js/pages/search.js)",
+      "Bash(node --check /Users/sivapichappan/FBLA2526/frontend/js/pages/search.js)",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('app/routes/businesses.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(python3 -m pytest tests/test_chain_detector.py -q)",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('backend_py/app/routes/businesses.py'\\).read\\(\\)\\); print\\('businesses.py OK'\\)\")",
+      "Bash(sed -n 345,365p /Users/sivapichappan/FBLA2526/frontend/src/routes/owner/Dashboard.tsx)",
+      "Bash(sed -n 190,215p /Users/sivapichappan/FBLA2526/frontend/src/routes/owner/Dashboard.tsx)",
+      "Bash(sed -n 140,150p /Users/sivapichappan/FBLA2526/frontend/src/routes/owner/Dashboard.tsx)",
+      "Bash(curl -sf http://localhost:5173)",
+      "Bash(break)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:5173)",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health)",
+      "Bash(echo \"frontend: $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:5173\\) · backend: $\\(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health\\)\")"
     ]
   }
 }

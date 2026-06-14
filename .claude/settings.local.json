@@ -3,7 +3,18 @@
     "allow": [
       "Bash(node -e:*)",
       "Bash(npm install)",
-      "Bash(pg_isready:*)"
+      "Bash(pg_isready:*)",
+      "Bash(./.venv/bin/python -m app.cache.warm)",
+      "Bash(perl -0pi -e 's/\\(httpx==0\\\\.28\\\\.1.*\\\\n\\)/$1pillow==12.2.0             # image analysis at enrich time \\(smart-crop focal points\\)\\\\n/' requirements.txt)",
+      "Bash(sed -n 14,18p requirements.txt)",
+      "Bash(./.venv/bin/python -m pytest tests/ -q)",
+      "Bash(./.venv/bin/python -m app.db.harvest)",
+      "Bash(tee /tmp/locallens_harvest.log)",
+      "Bash(curl -s -o /dev/null -w \"frontend 5173 → %{http_code}\\\\n\" http://localhost:5173/)",
+      "Bash(curl -s -o /dev/null -w \"backend 8000 → %{http_code}\\\\n\" http://127.0.0.1:8000/health)",
+      "Bash(./.venv/bin/python -c \"from app.main import app; print\\('import OK'\\)\")",
+      "Bash(cd /Users/sivapichappan/FBLA2526/backend *)",
+      "Read(//private/tmp/**)"
     ],
     "deny": [],
     "ask": []

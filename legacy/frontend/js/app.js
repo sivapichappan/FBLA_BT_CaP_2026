@@ -6,8 +6,14 @@ function navigate(path) {
 
 function getRoute() {
   const hash = window.location.hash.replace(/^#\/?/, '');
-  const parts = hash.split('/');
-  return { page: parts[0] || '', param: parts.slice(1).join('/') };
+  // Split off any ?query=... suffix so pages can read filter state from the URL
+  const [pathPart, queryPart = ''] = hash.split('?');
+  const parts = pathPart.split('/');
+  return {
+    page: parts[0] || '',
+    param: parts.slice(1).join('/'),
+    query: queryPart,
+  };
 }
 
 async function router() {

@@ -1,37 +1,43 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LocalLens</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Source+Serif+4:wght@400;600&family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css" />
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDxIKVcdpUYKQywVrekgweDGCHqLTXx_m4" defer></script>
-</head>
-<body>
-  <div id="app">
-    <header id="app-header"></header>
-    <main id="app-main"></main>
-    <footer id="app-footer"></footer>
-    <div id="ai-widget"></div>
-  </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="LocalLens — discover and support independent local businesses near you."
+    />
+    <title>LocalLens — Discover local, independent businesses</title>
 
-  <script src="js/api.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/location.js"></script>
-  <script src="js/components.js"></script>
-  <script src="js/pages/home.js"></script>
-  <script src="js/pages/login.js"></script>
-  <script src="js/pages/register.js"></script>
-  <script src="js/pages/search.js"></script>
-  <script src="js/pages/business-detail.js"></script>
-  <script src="js/pages/favorites.js"></script>
-  <script src="js/pages/deals.js"></script>
-  <script src="js/pages/profile.js"></script>
-  <script src="js/pages/settings.js"></script>
-  <script src="js/ai-chat.js"></script>
-  <script src="js/app.js"></script>
-</body>
+    <!-- Fonts: Playfair Display (headlines) + Lora (body). Preconnect first
+         to cut render-blocking latency. Mono uses the system stack. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Lora:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Set the theme BEFORE first paint so dark-mode users never see a light
+         flash. Mirrors lib/theme.ts: a saved choice wins, else the OS pref. -->
+    <script>
+      try {
+        var saved = localStorage.getItem("locallens_theme");
+        document.documentElement.dataset.theme =
+          saved === "dark" || saved === "light"
+            ? saved
+            : window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+      } catch (e) {
+        document.documentElement.dataset.theme = "light";
+      }
+    </script>
+  </head>
+  <body>
+    <!-- React mounts here. The cream background + grain are set on <body> in
+         tokens.css so there is no flash of unstyled white before React loads. -->
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>

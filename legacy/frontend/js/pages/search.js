@@ -57,6 +57,63 @@ let _searchState = {
   hoveredId: null,
 };
 
+/* ─── URL state persistence ───────────────────────────────────────────── */
+
+/* Encode + decode filter state in the URL hash query so users can share
+   filtered searches. URL shape: #/search?q=coffee&min_rating=4&local=1 */
+
+function _readUrlState() {
+  const hash = window.location.hash || '';
+  const qIdx = hash.indexOf('?');
+  if (qIdx < 0) return;
+  const params = new URLSearchParams(hash.slice(qIdx + 1));
+
+  if (params.has('q')) _searchState.query = params.get('q');
+  if (params.has('sort')) _searchState.sort = params.get('sort');
+  if (params.has('min_rating')) {
+    const v = parseFloat(params.get('min_rating'));
+    if (!Number.isNaN(v)) _searchState.minRating = v;
+  }
+  if (params.has('dist')) {
+    const v = parseInt(params.get('dist'), 10);
+    if (!Number.isNaN(v) && v >= 1 && v <= 25) _searchState.maxDistanceKm = v;
+  }
+  if (params.has('price')) {
+    _searchState.priceLevels = new Set(
+      params.get('price').split(',').map((s) => parseInt(s, 10)).filter((n) => n >= 1 && n <= 4)
+    );
+  }
+  if (params.has('cat')) {
+    _searchState.categories = new Set(params.get('cat').split(',').filter(Boolean));
+  }
+  if (params.has('local')) _searchState.localOnly = params.get('local') === '1';
+  if (params.has('open')) _searchState.openNow = params.get('open') === '1';
+}
+
+function _writeUrlState() {
+  const params = new URLSearchParams();
+  if (_searchState.query) params.set('q', _searchState.query);
+  if (_searchState.sort && _searchState.sort !== 'best_match') params.set('sort', _searchState.sort);
+  if (_searchState.minRating) params.set('min_rating', String(_searchState.minRating));
+  if (_searchState.maxDistanceKm !== FILTER_DEFAULTS.maxDistanceKm) params.set('dist', String(_searchState.maxDistanceKm));
+  if (_searchState.priceLevels.size) params.set('price', Array.from(_searchState.priceLevels).sort().join(','));
+  if (_searchState.categories.size) params.set('cat', Array.from(_searchState.categories).join(','));
+  if (_searchState.localOnly !== FILTER_DEFAULTS.localOnly) params.set('local', _searchState.localOnly ? '1' : '0');
+  if (_searchState.openNow !== FILTER_DEFAULTS.openNow) params.set('open', _searchState.openNow ? '1' : '0');
+
+  const qs = params.toString();
+  // Rebuild hash: keep #/search (or whatever path is current), append ?qs if any.
+  // history.replaceState avoids triggering a route re-render.
+  const newHash = '#/search' + (qs ? '?' + qs : '');
+  if (newHash !== window.location.hash) {
+    try {
+      history.replaceState(null, '', window.location.pathname + window.location.search + newHash);
+    } catch (e) {
+      // SecurityError on file:// — silently ignore; URL state is best-effort
+    }
+  }
+}
+
 /* ─── Filter helpers ──────────────────────────────────────────────────── */
 
 function _activeFilterCount() {
@@ -72,12 +129,16 @@ function _activeFilterCount() {
 
 function _debouncedFetch() {
   clearTimeout(_searchState.debounceTimer);
-  _searchState.debounceTimer = setTimeout(() => searchFetch(), 250);
+  _searchState.debounceTimer = setTimeout(() => {
+    _writeUrlState();
+    searchFetch();
+  }, 250);
 }
 
 /* ─── Page render ─────────────────────────────────────────────────────── */
 
 function searchPage(container) {
+  _readUrlState();
   const loc = locationGet();
 
   container.innerHTML = `
@@ -94,7 +155,7 @@ function searchPage(container) {
 
         <form id="search-form" class="search-input-wrap" style="position:relative;flex:1;min-width:200px">
           <span class="icon icon-md icon-abs">${icons.search}</span>
-          <input class="input" placeholder="Search businesses…" id="search-query" style="height:2.25rem" />
+          <input class="input" placeholder="Search businesses…" id="search-query" value="${_searchState.query || ''}" style="height:2.25rem" />
         </form>
 
         <div class="seg-sort" role="tablist" id="seg-sort">
@@ -145,7 +206,7 @@ function searchPage(container) {
             <h4>Price</h4>
             <div class="price-row" id="sb-price-row">
               ${[1, 2, 3, 4].map((p) => `
-                <button class="price-btn" data-price="${p}" onclick="searchTogglePrice(${p})">${'$'.repeat(p)}</button>
+                <button class="price-btn ${_searchState.priceLevels.has(p) ? 'active' : ''}" data-price="${p}" onclick="searchTogglePrice(${p})">${'$'.repeat(p)}</button>
               `).join('')}
             </div>
           </div>

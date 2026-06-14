@@ -1,0 +1,38 @@
+# What NOT to upload to Vercel. The Python function bundle is built from the
+# upload (Python has no tree-shaking), so keep it lean — and NEVER upload a real
+# .env: production secrets come from Vercel env vars, not files.
+
+# Secrets — real env files. (frontend/.env.production holds only
+# VITE_API_BASE_URL=/api, which is not a secret, and is intentionally NOT
+# matched by these patterns so Vite can read it at build time.)
+.env
+**/.env
+*.env.local
+
+# Python local/dev
+**/__pycache__
+*.pyc
+**/.venv
+**/venv
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Backend tests excluded (not needed at runtime). The 48 MB on-disk warm cache
+# (backend/app/cache) is INTENTIONALLY shipped: it bundles read-only so warmed
+# demo searches (NYC / San Antonio / Glen Rock) serve instantly and, via the
+# cached 30-day verdicts, without re-spending the Gemini quota on stage. Writes
+# already no-op on Vercel's read-only FS, so shipping it is safe.
+backend/tests
+
+# Node / build artifacts (Vercel rebuilds the SPA from source)
+**/node_modules
+frontend/dist
+dist
+build
+
+# Old v1 tree, VCS, misc
+legacy
+.git
+*.log
+.DS_Store

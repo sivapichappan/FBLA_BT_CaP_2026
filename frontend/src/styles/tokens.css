@@ -1,0 +1,91 @@
+/* ============================================================================
+ * Design tokens — the single source of truth for the LocalLens look
+ * (BUILD_SPEC §14). Tailwind (tailwind.config.ts) references these variables,
+ * so the palette/typography can be tuned here in one place.
+ *
+ * Aesthetic: warm editorial — premium, calm, "printed-magazine". A beige
+ * paper canvas with a single deep-indigo accent; Playfair Display headlines
+ * over Lora body text. No gradients, no generic SaaS glow. Warm-tinted
+ * shadows, hairline borders, paper grain.
+ * ========================================================================== */
+
+:root {
+  --cream: #fbf7f0; /* app background (warm beige paper) */
+  --surface: #fefcf8; /* cards */
+  --ink: #1f1b16; /* primary text (warm near-black) */
+  --ink-soft: #5a5247; /* secondary text */
+  --accent-600: #2e5c8a; /* indigo: large / decorative (6.5:1 on cream) */
+  --accent-700: #21436b; /* indigo: text & icons (AA ≈ 9:1 on cream) */
+  --verified: #4f6b4a; /* "verified local" badge (forest) */
+  --likely: #7d9477; /* "likely local" map pin (softer forest) */
+  --chain: #9a958c; /* "chain" badge (muted) */
+  --border: #e8e0d4; /* warm hairline borders */
+  --shadow: 0 8px 24px rgba(80, 50, 20, 0.08); /* warm, soft */
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-body: "Lora", Georgia, serif;
+  color-scheme: light; /* native widgets (selects, time inputs) match */
+}
+
+/* Dark theme — the same editorial palette, inverted to "paper at night":
+ * near-black warm browns for the canvas, soft parchment for text, the indigo
+ * lifted to a readable sky tone. Set via data-theme on <html> (lib/theme.ts);
+ * every component reads these variables through Tailwind, so no component
+ * changes are needed to switch themes. Contrast (WCAG AA, checked):
+ * ink 13.9:1, ink-soft 6.5:1, accent-700 ≈ 8:1, verified 5.5:1, chain 4.8:1
+ * — all ≥ 4.5:1 against the dark canvas. */
+:root[data-theme="dark"] {
+  --cream: #1e1914; /* canvas: warm near-black */
+  --surface: #272118; /* cards: a half-step lighter */
+  --ink: #ede5d8; /* text: soft parchment */
+  --ink-soft: #a89d8c; /* secondary: warm stone */
+  --accent-600: #5b86b5; /* decorative indigo, lifted for dark */
+  --accent-700: #8fb4dc; /* text/icon indigo (AA on the dark canvas) */
+  --verified: #7c9873; /* lifted forest (AA as text and badge) */
+  --likely: #8faa86; /* lifted soft forest for map pins */
+  --chain: #8a8378; /* muted warm gray (AA) */
+  --border: #3d352a; /* warm hairline on dark */
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.45); /* deeper, still soft */
+  color-scheme: dark;
+}
+
+/* Page canvas. A very low-opacity paper-grain overlay adds atmosphere without
+ * touching contrast; it sits behind content and ignores pointer events. */
+body {
+  margin: 0;
+  background-color: var(--cream);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.4;
+  /* Tiny tiled SVG noise = paper grain, no image asset to ship. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+}
+
+/* Dark mode: the noise rect is near-black, invisible on a dark canvas —
+ * invert it to faint light speckle so the paper texture survives the theme. */
+:root[data-theme="dark"] body::before {
+  filter: invert(1);
+  opacity: 0.25;
+}
+
+/* Accessibility: honor the user's reduced-motion preference globally
+ * (BUILD_SPEC §14) — disable animation/transition for everyone who asks. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
