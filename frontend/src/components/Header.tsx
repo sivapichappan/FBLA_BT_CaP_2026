@@ -56,10 +56,13 @@ function ThemeToggle() {
 }
 
 function navClass({ isActive }: { isActive: boolean }) {
-  return `font-serif transition-colors ${
+  // Animated underline: an ::after bar wipes in from the left on hover and stays
+  // on the active page (origin-left scaleX, zeroed by the global reduced-motion
+  // rule so it just appears/disappears for those users).
+  return `relative font-serif transition-colors after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-full after:origin-left after:bg-accent-600 after:transition-transform after:duration-300 hover:after:scale-x-100 ${
     isActive
-      ? "text-ink underline decoration-accent-600 underline-offset-4"
-      : "text-ink-soft hover:text-ink"
+      ? "text-ink after:scale-x-100"
+      : "text-ink-soft hover:text-ink after:scale-x-0"
   }`;
 }
 

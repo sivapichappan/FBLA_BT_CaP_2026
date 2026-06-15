@@ -21,6 +21,7 @@
   --chain: #9a958c; /* "chain" badge (muted) */
   --border: #e8e0d4; /* warm hairline borders */
   --shadow: 0 8px 24px rgba(80, 50, 20, 0.08); /* warm, soft */
+  --shadow-lift: 0 18px 40px -12px rgba(80, 50, 20, 0.18); /* deeper, for card hover-lift */
   --font-display: "Playfair Display", Georgia, serif;
   --font-body: "Lora", Georgia, serif;
   color-scheme: light; /* native widgets (selects, time inputs) match */
@@ -45,6 +46,7 @@
   --chain: #8a8378; /* muted warm gray (AA) */
   --border: #3d352a; /* warm hairline on dark */
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.45); /* deeper, still soft */
+  --shadow-lift: 0 20px 50px -12px rgba(0, 0, 0, 0.6); /* deeper, for card hover-lift */
   color-scheme: dark;
 }
 

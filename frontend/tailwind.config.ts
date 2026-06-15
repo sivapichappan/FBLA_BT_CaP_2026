@@ -28,6 +28,7 @@ export default {
       },
       boxShadow: {
         warm: "var(--shadow)",
+        lift: "var(--shadow-lift)", // deeper warm shadow for card hover-lift
       },
     },
   },

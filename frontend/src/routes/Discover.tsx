@@ -171,9 +171,11 @@ export function Discover() {
                   onClick={() =>
                     navigate(`/search?cat=${encodeURIComponent(c.name)}`)
                   }
-                  className="flex flex-col items-center gap-2 rounded-lg border border-border bg-surface px-3 py-4 text-ink-soft shadow-warm transition-all hover:-translate-y-0.5 hover:border-accent-600 hover:text-accent-700"
+                  className="group flex flex-col items-center gap-2 rounded-lg border border-border bg-surface px-3 py-4 text-ink-soft shadow-warm transition-all duration-300 hover:-translate-y-1 hover:border-accent-600 hover:text-accent-700 hover:shadow-lift"
                 >
-                  <CategoryIcon name={c.name} />
+                  <span className="transition-transform duration-300 group-hover:scale-110">
+                    <CategoryIcon name={c.name} />
+                  </span>
                   <span className="font-serif text-sm text-ink">{c.name}</span>
                 </button>
               ))}
@@ -219,12 +221,12 @@ export function Discover() {
                   onClick={() =>
                     navigate(`/business/${encodeURIComponent(b.ref)}`)
                   }
-                  className="overflow-hidden rounded-lg border border-border bg-surface text-left shadow-warm transition-transform hover:-translate-y-0.5"
+                  className="group overflow-hidden rounded-lg border border-border bg-surface text-left shadow-warm transition-all duration-300 hover:-translate-y-1 hover:shadow-lift"
                 >
                   <BizImage
                     photoUrl={b.photo_url}
                     name={b.name}
-                    className="h-32 w-full"
+                    className="h-32 w-full transition-transform duration-500 group-hover:scale-105"
                     focusX={b.photo_focus_x}
                     focusY={b.photo_focus_y}
                   />

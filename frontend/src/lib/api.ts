@@ -185,6 +185,7 @@ export const tripApi = {
     duration: TripDuration;
     interests: string[];
     start_time: string;
+    goals?: string;
   }) => post<TripPlan>("/trips/plan", data),
   save: (title: string, params: Record<string, unknown>, stops: TripStop[]) =>
     post<SavedTrip>("/trips", { title, params, stops }),

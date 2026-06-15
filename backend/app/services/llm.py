@@ -229,6 +229,74 @@ async def generate_trip_narrative(stops: list[dict]) -> Optional[str]:
     )
 
 
+_GOALS_PROMPT = """You plan a one-day walking outing made only of small,
+independent local businesses. The user describes, in their own words, the day
+they want. Translate that description into structured planning inputs.
+
+Choose "interests" ONLY from this exact allowed list (use the exact spellings):
+{allowed}
+
+Two hard rules:
+1. INCLUDE ONLY kinds the user actually asked for or clearly implied. Do NOT add
+   a kind they didn't mention. In particular, add "Restaurant" ONLY when they
+   mention food or eating — a meal, lunch, dinner, brunch, "grab a bite",
+   hungry. Coffee, dessert, drinks and shopping are NOT meals: a coffee-and-
+   shopping day has NO Restaurant. Never pad the day with an extra activity.
+2. ORDER by EMPHASIS, most-wanted FIRST. Emphasis comes from QUANTITY words, NOT
+   from the order words appear: "long / lots of / mostly / plenty of X" puts X
+   first; "quick / grab / just / a little X" still includes X but LATER. So in
+   "quick coffee, long shopping" the emphasis is shopping, not coffee.
+
+Examples (input -> interests):
+- "quick coffee, long shopping"         -> ["Retail", "Coffee"]
+- "mostly bookstores then a quick bite" -> ["Bookstore", "Restaurant"]
+- "lunch, then dessert and a cocktail"  -> ["Restaurant", "Dessert", "Bar"]
+- "a slow morning of cafes"             -> ["Coffee"]
+
+Return ONLY a JSON object:
+{{"interests": [<allowed items, most-emphasized first>],
+  "keep_close": <true if they want things nearby / walkable / "nothing far", else false>,
+  "summary": <one warm sentence, under 25 words, framing the day they described>}}
+
+If the description names no clear activity, return "interests": []. NEVER invent
+an interest outside the allowed list. No prose, no markdown."""
+
+
+async def interpret_trip_goals(goals: str, allowed_interests: list[str]) -> Optional[dict]:
+    """Turn a free-text "describe your day" into structured planning inputs:
+    ``{"interests": [valid chips], "keep_close": bool, "summary": str}``.
+
+    The interests are the high-value signal (which KINDS of stops to plan);
+    ``keep_close`` tightens the candidate radius; ``summary`` frames the
+    narration. Returns None on ANY failure — the planner then uses the user's
+    chip selection unchanged, so this call only ENRICHES the plan and is never
+    required (no key / quota / bad JSON degrades gracefully, §13)."""
+    if not goals.strip():
+        return None
+    raw = await _chat(
+        settings.llm_reply_model,
+        [{"role": "system", "content": _GOALS_PROMPT.format(allowed=", ".join(allowed_interests))},
+         {"role": "user", "content": goals.strip()[:500]}],
+        json_mode=True, max_tokens=200, temperature=0.0,
+    )
+    if not raw:
+        return None
+    try:
+        text = raw.strip()
+        if text.startswith("```"):
+            text = text.strip("`").removeprefix("json").strip()
+        parsed = json.loads(text)
+        allowed = set(allowed_interests)
+        interests = [c for c in parsed.get("interests", []) if c in allowed]
+        return {
+            "interests": interests,
+            "keep_close": bool(parsed.get("keep_close")),
+            "summary": str(parsed.get("summary") or "")[:200],
+        }
+    except (json.JSONDecodeError, AttributeError, TypeError):
+        return None
+
+
 _SUMMARY_PROMPT = """You summarize customer reviews for a local-business page.
 Write EXACTLY two sentences (under 45 words total) capturing what reviewers
 consistently love about this place. Mention only things the reviews actually

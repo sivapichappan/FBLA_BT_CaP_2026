@@ -76,11 +76,20 @@ export interface TripOption {
   mode: "llm" | "deterministic";
 }
 
+/** What Gemini understood from the free-text "describe your day" (null when no
+ *  description was given or the model was unavailable). */
+export interface TripInterpretation {
+  interests: string[];
+  keep_close: boolean;
+  summary: string;
+}
+
 export interface TripPlan {
   options: TripOption[];
   duration: TripDuration;
   interests: string[];
   start: { lat: number; lng: number; time: string };
+  interpretation?: TripInterpretation | null;
 }
 
 export interface SavedTrip {

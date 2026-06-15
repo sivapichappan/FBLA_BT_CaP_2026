@@ -20,6 +20,8 @@ class PlanIn(BaseModel):
     duration: Literal["quick", "half", "full"] = "half"
     interests: list[str] = Field(default_factory=list, max_length=6)
     start_time: str = Field(default="10:00", pattern=r"^\d{2}:\d{2}$")
+    # Free-text "describe your day" — Gemini interprets it into planning inputs.
+    goals: Optional[Annotated[str, Field(max_length=500)]] = None
 
 
 class SaveTripIn(BaseModel):
@@ -33,7 +35,7 @@ async def plan_trip(body: PlanIn) -> dict:
     """Build an all-independent walking itinerary (no save)."""
     return await trip_planner.plan(
         lat=body.lat, lng=body.lng, duration=body.duration,
-        interests=body.interests, start_time=body.start_time,
+        interests=body.interests, start_time=body.start_time, goals=body.goals,
     )
 
 

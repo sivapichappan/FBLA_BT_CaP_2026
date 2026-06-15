@@ -26,7 +26,7 @@ export function BusinessCard({
   return (
     <Link
       to={`/business/${encodeURIComponent(b.ref)}`}
-      className={`block overflow-hidden rounded-lg border bg-surface shadow-warm transition-transform duration-150 hover:-translate-y-0.5 ${
+      className={`group block overflow-hidden rounded-lg border bg-surface shadow-warm transition-all duration-300 hover:-translate-y-1 hover:shadow-lift ${
         highlighted ? "border-accent-600" : "border-border"
       }`}
       onMouseEnter={() => onHover?.(b.ref)}
@@ -38,7 +38,7 @@ export function BusinessCard({
       <BizImage
         photoUrl={b.photo_url}
         name={b.name}
-        className="h-36 w-full"
+        className="h-36 w-full transition-transform duration-500 group-hover:scale-105"
         focusX={b.photo_focus_x}
         focusY={b.photo_focus_y}
       />

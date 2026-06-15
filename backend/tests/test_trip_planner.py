@@ -134,3 +134,170 @@ def test_empty_pools_yield_one_empty_option(monkeypatch):
     assert len(out["options"]) == 1
     assert out["options"][0]["stops"] == []
     assert "No independent spots" in out["options"][0]["narrative"]
+
+
+# ── Natural-language goals ──────────────────────────────────────────────────
+
+
+def test_goals_drive_interests_and_frame_narration(monkeypatch):
+    """A free-text description (interpreted by Gemini) overrides the chips: the
+    plan visits the kinds Gemini extracted, the top option is framed with the
+    LLM summary, and the interpretation is returned for the UI to show."""
+    _wire(monkeypatch, _RICH_POOLS, narrative="SHOULD-NOT-BE-USED")
+
+    async def fake_interpret(goals, allowed):
+        # The user typed about coffee + books; Gemini returns those kinds.
+        assert "Coffee" in allowed and "Bookstore" in allowed  # chip vocab passed
+        return {
+            "interests": ["Coffee", "Restaurant"],
+            "keep_close": True,
+            "summary": "A cozy coffee-and-a-bite afternoon, all within an easy walk.",
+        }
+
+    monkeypatch.setattr(trip_planner.llm, "interpret_trip_goals", fake_interpret)
+
+    out = asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0, duration="quick", interests=[],  # NO chips picked
+        start_time="10:00", goals="cozy coffee then a bite, nothing far",
+    ))
+
+    # The interpreted interests drove the plan (coffee + a meal are present)...
+    roles = {s["slot"] for opt in out["options"] for s in opt["stops"]}
+    assert "coffee" in roles and "eat" in roles
+    # ...the top option is framed by the Gemini summary (not the stop-narrator)...
+    assert out["options"][0]["mode"] == "llm"
+    assert out["options"][0]["narrative"].startswith("A cozy coffee-and-a-bite")
+    assert "SHOULD-NOT-BE-USED" not in out["options"][0]["narrative"]
+    # ...and the interpretation is surfaced for the UI.
+    assert out["interpretation"]["keep_close"] is True
+    assert out["interpretation"]["interests"] == ["Coffee", "Restaurant"]
+
+
+def test_goals_failure_falls_back_to_chips(monkeypatch):
+    """If Gemini can't interpret the goals (quota/offline), the planner uses the
+    chip selection unchanged and returns interpretation=None — never an error."""
+    _wire(monkeypatch, _RICH_POOLS, narrative=None)
+
+    async def fake_interpret(goals, allowed):
+        return None  # LLM unavailable
+
+    monkeypatch.setattr(trip_planner.llm, "interpret_trip_goals", fake_interpret)
+
+    out = asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0, duration="quick", interests=["Dessert"],
+        start_time="10:00", goals="anything fun",
+    ))
+
+    assert out["interpretation"] is None
+    # Fell back to the chip ("Dessert").
+    roles = {s["slot"] for opt in out["options"] for s in opt["stops"]}
+    assert "dessert" in roles
+
+
+# ── _plan_chips: emphasis + no unrequested kinds (pure-function unit tests) ──
+
+
+def test_plan_chips_emphasises_first_kind_and_adds_no_meal():
+    """"long shopping, quick coffee" → Retail first (emphasised) becomes 2 of a
+    3-stop day, coffee 1, and NO restaurant is injected."""
+    chips = trip_planner._plan_chips("quick", ["Retail", "Coffee"])
+    assert chips.count("Retail") == 2
+    assert chips.count("Coffee") == 1
+    assert "Restaurant" not in chips
+
+
+def test_plan_chips_never_injects_unrequested_meal():
+    chips = trip_planner._plan_chips("half", ["Coffee", "Bookstore"])
+    assert "Restaurant" not in chips  # user asked for neither food
+
+
+def test_plan_chips_leading_kind_fills_a_longer_day():
+    # A half day "mostly shopping" → shopping dominates the padding.
+    chips = trip_planner._plan_chips("half", ["Retail", "Coffee"])
+    assert chips.count("Retail") == 3 and chips.count("Coffee") == 1
+
+
+def test_plan_chips_default_day_stays_balanced_with_a_meal():
+    # No interests at all → the balanced default day, which DOES include a meal.
+    chips = trip_planner._plan_chips("half", [])
+    assert "Restaurant" in chips
+    assert len(set(chips)) >= 3  # varied, not all one kind
+
+
+# ── Goal parsing: no phantom meal + deterministic fallback ──────────────────
+
+_SHOP_POOLS = {
+    "Coffee": [
+        _biz("c1", "Bean", 40.0, -74.0, 4.6),
+        _biz("c2", "Brew", 40.01, -74.01, 4.5),
+    ],
+    "Retail": [
+        _biz("s1", "Shop A", 40.001, -74.001, 4.4),
+        _biz("s2", "Shop B", 40.011, -74.011, 4.6),
+        _biz("s3", "Shop C", 40.02, -74.02, 4.3),
+    ],
+    "Restaurant": [_biz("r1", "Diner", 40.002, -74.002, 4.2)],
+}
+
+
+def test_meal_guard_drops_phantom_restaurant(monkeypatch):
+    """The reported bug: "quick coffee, long shopping" must NOT produce a meal,
+    even if the interpreter (here the LLM) tries to anchor one."""
+    _wire(monkeypatch, _SHOP_POOLS, narrative="x")
+
+    async def over_adds_a_meal(goals, allowed):
+        return {
+            "interests": ["Coffee", "Retail", "Restaurant"],  # LLM invents a meal
+            "keep_close": False,
+            "summary": "Coffee and shopping.",
+        }
+
+    monkeypatch.setattr(trip_planner.llm, "interpret_trip_goals", over_adds_a_meal)
+
+    out = asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0, duration="quick", interests=[],
+        start_time="10:00", goals="quick coffee long shopping",
+    ))
+
+    roles = {s["slot"] for opt in out["options"] for s in opt["stops"]}
+    assert "eat" not in roles, "no restaurant without a food cue"
+    assert "coffee" in roles and "shop" in roles
+    assert "Restaurant" not in out["interpretation"]["interests"]
+
+
+def test_keyword_fallback_when_llm_unavailable(monkeypatch):
+    """When Gemini can't interpret (offline/quota), the deterministic keyword
+    reader still shapes the day from the text — emphasis (long shopping → more
+    shopping) and no phantom meal — instead of dropping to the generic default."""
+    _wire(monkeypatch, _SHOP_POOLS, narrative=None)
+
+    async def no_llm(goals, allowed):
+        return None
+
+    monkeypatch.setattr(trip_planner.llm, "interpret_trip_goals", no_llm)
+
+    out = asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0, duration="quick", interests=[],
+        start_time="10:00", goals="quick coffee long shopping",
+    ))
+
+    assert out["interpretation"] is not None  # the typed day still shaped the plan
+    assert out["interpretation"]["interests"] == ["Retail", "Coffee"]  # shopping first
+    roles = [s["slot"] for s in out["options"][0]["stops"]]
+    assert "eat" not in roles
+    assert roles.count("shop") >= 2 and "coffee" in roles  # emphasis honoured
+
+
+def test_keyword_interpret_unit():
+    """Direct check of the deterministic reader: emphasis order, no phantom meal,
+    and that a real food word DOES pull in a Restaurant."""
+    allowed = list(trip_planner.CHIP_SLOTS.keys())
+    assert trip_planner._keyword_interpret("quick coffee long shopping", allowed)[
+        "interests"
+    ] == ["Retail", "Coffee"]
+    assert "Restaurant" not in trip_planner._keyword_interpret(
+        "coffee and a bookstore", allowed
+    )["interests"]
+    lunch = trip_planner._keyword_interpret("lunch then dessert", allowed)["interests"]
+    assert "Restaurant" in lunch and "Dessert" in lunch
+    assert trip_planner._keyword_interpret("just vibes", allowed) is None

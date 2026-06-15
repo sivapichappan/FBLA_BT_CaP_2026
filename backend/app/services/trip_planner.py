@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import datetime as dt
 import math
+import re
 from typing import Any, Optional
 
 from app.config import settings
@@ -79,51 +80,125 @@ STRATEGIES: list[dict[str, Any]] = [
 # leave a slot empty (graceful degradation, never a hole in the day).
 NOVELTY_PENALTY = 0.2
 
+# ── Natural-language goal parsing (deterministic) ───────────────────────────
+# Maps words in a free-text "describe your day" to chip kinds, with an emphasis
+# signal from nearby quantity words. Used (a) as the FALLBACK when the LLM
+# interpreter is offline / out of quota — so a typed description still shapes the
+# day instead of being dropped for the generic default — and (b) for the meal
+# guard below. Single-word, prefix-matched tokens keep it cheap and explainable.
+_GOAL_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "Coffee":     ("coffee", "cafe", "cafes", "espresso", "latte", "cappuccino"),
+    "Bookstore":  ("book", "books", "bookshop", "bookstore", "reading"),
+    "Retail":     ("shop", "shopping", "shops", "browse", "boutique", "store",
+                   "stores", "retail", "thrift", "vintage", "mall"),
+    "Grocery":    ("grocery", "groceries", "market", "produce"),
+    "Restaurant": ("eat", "eating", "lunch", "dinner", "brunch", "meal", "meals",
+                   "food", "hungry", "restaurant", "dine", "dining", "bite"),
+    "Dessert":    ("dessert", "desserts", "sweet", "sweets", "cake", "cakes",
+                   "bakery", "pastry", "donut", "gelato", "sundae"),
+    "Bar":        ("bar", "bars", "drinks", "cocktail", "cocktails", "beer",
+                   "wine", "pub", "brewery"),
+}
+_MORE_WORDS = {"long", "lots", "mostly", "plenty", "tons", "much", "lot", "many"}
+_LESS_WORDS = {"quick", "grab", "just", "little", "short", "one"}
+_CLOSE_PHRASES = ("close", "nearby", "near", "walkable", "not far", "nothing far")
+
+
+def _tokens(text: str) -> list[str]:
+    return re.findall(r"[a-z]+", text.lower())
+
+
+def _kw_match(tok: str, kws: tuple[str, ...]) -> bool:
+    # Exact match, or a prefix match for keywords long enough to be unambiguous
+    # ("shop" → "shopping"; "bar" stays exact so it never matches "barbecue").
+    return any(tok == k or (len(k) >= 4 and tok.startswith(k)) for k in kws)
+
+
+def _keyword_interpret(goals: str, allowed: list[str]) -> Optional[dict]:
+    """Deterministic stand-in for the LLM interpreter: pull chip kinds out of the
+    free text and order them by emphasis (quantity words sitting next to each
+    kind). Returns None when nothing recognisable is mentioned."""
+    toks = _tokens(goals)
+    scored: list[tuple[int, int, str]] = []
+    for chip in allowed:
+        idx = next((i for i, t in enumerate(toks)
+                    if _kw_match(t, _GOAL_KEYWORDS.get(chip, ()))), None)
+        if idx is None:
+            continue
+        near = set(toks[max(0, idx - 2):idx])  # the word(s) right before the kind
+        score = (2 if near & _MORE_WORDS else 0) - (2 if near & _LESS_WORDS else 0)
+        scored.append((score, idx, chip))
+    if not scored:
+        return None
+    scored.sort(key=lambda s: (-s[0], s[1]))  # emphasis first, then order of mention
+    text = goals.lower()
+    return {
+        "interests": [c for _, _, c in scored],
+        "keep_close": any(p in text for p in _CLOSE_PHRASES),
+        "summary": "",
+    }
+
+
+def _mentions_food(goals: str) -> bool:
+    """True only when the text actually refers to a meal — the gate for whether a
+    Restaurant belongs in the day at all."""
+    return any(_kw_match(t, _GOAL_KEYWORDS["Restaurant"]) for t in _tokens(goals))
+
 
 def _plan_chips(duration: str, interests: list[str]) -> list[str]:
     """Turn the duration + interests into an ORDERED list of stop kinds (chips).
 
-    Interests come first (so the day reflects what the user asked for), a meal
-    is always anchored, the list is padded to the target count by repeating the
-    user's picks before reaching for defaults, and finally ordered by time of
-    day. This is why changing interests now visibly changes the plan."""
+    ``interests`` arrive in PRIORITY order (the goals-interpreter sorts them by
+    emphasis: most-wanted first; a chip selection keeps its own order). We honour
+    exactly what was asked — NO kind the user didn't request is ever injected
+    (so "quick coffee, long shopping" never sprouts a restaurant). The day is
+    then padded to the duration's target by giving the leading, most-emphasised
+    kind the extra stops ("long shopping" → more shopping), capping the rest so
+    the day stays varied, and finally ordered by time of day.
+
+    Only when the user gave NO interests at all do we fall back to a balanced
+    DEFAULT day — which deliberately includes a meal."""
     target = TARGET_STOPS.get(duration, 4)
     wanted = list(dict.fromkeys(c for c in interests if c in CHIP_SLOTS))
     if not wanted:
-        wanted = DEFAULT_CHIPS[:]
-    # Every day out includes a meal.
-    if not any(CHIP_SLOTS[c]["role"] == "eat" for c in wanted):
-        wanted.append("Restaurant")
+        wanted = DEFAULT_CHIPS[:]  # no input → a balanced default day (with a meal)
 
     chips: list[str] = []
     counts: dict[str, int] = {}
 
-    def _try_add(c: str) -> None:
-        if counts.get(c, 0) < MAX_PER_CHIP:
-            chips.append(c)
-            counts[c] = counts.get(c, 0) + 1
+    def _add(c: str) -> None:
+        chips.append(c)
+        counts[c] = counts.get(c, 0) + 1
 
-    # Round-robin the user's picks first, then top up from the defaults.
-    for source in (wanted, DEFAULT_CHIPS):
-        i = 0
-        while len(chips) < target and i < 4 * len(source):
-            _try_add(source[i % len(source)])
-            i += 1
+    # 1) One of each requested kind, in priority order, up to the target.
+    for c in wanted:
         if len(chips) >= target:
             break
+        _add(c)
+
+    # 2) Pad to the target by priority: the FIRST (most-emphasised) kind takes
+    #    the extra slots; every other kind is capped at MAX_PER_CHIP so the day
+    #    stays varied. The leading kind's cap is the whole day, so a day that's
+    #    "mostly shopping" really is mostly shopping.
+    for idx, c in enumerate(wanted):
+        cap = target if idx == 0 else MAX_PER_CHIP
+        while len(chips) < target and counts.get(c, 0) < cap:
+            _add(c)
 
     chips.sort(key=lambda c: CHIP_SLOTS[c]["rank"])
     return chips[:target]
 
 
-async def _fetch_pools(chips: list[str], lat: float, lng: float) -> dict[str, list[dict]]:
+async def _fetch_pools(chips: list[str], lat: float, lng: float,
+                       radius_m: int = TRIP_RADIUS_M) -> dict[str, list[dict]]:
     """One category-driven search per distinct kind → real candidates of that
     kind near the start. Fetching per kind is what guarantees a slot is never
-    empty for lack of, say, an independent coffee shop in the generic pool."""
+    empty for lack of, say, an independent coffee shop in the generic pool.
+    ``radius_m`` tightens when the user asked to keep everything close."""
     pools: dict[str, list[dict]] = {}
     for chip in dict.fromkeys(chips):  # distinct, order-stable
         result = await search_service.search(SearchParams(
-            lat=lat, lng=lng, radius_m=TRIP_RADIUS_M, categories=CHIP_SLOTS[chip]["cats"],
+            lat=lat, lng=lng, radius_m=radius_m, categories=CHIP_SLOTS[chip]["cats"],
         ))
         pools[chip] = [b.model_dump() for b in result.results]
     return pools
@@ -226,10 +301,17 @@ def _templated_narrative(stops: list[dict]) -> str:
 
 
 async def plan(*, lat: Optional[float], lng: Optional[float], duration: str,
-               interests: list[str], start_time: str) -> dict:
+               interests: list[str], start_time: str,
+               goals: Optional[str] = None) -> dict:
     """Build SEVERAL itineraries (the user picks). Returns ``options`` — each a
     distinct day with its own stops, totals, narrative and mode — plus the shared
-    duration/interests/start the day was planned for."""
+    duration/interests/start the day was planned for.
+
+    If ``goals`` (a free-text "describe your day") is given, ONE Gemini call
+    interprets it into the planning inputs — which kinds of stops to include,
+    whether to keep everything close, and a one-line framing — so the options
+    fit what the user actually described. The deterministic core still builds
+    the route, so a quota/LLM failure simply falls back to the chip selection."""
     start_lat = lat if lat is not None else settings.demo_lat
     start_lng = lng if lng is not None else settings.demo_lng
     try:
@@ -237,8 +319,39 @@ async def plan(*, lat: Optional[float], lng: Optional[float], duration: str,
     except ValueError:
         parsed_start = dt.time(10, 0)
 
-    chips = _plan_chips(duration, interests)
-    pools = await _fetch_pools(chips, start_lat, start_lng)  # fetched once, reused
+    # Natural-language goals → structured inputs (enrichment only; never required).
+    interpretation: Optional[dict] = None
+    if goals and goals.strip():
+        interpretation = await llm.interpret_trip_goals(goals, list(CHIP_SLOTS.keys()))
+        if interpretation is None:
+            # LLM offline / out of quota / bad JSON → deterministic keyword reading
+            # so the typed description still shapes the day (rather than being
+            # dropped, leaving only the generic default).
+            interpretation = _keyword_interpret(goals, list(CHIP_SLOTS.keys()))
+        # Meal guard: the interpreter (especially the LLM) tends to anchor a
+        # sit-down meal even when none was asked for. Drop a goals-derived
+        # Restaurant unless the description actually mentions food — so
+        # "quick coffee, long shopping" never sprouts a restaurant. (A Restaurant
+        # the user TICKED as a chip is still honoured: chips are merged in below.)
+        if (interpretation and "Restaurant" in interpretation["interests"]
+                and not _mentions_food(goals)):
+            interpretation = {
+                **interpretation,
+                "interests": [i for i in interpretation["interests"] if i != "Restaurant"],
+            }
+
+    effective_interests = list(interests)
+    radius_m = TRIP_RADIUS_M
+    if interpretation:
+        if interpretation["interests"]:
+            # The description leads; any chips the user also ticked are appended.
+            effective_interests = list(
+                dict.fromkeys(interpretation["interests"] + list(interests)))
+        if interpretation["keep_close"]:
+            radius_m = TRIP_RADIUS_M // 2  # "nothing far" → a tighter candidate pool
+
+    chips = _plan_chips(duration, effective_interests)
+    pools = await _fetch_pools(chips, start_lat, start_lng, radius_m)  # fetched once, reused
 
     # Build one day per strategy. Each avoids the businesses chosen by accepted
     # earlier options, so the options visit different places; any option whose
@@ -263,12 +376,22 @@ async def plan(*, lat: Optional[float], lng: Optional[float], duration: str,
             "total_walk_km": round(sum(s["walk_from_prev_km"] for s in stops), 2),
         })
 
-    # Narrate the TOP option with the LLM (one call — protects the 20/day Gemini
-    # quota); template the rest. Each narration is grounded only in its own stops.
+    # Narrate the TOP option (one LLM call at most — protects the 20/day Gemini
+    # quota); template the rest. When the user described their day, frame the top
+    # option with the summary Gemini ALREADY wrote (no second call); otherwise
+    # narrate it the original way. Each narration is grounded in its own stops.
+    goal_summary = (interpretation or {}).get("summary")
     for idx, opt in enumerate(options):
-        narrative = await llm.generate_trip_narrative(opt["stops"]) if idx == 0 else None
-        opt["mode"] = "llm" if narrative else "deterministic"
-        opt["narrative"] = narrative or _templated_narrative(opt["stops"])
+        if idx == 0 and goal_summary:
+            opt["narrative"] = f"{goal_summary}\n\n{_templated_narrative(opt['stops'])}"
+            opt["mode"] = "llm"
+        elif idx == 0:
+            narrative = await llm.generate_trip_narrative(opt["stops"])
+            opt["mode"] = "llm" if narrative else "deterministic"
+            opt["narrative"] = narrative or _templated_narrative(opt["stops"])
+        else:
+            opt["mode"] = "deterministic"
+            opt["narrative"] = _templated_narrative(opt["stops"])
 
     if not options:  # nothing matched anywhere — one empty option carries the note
         options = [{
@@ -279,6 +402,9 @@ async def plan(*, lat: Optional[float], lng: Optional[float], duration: str,
     return {
         "options": options,
         "duration": duration,
-        "interests": interests,
+        "interests": effective_interests,
         "start": {"lat": start_lat, "lng": start_lng, "time": start_time},
+        # What Gemini understood from the free-text goals (null when none/failed),
+        # so the UI can show the user their day was read correctly.
+        "interpretation": interpretation,
     }

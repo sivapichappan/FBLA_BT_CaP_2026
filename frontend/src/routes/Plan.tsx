@@ -1,8 +1,9 @@
 /**
- * The small-business trip planner: pick a duration, interests, and start time
- * → get a walkable, ALL-INDEPENDENT itinerary with times, walking legs, a map,
- * and an AI narration (deterministic fallback offline — the "✦/⚙" chip shows
- * which engine narrated). Signed-in users can save trips and revisit them.
+ * The small-business trip planner: describe your day in words (or tap a few
+ * categories), choose how long and when → get a walkable, ALL-INDEPENDENT
+ * itinerary with times, walking legs, a map, and an AI narration (deterministic
+ * fallback offline — the "✦/⚙" chip shows which engine narrated). Signed-in
+ * users can save trips and revisit them.
  */
 
 import { useEffect, useState } from "react";
@@ -32,15 +33,6 @@ const OPTION_BLURB: Record<string, string> = {
   walk: "Least walking",
 };
 
-/** A small numbered badge that turns the form into legible, guided steps. */
-function StepDot({ n }: { n: number }) {
-  return (
-    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-700/10 font-mono text-[11px] font-bold text-accent-700">
-      {n}
-    </span>
-  );
-}
-
 const DURATIONS: { value: TripDuration; label: string; hint: string }[] = [
   { value: "quick", label: "Quick outing", hint: "~2 h · 3 stops" },
   { value: "half", label: "Half day", hint: "~4 h · 4 stops" },
@@ -66,6 +58,7 @@ export function Plan() {
   const [duration, setDuration] = useState<TripDuration>("half");
   const [interests, setInterests] = useState<string[]>([]);
   const [startTime, setStartTime] = useState("10:00");
+  const [goals, setGoals] = useState("");
   const [plan, setPlan] = useState<TripPlan | null>(null);
   const [optionIdx, setOptionIdx] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -105,6 +98,7 @@ export function Plan() {
           duration,
           interests,
           start_time: startTime,
+          goals: goals.trim() || undefined,
         }),
       );
       setOptionIdx(0); // always show the top ("Best overall") option first
@@ -153,63 +147,52 @@ export function Plan() {
         Plan a local day
       </h1>
       <p className="mt-1 max-w-2xl font-serif text-ink-soft">
-        A walkable itinerary made only of independent businesses — chains can't
-        appear here by construction. Pick a shape for your day and go.
+        Tell us what you're in the mood for and we'll build a walkable day out
+        of independent spots only — never a chain.
       </p>
       <p className="mt-2">
         <LocationControl />
       </p>
 
-      {/* ── The planner form (three guided steps) ─────────────────────── */}
+      {/* ── The planner form ──────────────────────────────────────────── */}
       <section
         aria-label="Plan your day"
-        className="mt-5 space-y-6 rounded-xl border border-border bg-surface p-5 sm:p-6"
+        className="mt-5 rounded-xl border border-border bg-surface p-5 sm:p-6"
       >
-        {/* Step 1 — how long */}
-        <fieldset>
-          <legend className="flex items-center gap-2 font-serif text-sm font-medium text-ink">
-            <StepDot n={1} /> How long do you have?
-          </legend>
-          <div className="mt-2.5 grid grid-cols-3 gap-2 sm:max-w-xl">
-            {DURATIONS.map((d) => (
-              <button
-                key={d.value}
-                type="button"
-                aria-pressed={duration === d.value}
-                onClick={() => setDuration(d.value)}
-                className={`flex flex-col rounded-lg border px-3 py-3 text-left transition-colors ${
-                  duration === d.value
-                    ? "border-accent-700 bg-accent-700 text-cream"
-                    : "border-border bg-cream text-ink hover:border-accent-600"
-                }`}
-              >
-                <span className="font-serif text-sm font-medium">
-                  {d.label}
-                </span>
-                <span
-                  className={`mt-0.5 font-mono text-[10px] ${duration === d.value ? "text-cream/80" : "text-ink-soft"}`}
-                >
-                  {d.hint}
-                </span>
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        {/* 1) WHAT you want — describe in words OR tap categories (two ways to
+               say the same thing, so they sit together, not as separate steps) */}
+        <h2 className="font-display text-xl font-semibold text-ink">
+          What are you in the mood for?
+        </h2>
+        <p className="mt-1 font-serif text-sm text-ink-soft">
+          Describe your ideal day in a sentence, or just tap a few categories —
+          both are optional.
+        </p>
 
-        {/* Step 2 — interests */}
+        <label htmlFor="plan-goals" className="sr-only">
+          Describe your ideal day
+        </label>
+        <textarea
+          id="plan-goals"
+          value={goals}
+          onChange={(e) => setGoals(e.target.value)}
+          rows={3}
+          maxLength={500}
+          placeholder="e.g. A relaxed rainy afternoon — good coffee, a bookshop to browse, then a cozy dinner. Nothing too far."
+          className="mt-3 w-full rounded-lg border border-border bg-cream px-3.5 py-2.5 font-serif text-ink placeholder:text-ink-soft/60 focus:border-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-600"
+        />
+
+        <div className="my-4 flex items-center gap-3">
+          <span className="h-px flex-1 bg-border" />
+          <span className="font-mono text-[11px] uppercase tracking-wide text-ink-soft">
+            or tap categories
+          </span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+
         <fieldset>
-          <legend className="flex flex-wrap items-center gap-x-2 gap-y-1 font-serif text-sm font-medium text-ink">
-            <span className="flex items-center gap-2">
-              <StepDot n={2} /> What are you in the mood for?
-            </span>
-            <span className="font-serif text-xs font-normal text-ink-soft">
-              optional ·{" "}
-              {interests.length
-                ? `${interests.length} picked`
-                : "leave blank for a balanced day"}
-            </span>
-          </legend>
-          <div className="mt-2.5 flex flex-wrap gap-2">
+          <legend className="sr-only">Categories</legend>
+          <div className="flex flex-wrap gap-2">
             {INTERESTS.map((name) => {
               const on = interests.includes(name);
               return (
@@ -232,12 +215,40 @@ export function Plan() {
           </div>
         </fieldset>
 
-        {/* Step 3 — start time + the primary action */}
-        <fieldset className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-end sm:justify-between">
+        {/* 2) SETTINGS — how long + when */}
+        <div className="mt-6 flex flex-col gap-5 border-t border-border pt-5 sm:flex-row sm:items-end sm:justify-between">
+          <fieldset>
+            <legend className="font-serif text-sm font-medium text-ink">
+              How long?
+            </legend>
+            <div className="mt-2 grid grid-cols-3 gap-2 sm:flex">
+              {DURATIONS.map((d) => (
+                <button
+                  key={d.value}
+                  type="button"
+                  aria-pressed={duration === d.value}
+                  onClick={() => setDuration(d.value)}
+                  className={`flex flex-col rounded-lg border px-3 py-2 text-left transition-colors ${
+                    duration === d.value
+                      ? "border-accent-700 bg-accent-700 text-cream"
+                      : "border-border bg-cream text-ink hover:border-accent-600"
+                  }`}
+                >
+                  <span className="font-serif text-sm font-medium">
+                    {d.label}
+                  </span>
+                  <span
+                    className={`mt-0.5 font-mono text-[10px] ${duration === d.value ? "text-cream/80" : "text-ink-soft"}`}
+                  >
+                    {d.hint}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
           <label className="font-serif text-sm font-medium text-ink">
-            <span className="flex items-center gap-2">
-              <StepDot n={3} /> Start time
-            </span>
+            Start at
             <input
               type="time"
               value={startTime}
@@ -245,16 +256,21 @@ export function Plan() {
               className="mt-2 block rounded-md border border-border bg-cream px-3 py-2 font-mono text-sm"
             />
           </label>
+        </div>
 
-          <button
-            type="button"
-            onClick={buildPlan}
-            disabled={busy}
-            className="w-full rounded-md bg-accent-700 px-6 py-3 font-serif font-medium text-cream shadow-sm transition-colors hover:bg-accent-600 disabled:opacity-60 sm:w-auto"
-          >
-            {busy ? "Planning…" : plan ? "↻ Re-plan my day" : "Build my day →"}
-          </button>
-        </fieldset>
+        {/* 3) The one clear action */}
+        <button
+          type="button"
+          onClick={buildPlan}
+          disabled={busy}
+          className="mt-6 w-full rounded-lg bg-accent-700 px-6 py-3.5 font-serif text-base font-medium text-cream shadow-sm transition-colors hover:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {busy
+            ? "Planning your day…"
+            : plan
+              ? "↻ Re-plan my day"
+              : "Build my day →"}
+        </button>
       </section>
 
       {message && (
@@ -271,6 +287,30 @@ export function Plan() {
       {/* ── The itinerary ─────────────────────────────────────────────── */}
       {plan && option && !busy && (
         <div className="mt-6">
+          {/* What Gemini understood from the free-text description (the framing
+              sentence itself appears in the narration below). */}
+          {plan.interpretation && (
+            <div className="mb-5 flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-cream px-4 py-2.5">
+              <span className="font-mono text-[11px] uppercase tracking-wide text-accent-700">
+                ✦ From your description
+              </span>
+              <span className="font-mono text-[11px] text-ink-soft">·</span>
+              {plan.interpretation.interests.map((i) => (
+                <span
+                  key={i}
+                  className="rounded-full border border-border bg-surface px-2 py-0.5 font-serif text-xs text-ink"
+                >
+                  {i}
+                </span>
+              ))}
+              {plan.interpretation.keep_close && (
+                <span className="rounded-full border border-border bg-surface px-2 py-0.5 font-serif text-xs text-ink">
+                  kept nearby
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Pick between the alternative days — each visits different spots. */}
           {plan.options.length > 1 && (
             <div className="mb-6">

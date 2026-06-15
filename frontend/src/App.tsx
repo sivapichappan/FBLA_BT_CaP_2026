@@ -12,6 +12,7 @@ import { Link, Route, Routes } from "react-router-dom";
 import { ConciergeWidget } from "./components/ConciergeWidget";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header } from "./components/Header";
+import { ScrollProgress } from "./components/ScrollProgress";
 import { EmptyState } from "./components/ui";
 import { AuthProvider } from "./lib/auth";
 import { BusinessDetail } from "./routes/BusinessDetail";
@@ -47,6 +48,7 @@ export default function App() {
   return (
     <AuthProvider>
       <MotionConfig reducedMotion="user">
+        <ScrollProgress />
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-accent-700 focus:px-4 focus:py-2 focus:font-serif focus:text-cream"
