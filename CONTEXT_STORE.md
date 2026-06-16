@@ -1,6 +1,7 @@
 # CONTEXT STORE — LocalLens v2 (full session state)
 
-> Working memory for AI-assisted development of this repo. Rewritten 2026-06-13.
+> Working memory for AI-assisted development of this repo. Rewritten 2026-06-13;
+> updated 2026-06-15.
 > Purpose: enough fidelity that a fresh session (or post-compaction context) can
 > continue EXACTLY where this one left off — decisions, tunables, gotchas, and
 > verification recipes included. Sections 1–8 + 10–11 describe the system as it
@@ -36,16 +37,19 @@ verdict?" panel shows which gate decided + the reason. Every "smart" surface
 filter degrades to registry-only with unknowns SHOWN as "likely local".
 
 Strategy/rubric analysis: `FBLA_FEATURES_AND_STRATEGY.md` (7-min demo skeleton +
-scorecard). Original brief: `BUILD_SPEC.md`. Diagram-deck brief for browser
-Claude: `DIAGRAM_PROMPTS.md`. The v1 app (vanilla JS) is preserved in `legacy/`,
-superseded.
+scorecard). Original brief: `BUILD_SPEC.md`. Browser-Claude build kits:
+`DIAGRAM_PROMPTS.md` (diagram deck) and **`FBLA_DECK_KIT.md`** (the full paste-
+ready 8-slide presentation + 4 SVG prompts + 3-min demo script — current). The v1
+app (vanilla JS) is preserved in `legacy/`, superseded.
 
 ## 2. Repo / environment / how to run
 
 - **Repo root:** `/Users/sivapichappan/FBLA2526` (git; branch `master`; remote
-  `https://github.com/sivapichappan/FBLA_BT_CaP_2026.git`, public). **NOTHING
-  from v2 committed** — user controls commits, intends to rotate credentials
-  first. Local git identity misconfigured (`your-personal-email@example.com`).
+  `https://github.com/sivapichappan/FBLA_BT_CaP_2026.git`, public). **v2 IS
+  committed + pushed** (HEAD `96c3a09` "Add describe-your-day planning + UI
+  polish"; deploy commit `c9501e6`). Secrets stay gitignored so commits are safe;
+  user still owns commits/pushes. The full **awwwards UI revamp is parked in
+  `git stash@{0}`** (recoverable via `git stash pop`) — see §9.
 - **Stack:** Python 3.12 / FastAPI / psycopg3 / Supabase Postgres (+pgvector);
   React 18 + TypeScript + Vite 5 + Tailwind 3.4 + motion/react.
 - **Run:** `./run.sh` OR backend `cd backend && ./.venv/bin/uvicorn app.main:app
@@ -67,7 +71,7 @@ superseded.
   verdict cache, and `cache/warm.py` (warmed demo cities = 0 live calls).
 - **Cloud — LIVE (v2 deployed 2026-06-13):** Vercel project `fbla-2026`
   (id `prj_heJW0pbxynK5qegZCH7unSQIFCLa`, team `team_JKtO6sXyzqRra9kL5ECS5jYi`,
-  account `sivapichappan-5633`) → **https://fbla-2026-tan.vercel.app** (public,
+  account `sivapichappan-5633`) → **https://getlocallens.vercel.app** (public,
   prod). All-on-Vercel serverless: Vite SPA static + FastAPI as ONE Python
   function. See **§Deployment** below. Env vars set on Vercel (prod+preview) via
   `vercel env add` — NOT committed. Session Supabase MCP is a different org
@@ -97,10 +101,14 @@ recomputed at seed end. **chain_registry: 2,383 names** (2,233 fuzzy seed +
 
 ## §Deployment (Vercel, all-on-serverless) — LIVE
 
-Prod: **https://fbla-2026-tan.vercel.app** (public). CLI `vercel` is logged in
-as `sivapichappan-5633`; repo linked via `.vercel/` (gitignored). Deploy with
-`vercel` (preview, SSO-protected — test via `vercel curl <path> --deployment
-<url>`) then `vercel --prod` (promotes + aliases fbla-2026-tan).
+Prod: **https://getlocallens.vercel.app** (primary, public) — also
+`fbla-2026-tan.vercel.app`; BOTH are project production domains that auto-follow
+deploys. CLI `vercel` is logged in as `sivapichappan-5633`; repo linked via
+`.vercel/` (gitignored). Deploy with `vercel` (preview, SSO-protected — test via
+`vercel curl <path> --deployment <url>`) then `vercel --prod`. To add a nicer
+`.vercel.app` name use **`vercel domains add <name>.vercel.app`** (a PROJECT
+domain → public + permanent); do NOT use `vercel alias set` (its URL is
+auth-gated 401). `getlocallens` was claimed this way.
 
 Files (repo root unless noted):
 - `vercel.json` — `framework: vite`; `buildCommand: cd frontend && npm install &&
@@ -142,7 +150,7 @@ each search (20/day Gemini quota); warmed-cache hits + 30-day verdicts mitigate.
   table; photo_focus_x/y (additive ALTER too); CHECKs double as semantic validation.
 - `db/seed.sql` — see §3; references by name/username sub-selects.
 - `db/migrate.py` — schema; seeds if empty; `--reseed` truncates seed tables;
-  `--fresh` drops all public tables; **idempotently seeds 509 brands → chain_registry**.
+  `--fresh` drops all public tables; **idempotently seeds 509 curated brands → chain_registry** (live table reaches **2,383** with the curated bulk import + AI-learned chains; cite 2,383 everywhere user-facing).
 - `db/enrich.py` — pass1 photos (Places text-search, accent-fold name guard,
   40/46, 6 monogram placeholders); pass2 embeddings (46/46); pass3 photo focal
   points (Pillow, `_download_photo` resolves proxy via fetch_photo_uri, 41/41).
@@ -172,7 +180,9 @@ each search (20/day Gemini quota); warmed-cache hits + 30-day verdicts mitigate.
   ranker (§6), intent (keyword 8-intent), **llm** (OpenAI-compat httpx; default
   9s timeout + `timeout` override; **reasoning_effort:"none" only to googleapis**;
   classify_intent, generate_reply, summarize_reviews, generate_trip_narrative,
-  **classify_chains** + `_CLASSIFY_PROMPT`), embeddings (batched 768-dim),
+  **classify_chains** + `_CLASSIFY_PROMPT`, **interpret_trip_goals** +
+  `_GOALS_PROMPT` [free-text day → {interests, keep_close, summary}, temp 0]),
+  embeddings (batched 768-dim),
   **places** (§5; Places New; search_text PAGINATED, search_nearby DISTANCE-
   ranked; `_TYPE_TO_CHIPS`/`_chip_categories`/`_CHIP_TO_QUERY`/`chip_query`;
   ONLINE=false reads stale cache), places_cache (sha1 JSON files),
@@ -193,7 +203,8 @@ each search (20/day Gemini quota); warmed-cache hits + 30-day verdicts mitigate.
   **test_search_breadth.py** (chip_query completeness, format_place chip mapping,
   _passes_filters token rules, deepen-before-widen + page-settle spy, category-
   browse per-chip + multi-select + early-exit, expanded NEARBY_TYPES),
-  **test_ranker.py**. **43 pytest green.**
+  **test_ranker.py**, **test_trip_planner.py** (multi-option distinctness;
+  goal-parsing meal guard + keyword fallback + emphasis). **57 pytest green.**
 
 ## 5. Search behavior (current — IMPORTANT)
 
@@ -290,10 +301,13 @@ fixed template:
 - `CHIP_SLOTS`: each interest chip → {cats to fetch, role, dwell, chronological
   rank}. Coffee→coffee(45,1), Bookstore→browse(40,2), Retail→shop(40,2),
   Grocery→market(30,2), Restaurant→eat(75,3), Dessert→dessert(30,4), Bar→drinks(60,5).
-- `_plan_chips(duration, interests)`: interests first; a meal always anchored;
-  padded to TARGET_STOPS {quick3, half4, full6} by round-robin ≤2/chip (MAX_PER_
-  CHIP), DEFAULT_CHIPS=[Coffee,Restaurant,Dessert,Bookstore,Bar] when none; sorted
-  by rank (morning→evening).
+- `_plan_chips(duration, interests)`: interests in PRIORITY order; pads to
+  TARGET_STOPS {quick3, half4, full6} by giving the FIRST/most-emphasised kind the
+  extra stops ("long shopping" → 2 shop in a quick day), every other kind capped at
+  MAX_PER_CHIP; ordered by rank (morning→evening). **No kind the user didn't ask
+  for is injected — a meal is NOT force-anchored** (2026-06-15 fix). Only with ZERO
+  interests does it fall back to a balanced DEFAULT_CHIPS=[Coffee,Restaurant,
+  Dessert,Bookstore,Bar] day (which DOES include a meal).
 - `_fetch_pools`: ONE category-driven `search()` PER distinct kind (reuses chip
   browse) → guarantees no empty slot for lack of nearby coffee/bar.
 - `_build_stops(…, strategy, avoid)`: greedy kind-by-kind, score =
@@ -310,7 +324,17 @@ fixed template:
   collapsed (sparse areas → fewer options). Only `options[0]` is LLM-narrated
   (1 call — quota guard); rest are templated. Each option = {key, label, stops,
   total_walk_km, narrative, mode}.
-- Routes: POST /trips/plan (→ {options, duration, interests, start}), POST
+- **Describe-your-day goals** (2026-06-15): `plan(goals=…)` sends the free text to
+  `llm.interpret_trip_goals` (Gemini, temp 0; sharpened prompt: emphasis from
+  QUANTITY words not sentence order, NO phantom meal). If the LLM is offline/quota,
+  a deterministic `_keyword_interpret` (keyword→chip + emphasis from adjacent
+  more/less words) shapes the day so a typed description is never dropped for the
+  default. A **meal guard** (`_mentions_food`) removes a goals-derived `Restaurant`
+  unless the text actually mentions food — fixes "quick coffee long shopping"
+  wrongly adding a restaurant. Returns `interpretation` {interests, keep_close,
+  summary} for the UI banner; keep_close halves the radius; summary frames option 0.
+- Routes: POST /trips/plan (→ {options, interpretation, duration, interests,
+  start}), POST
   /trips (save snapshot of the SELECTED option's stops), GET /trips, DELETE
   /trips/{id}. Frontend `Plan.tsx` shows option tabs (label · N stops · km ·
   name preview); selected option drives the timeline + map; save records
@@ -343,8 +367,10 @@ notice; For-you strip; LocationControl; results↔map hover sync; reads `?kind=`
 `/business/:ref` Detail (hero BizImage, badges, **VerdictBreakdown** glass-box
 [verdict + source chip + 4-step trail], AI summary pull-quote, hours, deals +
 redeem, reviews CRUD + helpful + owner replies), `/favorites`, `/deals`,
-`/plan` (duration cards, interest chips, start time, timeline + numbered-pin map
-+ ✦/⚙ narration, save/delete), `/profile`, `/login`, `/register`, owner:
+`/plan` ("describe your ideal day" textarea + or-tap category chips + duration
+cards + start time → multi-option day; option tabs; "From your description"
+interpretation banner; timeline + numbered-pin map + ✦/⚙ narration; save/delete),
+`/profile`, `/login`, `/register`, owner:
 `/owner` Dashboard (selector, date range, 7-metric multi-select, stat cards +
 FunnelChart + HTML-flex Bar/TrendChart, CSV/print, edit links), `/owner/
 add-business`, `/owner/edit/:id`, `/owner/post-deal`, `/owner/verify` (cashier).
@@ -357,7 +383,12 @@ react-google-maps, mapId="DEMO_MAP_ID", badge-colored numbered AdvancedMarkers,
 hover sync, **PanToCenter** child re-centers on location change, ColorScheme by
 theme), ConciergeWidget (FAB, ✦/⚙ chip), VerdictBreakdown, charts.tsx (HTML
 flex), LocationControl (geocode/device/NYC-reset; localStorage; event), Header
-(sun/moon ThemeToggle), ErrorBoundary, Reveal (MotionConfig reducedMotion="user").
+(sun/moon ThemeToggle + animated nav underline), **ScrollProgress** (top reading
+bar, motion/react), ErrorBoundary, Reveal (MotionConfig reducedMotion="user").
+Cards/tiles have hover lift + image-zoom (`shadow-lift` token). **A full awwwards
+UI revamp (Space Grotesk + spark accent, OverlayMenu, full-bleed hero, SplitText/
+Marquee, PageTransition, Footer, custom cursor, Loader) was built then REVERTED —
+it lives in `git stash@{0}`; only the scroll bar + hovers were kept.**
 
 **lib/:** api.ts (typed client, 15s timeout, ApiError w/ 422 extraction,
 tokenStore, photoSrc(); groups authApi/businessApi[.vibe(params)/.summary/
@@ -436,9 +467,27 @@ For substantial/ambiguous work: Explore → Plan → confirm before building.
   (duration / icon interest-chips / start-time + full-width CTA); option tabs
   became selectable cards w/ plain-language taglines + ✓.
 - **2026-06-13 DEPLOYED to Vercel (v2 LIVE)** — all-on-serverless at
-  fbla-2026-tan.vercel.app (see §Deployment). ASGI mount-at-`/api`, no Mangum;
+  getlocallens.vercel.app (see §Deployment). ASGI mount-at-`/api`, no Mangum;
   deps bumped for Python-3.14 wheels; warm cache shipped. Preview→prod gated;
   public smoke test green (health, SPA, 19-result gemini search).
+- **2026-06-14 scroll bar + hover polish** — added a top ScrollProgress reading
+  bar + hover micro-interactions (card lift/zoom, category tiles, animated nav
+  underline) + a `shadow-lift` token, on the original design. Deployed to prod.
+- **2026-06-14 awwwards revamp built then PARKED** — a full editorial-bold
+  redesign (Space Grotesk + spark accent, OverlayMenu, full-bleed hero, SplitText/
+  Marquee, PageTransition, Footer, custom cursor, Loader) was implemented across
+  EVERY page (tsc + 34 Vitest green) then REVERTED per the user — now recoverable
+  in **`git stash@{0}`**. Only scroll bar + hovers were carried onto the original.
+- **2026-06-15 trip planner — describe-your-day** — free-text goals → Gemini
+  `interpret_trip_goals` + deterministic keyword fallback + a meal guard; sharpened
+  prompt (emphasis from quantity words, no phantom meal). Fixes "quick coffee long
+  shopping" → coffee+shopping, 0 food. Plan form redesigned (grouped "what you
+  want" vs settings, full-width CTA). +tests → **57 backend** / 34 Vitest.
+- **2026-06-15 vercel URL + commit/push** — v2 committed + pushed (HEAD `96c3a09`);
+  added the public PROJECT domain **getlocallens.vercel.app** (auto-follows prod;
+  fbla-2026-tan still live). **`FBLA_DECK_KIT.md`** authored = paste-ready 8-slide
+  FBLA deck + 4 separate SVG-diagram prompts for browser Claude (7-min: ~4 slides
+  + 3 demo), "white-with-flavor" design system.
 
 **REMAINING / suggested next:** real-quota Gemini key (pre-competition #1 —
 prod runs ONLINE=true so live searches spend it); rotate the credentials now
@@ -461,6 +510,10 @@ refresh demo data.
 - Trip title uses window.prompt; planner ignores business hours (start-time
   agnostic); open-now uses America/New_York for seeded hours.
 - Search.tsx is the largest component — works, refactor candidate.
+- Custom `.vercel.app` URL gotcha: a `vercel alias set` URL is auth-GATED (401);
+  use **`vercel domains add <name>.vercel.app`** (a PROJECT domain) for a public,
+  permanent, deploy-following URL. Only the project production domains are exempt
+  from Vercel deployment protection — preview/alias URLs return 401 to anon.
 - Bundle ~420KB (motion/react + maps lib) — fine for the demo.
 - auth.py manual `_parse_body` required wherever slowapi decorates a body route
   (only auth; /search + /vibe are GET).

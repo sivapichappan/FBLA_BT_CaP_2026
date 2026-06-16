@@ -9,8 +9,8 @@ free listing, deal posting, a cashier code-verification mode, and a customizable
 dashboard with a conversion funnel.
 
 Its signature capability: LocalLens shows **only small, independent businesses — everywhere,
-always**. Every search runs a three-gate filter: a persistent **chain registry** (509 curated
-brands, plus every chain the system has ever caught) drops known chains for free; everything
+always**. Every search runs a three-gate filter: a persistent **chain registry** (2,383 brands in the live table — a curated seed plus
+every chain the system has ever caught) drops known chains for free; everything
 unknown gets **one batched Gemini audit** against a strict definition (corporate chains and
 franchises out; a beloved local with a handful of same-city locations stays in); and every new
 conviction is **learned** — written back to the registry so the next search, in any city, blocks
@@ -77,9 +77,9 @@ deterministic fallback when offline.
 
 Three gates, cheapest evidence first:
 
-1. **Chain registry** (Postgres `chain_registry`): 509 curated brand names matched with a 4-pass
-   fuzzy matcher ("Starbucks #4271 - Downtown" → starbucks), plus every chain the AI has ever
-   convicted. Free and instant.
+1. **Chain registry** (Postgres `chain_registry`): **2,383 brand names** in the live table — a
+   curated seed plus every chain the AI has ever convicted — matched with a 4-pass fuzzy matcher
+   ("Starbucks #4271 - Downtown" → starbucks). Free and instant.
 2. **Gemini audit**: all remaining unknowns go out in **one batched call** with a strict
    definition and an explicit uncertainty rule — *if unsure, answer "small"*. Verdicts are cached
    per place for 30 days, so repeat searches cost zero AI calls.
@@ -168,8 +168,8 @@ npm test                            # Vitest component/client unit tests
 - The concierge and trip narration fall from LLM → deterministic template **silently**; each reply
   is labeled "✦ AI" or "⚙ offline mode" in the UI. Review summaries hide rather than hallucinate;
   vibe search shows a calm "unavailable offline" notice.
-- The chain filter degrades, never dies: with the AI unreachable, the registry (509 brands + every
-  learned chain) keeps filtering, and unverifiable businesses are SHOWN with a "likely local"
+- The chain filter degrades, never dies: with the AI unreachable, the registry (2,383 brands —
+  curated seeds plus every learned chain) keeps filtering, and unverifiable businesses are SHOWN with a "likely local"
   badge — uncertainty never hides a real independent.
 - `ONLINE=false` forces the entire offline path for rehearsal.
 - Frontend: request timeouts (15 s), route-level error boundaries, skeleton loaders, photo→monogram

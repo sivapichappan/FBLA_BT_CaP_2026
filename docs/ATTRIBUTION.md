@@ -65,5 +65,7 @@ icons are original work.
 - Detector validation set ([backend/tests/labeled_businesses.json](../backend/tests/labeled_businesses.json)):
   hand-labeled by the author from public knowledge of each business; field values are realistic
   approximations of what Google Places returns.
-- The ~800-entry chain-brand list ([backend/app/services/brands.py](../backend/app/services/brands.py))
-  was hand-curated by the author (carried forward from v1 of this project, in [legacy/](../legacy/)).
+- The curated chain-brand seed list ([backend/app/services/brands.py](../backend/app/services/brands.py))
+  was hand-curated by the author (carried forward from v1 of this project, in [legacy/](../legacy/)); it
+  seeds the live `chain_registry` table, which currently holds **2,383** brands (seed + every chain the
+  classifier has learned).
