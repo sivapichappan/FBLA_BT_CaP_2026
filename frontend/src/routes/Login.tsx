@@ -38,7 +38,7 @@ export function Login() {
     <main className="container-page flex justify-center py-16">
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-md rounded-lg border border-border bg-surface p-8 shadow-warm"
+        className="w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-warm sm:p-8"
       >
         <h1 className="font-display text-3xl font-semibold text-ink">
           Welcome back

@@ -47,7 +47,7 @@ function Toggle({
       aria-pressed={active}
       aria-label={label}
       onClick={onClick}
-      className={`rounded-full border px-3 py-1 font-serif text-sm transition-colors ${
+      className={`rounded-full border px-3 py-1.5 font-serif text-sm transition-colors ${
         active
           ? "border-accent-700 bg-accent-700 text-cream"
           : "border-border bg-surface text-ink-soft hover:border-accent-600 hover:text-ink"
@@ -61,7 +61,7 @@ function Toggle({
 /** Mono uppercase row label inside the expanded panel. */
 function PanelLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="w-16 shrink-0 pt-1 font-mono text-xs uppercase tracking-wide text-ink-soft">
+    <span className="w-full shrink-0 pt-1 font-mono text-xs uppercase tracking-wide text-ink-soft sm:w-16">
       {children}
     </span>
   );
@@ -130,7 +130,7 @@ export function FilterBar({ filters, categories, onChange }: Props) {
           aria-expanded={expanded}
           aria-controls={panelId}
           onClick={() => setExpanded((v) => !v)}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-serif text-sm transition-colors ${
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-serif text-sm transition-colors ${
             expanded || panelCount > 0
               ? "border-accent-700 text-accent-700"
               : "border-border bg-surface text-ink-soft hover:border-accent-600 hover:text-ink"

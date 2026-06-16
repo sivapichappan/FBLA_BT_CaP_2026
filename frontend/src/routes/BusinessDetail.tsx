@@ -229,7 +229,7 @@ export function BusinessDetail() {
         <BizImage
           photoUrl={biz.photo_url}
           name={biz.name}
-          className="mb-6 h-64 w-full rounded-lg border border-border"
+          className="mb-6 h-48 w-full rounded-lg border border-border sm:h-64"
           focusX={biz.photo_focus_x}
           focusY={biz.photo_focus_y}
         />

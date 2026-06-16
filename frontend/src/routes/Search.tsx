@@ -13,6 +13,7 @@ import { BusinessCard } from "../components/BusinessCard";
 import { FilterBar } from "../components/FilterBar";
 import { LocationControl } from "../components/LocationControl";
 import { MapView } from "../components/MapView";
+import { MapListToggle } from "../components/MapListToggle";
 import { Reveal } from "../components/Reveal";
 import { BizImage, EmptyState, Skeleton } from "../components/ui";
 import { businessApi, recommendApi } from "../lib/api";
@@ -68,6 +69,9 @@ export function Search() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hoveredRef, setHoveredRef] = useState<string | null>(null);
+  // Below lg the list and map can't sit side-by-side, so the user toggles between
+  // them; at lg+ both show and this is ignored (the toggle is hidden).
+  const [mobileView, setMobileView] = useState<"list" | "map">("list");
   // Set when the backend widened the circle to reach 10 small businesses.
   const [widenedToKm, setWidenedToKm] = useState<number | null>(null);
   // Classic = keyword/filter search; Vibe = semantic search by feel. Initialized
@@ -322,10 +326,14 @@ export function Search() {
 
       {/* Results + map — the map gets the larger share: it's the spatial
           half of the experience and cards stay readable at ~45% width. */}
+      <MapListToggle view={mobileView} onChange={setMobileView} />
+
       <div className="mt-3 grid gap-5 lg:grid-cols-[1fr_1.3fr]">
         <section
           aria-label="Results"
-          className="max-h-[75vh] space-y-3 overflow-y-auto pr-1"
+          className={`space-y-3 lg:max-h-[75vh] lg:overflow-y-auto lg:pr-1 ${
+            mobileView === "list" ? "block" : "hidden"
+          } lg:block`}
         >
           {loading ? (
             <Skeleton count={4} height="7rem" />
@@ -356,8 +364,16 @@ export function Search() {
           )}
         </section>
 
-        <section aria-label="Map" className="sticky top-4 h-[75vh]">
+        <section
+          aria-label="Map"
+          className={`h-[70vh] lg:sticky lg:top-4 lg:h-[75vh] ${
+            mobileView === "map" ? "block" : "hidden"
+          } lg:block`}
+        >
+          {/* key={mobileView} remounts the map when the mobile user reveals it,
+              so it never paints grey from a 0×0 (display:none) first layout. */}
           <MapView
+            key={mobileView}
             businesses={results}
             center={center}
             hoveredRef={hoveredRef}

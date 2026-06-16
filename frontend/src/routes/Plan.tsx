@@ -11,6 +11,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { CategoryIcon } from "../components/CategoryIcon";
 import { LocationControl } from "../components/LocationControl";
 import { MapView } from "../components/MapView";
+import { MapListToggle } from "../components/MapListToggle";
 import { Reveal } from "../components/Reveal";
 import { BizImage, LocalBadge, Skeleton, StarRating } from "../components/ui";
 import { ApiError, tripApi } from "../lib/api";
@@ -65,6 +66,8 @@ export function Plan() {
   const [message, setMessage] = useState<string | null>(null);
   const [saved, setSaved] = useState<SavedTrip[]>([]);
   const [hoveredRef, setHoveredRef] = useState<string | null>(null);
+  // Below lg the itinerary and map can't sit side-by-side; the user toggles.
+  const [mobileView, setMobileView] = useState<"list" | "map">("list");
 
   // The itinerary/map below always reflect the option the user has selected.
   const option = plan?.options[optionIdx] ?? null;
@@ -373,8 +376,13 @@ export function Plan() {
             </div>
           )}
 
+          <MapListToggle view={mobileView} onChange={setMobileView} />
+
           <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-            <section aria-label="Itinerary">
+            <section
+              aria-label="Itinerary"
+              className={mobileView === "list" ? "block lg:block" : "hidden lg:block"}
+            >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="font-display text-2xl font-semibold text-ink">
                   {plan.options.length > 1
@@ -473,8 +481,15 @@ export function Plan() {
               </ol>
             </section>
 
-            <section aria-label="Route map" className="sticky top-4 h-[70vh]">
+            <section
+              aria-label="Route map"
+              className={`h-[70vh] lg:sticky lg:top-4 ${
+                mobileView === "map" ? "block" : "hidden"
+              } lg:block`}
+            >
+              {/* key remounts the map when revealed on mobile (no grey 0×0). */}
               <MapView
+                key={mobileView}
                 businesses={option.stops}
                 center={{ lat: plan.start.lat, lng: plan.start.lng }}
                 hoveredRef={hoveredRef}

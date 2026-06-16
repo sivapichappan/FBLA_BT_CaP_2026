@@ -108,7 +108,7 @@ export function LocalBadge({ badge }: { badge: string | null | undefined }) {
   const verified = badge === "verified_local";
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide ${
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 font-mono text-[11px] uppercase tracking-wide ${
         verified
           ? "bg-verified text-cream"
           : "border border-verified text-verified"

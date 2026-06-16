@@ -78,7 +78,7 @@ export function FunnelChart({
             </p>
           )}
           <div className="flex items-center gap-3">
-            <span className="w-28 shrink-0 font-mono text-xs uppercase tracking-wide text-ink-soft">
+            <span className="w-20 shrink-0 font-mono text-xs uppercase tracking-wide text-ink-soft sm:w-28">
               {s.label}
             </span>
             <div className="h-6 flex-1 overflow-hidden rounded bg-cream">

@@ -92,7 +92,7 @@ export function ConciergeWidget() {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-label={open ? "Close concierge chat" : "Open concierge chat"}
-        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent-700 text-2xl text-cream shadow-warm transition-transform hover:scale-105"
+        className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent-700 text-2xl text-cream shadow-warm transition-transform hover:scale-105"
       >
         {open ? "×" : "✦"}
       </button>
@@ -101,7 +101,7 @@ export function ConciergeWidget() {
         <div
           role="dialog"
           aria-label="LocalLens concierge"
-          className="fixed bottom-24 right-5 z-40 flex h-[28rem] w-[22rem] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-warm"
+          className="fixed bottom-24 right-5 z-40 flex h-[28rem] max-h-[70vh] w-[min(22rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-warm"
         >
           <header className="border-b border-border bg-cream px-4 py-3">
             <p className="font-display font-semibold text-ink">Concierge</p>

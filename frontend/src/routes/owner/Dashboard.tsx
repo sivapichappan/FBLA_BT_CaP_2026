@@ -392,7 +392,7 @@ export function OwnerDashboard() {
               {report.summary && (
                 <section
                   aria-label="Summary"
-                  className="grid grid-cols-2 gap-3 md:grid-cols-5"
+                  className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5"
                 >
                   {(
                     [
@@ -503,7 +503,8 @@ export function OwnerDashboard() {
                         No deals yet — post one!
                       </p>
                     ) : (
-                      <table className="mt-2 w-full font-serif text-sm">
+                      <div className="overflow-x-auto">
+                        <table className="mt-2 w-full min-w-[20rem] font-serif text-sm">
                         <thead>
                           <tr className="border-b border-border text-left font-mono text-[11px] uppercase tracking-wide text-ink-soft">
                             <th className="py-1 pr-2">Deal</th>
@@ -535,7 +536,8 @@ export function OwnerDashboard() {
                             </tr>
                           ))}
                         </tbody>
-                      </table>
+                        </table>
+                      </div>
                     )}
                   </section>
                 )}

@@ -37,6 +37,13 @@
     width: 100%;
     max-width: 88rem;
     margin-inline: auto;
-    padding-inline: 1.5rem;
+    /* Tighter gutters on phones so content gets ~16px more width; the roomier
+     * editorial gutter returns at >=640px. */
+    padding-inline: 1rem;
+  }
+  @media (min-width: 640px) {
+    .container-page {
+      padding-inline: 1.5rem;
+    }
   }
 }
