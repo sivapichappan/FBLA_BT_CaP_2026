@@ -256,7 +256,7 @@ export function Discover() {
       <Reveal delay={0.15}>
         <section className="mt-10 grid gap-4 sm:mt-12 lg:grid-cols-[1.3fr_1fr]">
           {/* Deals */}
-          <div className="rounded-lg border border-border bg-surface p-5 shadow-warm">
+          <div className="min-w-0 rounded-lg border border-border bg-surface p-5 shadow-warm">
             <div className="flex items-baseline justify-between">
               <h2 className="font-display text-xl font-semibold text-ink">
                 Deals nearby
@@ -301,7 +301,7 @@ export function Discover() {
           {/* Plan CTA */}
           <Link
             to="/plan"
-            className="flex flex-col justify-center rounded-lg border border-accent-600/40 bg-surface p-6 shadow-warm transition-colors hover:border-accent-600"
+            className="flex min-w-0 flex-col justify-center rounded-lg border border-accent-600/40 bg-surface p-6 shadow-warm transition-colors hover:border-accent-600"
           >
             <span className="font-display text-2xl font-semibold text-ink">
               Plan a local day

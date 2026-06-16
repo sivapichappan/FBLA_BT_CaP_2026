@@ -55,7 +55,10 @@ export default function App() {
         >
           Skip to content
         </a>
-        <div className="min-h-screen">
+        {/* overflow-x-clip is a no-horizontal-scroll backstop: it uses `clip`
+            (not `hidden`) so the desktop sticky map + skip-link are unaffected,
+            and the intentional inner overflow-x-auto regions still scroll. */}
+        <div className="min-h-screen overflow-x-clip">
           <Header />
           {/* id="main" is the skip-link target; each page renders its own <main>. */}
           <div id="main">

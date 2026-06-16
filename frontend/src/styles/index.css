@@ -27,6 +27,18 @@
     color: var(--accent-700);
     text-decoration: none;
   }
+
+  /* Backstop: media can never render wider than its container, so nothing
+   * blows out the page width on mobile. (Tailwind size utilities still win.) */
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+  img {
+    height: auto;
+  }
 }
 
 @layer components {

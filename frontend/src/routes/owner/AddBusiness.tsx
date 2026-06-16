@@ -339,7 +339,7 @@ export function AddBusiness() {
           <legend className="font-serif text-sm text-ink-soft">Hours</legend>
           <div className="mt-2 space-y-1.5">
             {DAYS.map((day, dow) => (
-              <div key={day} className="flex items-center gap-3">
+              <div key={day} className="flex flex-wrap items-center gap-3">
                 <span className="w-24 font-mono text-xs text-ink-soft">
                   {day}
                 </span>

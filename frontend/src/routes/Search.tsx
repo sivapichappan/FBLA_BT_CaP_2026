@@ -331,7 +331,7 @@ export function Search() {
       <div className="mt-3 grid gap-5 lg:grid-cols-[1fr_1.3fr]">
         <section
           aria-label="Results"
-          className={`space-y-3 lg:max-h-[75vh] lg:overflow-y-auto lg:pr-1 ${
+          className={`min-w-0 space-y-3 lg:max-h-[75vh] lg:overflow-y-auto lg:pr-1 ${
             mobileView === "list" ? "block" : "hidden"
           } lg:block`}
         >

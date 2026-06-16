@@ -137,7 +137,7 @@ export function ConciergeWidget() {
             {turns.map((t, i) => (
               <div key={i}>
                 <div
-                  className={`max-w-[85%] whitespace-pre-line rounded-lg px-3 py-2 font-serif text-sm ${
+                  className={`max-w-[85%] whitespace-pre-line break-words rounded-lg px-3 py-2 font-serif text-sm ${
                     t.role === "user"
                       ? "ml-auto bg-accent-700 text-cream"
                       : "bg-cream text-ink"

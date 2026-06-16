@@ -69,7 +69,7 @@ export function Profile() {
             <h1 className="font-display text-2xl font-semibold text-ink">
               @{user.username}
             </h1>
-            <p className="font-serif text-sm text-ink-soft">
+            <p className="break-words font-serif text-sm text-ink-soft">
               {user.email} · {user.role}
             </p>
           </div>
@@ -123,7 +123,7 @@ export function Profile() {
       ) : (
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           {/* My reviews */}
-          <section aria-label="My reviews">
+          <section aria-label="My reviews" className="min-w-0">
             <h2 className="font-display text-xl font-semibold text-ink">
               My reviews{" "}
               <span className="font-mono text-sm text-ink-soft">
@@ -144,13 +144,13 @@ export function Profile() {
                   <div className="flex items-center justify-between gap-2">
                     <Link
                       to={`/business/${r.business_id}`}
-                      className="truncate font-serif font-medium text-ink hover:text-accent-700"
+                      className="min-w-0 truncate font-serif font-medium text-ink hover:text-accent-700"
                     >
                       {r.business_name}
                     </Link>
                     <StarRating rating={r.rating} />
                   </div>
-                  <p className="mt-1 font-serif text-sm text-ink-soft">
+                  <p className="mt-1 break-words font-serif text-sm text-ink-soft">
                     {r.body}
                   </p>
                   <p className="mt-1 font-mono text-[10px] text-ink-soft">
@@ -161,7 +161,7 @@ export function Profile() {
             </div>
           </section>
 
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             {/* Favorites summary */}
             <section aria-label="My favorites">
               <h2 className="font-display text-xl font-semibold text-ink">

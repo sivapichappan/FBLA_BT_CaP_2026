@@ -381,7 +381,7 @@ export function Plan() {
           <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
             <section
               aria-label="Itinerary"
-              className={mobileView === "list" ? "block lg:block" : "hidden lg:block"}
+              className={`min-w-0 ${mobileView === "list" ? "block" : "hidden"} lg:block`}
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="font-display text-2xl font-semibold text-ink">
@@ -410,7 +410,7 @@ export function Plan() {
               </div>
 
               {/* Narration */}
-              <blockquote className="mt-3 whitespace-pre-line border-l-2 border-accent-600 bg-surface px-4 py-3 font-serif text-sm italic text-ink">
+              <blockquote className="mt-3 whitespace-pre-line break-words border-l-2 border-accent-600 bg-surface px-4 py-3 font-serif text-sm italic text-ink">
                 {option.narrative}
                 <span className="mt-1 block font-mono text-[10px] not-italic text-ink-soft">
                   {option.mode === "llm" ? "✦ AI narration" : "⚙ offline mode"}
