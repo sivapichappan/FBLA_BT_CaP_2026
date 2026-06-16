@@ -84,16 +84,16 @@ export function Discover() {
   }
 
   return (
-    <main className="container-page py-10">
+    <main className="container-page py-8 sm:py-10">
       {/* ── Hero: mission + search ─────────────────────────────────────── */}
       <Reveal>
         <section aria-label="Search" className="mx-auto max-w-3xl text-center">
-          <h1 className="font-display text-5xl font-semibold leading-tight text-ink">
+          <h1 className="font-display text-4xl font-semibold leading-tight text-ink sm:text-5xl">
             Find the local spot,
             <br />
             <span className="text-accent-700">not the chain.</span>
           </h1>
-          <p className="mx-auto mt-3 max-w-xl font-serif text-lg text-ink-soft">
+          <p className="mx-auto mt-3 max-w-xl font-serif text-base text-ink-soft sm:text-lg">
             Every search shows only small, independently-owned businesses — the
             chains are filtered out, everywhere, automatically.
           </p>
@@ -113,7 +113,7 @@ export function Discover() {
                     ? "Search — coffee, bookstore, barber…"
                     : "Describe a feeling — cozy rainy-day reading spot…"
                 }
-                className="w-full rounded-lg border border-border bg-surface px-4 py-3 font-serif text-lg text-ink placeholder:text-ink-soft/60"
+                className="w-full rounded-lg border border-border bg-surface px-4 py-3 font-serif text-base text-ink placeholder:text-ink-soft/60 sm:text-lg"
               />
               <button
                 type="submit"
@@ -159,7 +159,7 @@ export function Discover() {
       {/* ── Browse by category ─────────────────────────────────────────── */}
       {categories.length > 0 && (
         <Reveal delay={0.05}>
-          <section aria-label="Browse by category" className="mt-12">
+          <section aria-label="Browse by category" className="mt-10 sm:mt-12">
             <h2 className="font-display text-2xl font-semibold text-ink">
               Browse by category
             </h2>
@@ -186,7 +186,7 @@ export function Discover() {
 
       {/* ── Featured independents near you ─────────────────────────────── */}
       <Reveal delay={0.1}>
-        <section aria-label="Featured businesses" className="mt-12">
+        <section aria-label="Featured businesses" className="mt-10 sm:mt-12">
           <div className="flex items-baseline justify-between">
             <h2 className="font-display text-2xl font-semibold text-ink">
               {user ? "For you" : "Featured near you"}
@@ -213,7 +213,7 @@ export function Discover() {
               Nothing to feature here yet — try a search above.
             </p>
           ) : (
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
               {featured.map((b) => (
                 <button
                   key={b.ref}
@@ -254,7 +254,7 @@ export function Discover() {
 
       {/* ── Deals + Plan-a-day CTA ─────────────────────────────────────── */}
       <Reveal delay={0.15}>
-        <section className="mt-12 grid gap-4 lg:grid-cols-[1.3fr_1fr]">
+        <section className="mt-10 grid gap-4 sm:mt-12 lg:grid-cols-[1.3fr_1fr]">
           {/* Deals */}
           <div className="rounded-lg border border-border bg-surface p-5 shadow-warm">
             <div className="flex items-baseline justify-between">
