@@ -83,7 +83,7 @@ def _local_to_canonical(row: dict[str, Any], user_lat: float, user_lng: float) -
         "local_confidence": conf,
         "local_badge": _local_badge(row.get("is_independent"), conf),
         "is_open_now": _open_now(row.get("hours")),
-        "distance_km": round(ranker.haversine_km(user_lat, user_lng, row["lat"], row["lng"]), 2),
+        "distance_km": round(ranker.driving_km(user_lat, user_lng, row["lat"], row["lng"]), 2),
         "photo_url": row.get("photo_url"),
         # Smart-crop focal point (Phase F) — None means "center", and Google
         # results never carry one, so the UI defaults to 50/50.
@@ -105,7 +105,13 @@ def _passes_filters(b: dict[str, Any], p: SearchParams, effective_radius_m: int)
     extend to the widened circle.
     """
     cap_m = p.radius_m if b.get("source") == "local" else effective_radius_m
-    if b.get("distance_km") is not None and b["distance_km"] > cap_m / 1000.0:
+    # distance_km is the driving estimate, but the candidate radius is straight-
+    # line geography (the Places search circle), so compare on straight-line km.
+    straight_km = (
+        b["distance_km"] / ranker.CIRCUITY_FACTOR
+        if b.get("distance_km") is not None else None
+    )
+    if straight_km is not None and straight_km > cap_m / 1000.0:
         return False
     if p.categories:
         # Token-SUBSET containment, not exact equality: the "Restaurant" chip
@@ -206,7 +212,7 @@ async def _classify_page(raw: list[dict], params: SearchParams,
             continue  # branch dupes + names already taken by any earlier layer
         seen.add(key)
         g["distance_km"] = round(
-            ranker.haversine_km(params.lat, params.lng, g["lat"], g["lng"]), 2
+            ranker.driving_km(params.lat, params.lng, g["lat"], g["lng"]), 2
         )
         fresh.append(g)
     return await classifier.annotate(fresh)
@@ -378,7 +384,7 @@ async def _vibe_google_candidates(q: str, query_vector: list[float],
         if g.get("primary_type") in _VIBE_EXCLUDED_TYPES:
             continue
         seen_names.add(key)
-        g["distance_km"] = round(ranker.haversine_km(lat, lng, g["lat"], g["lng"]), 2)
+        g["distance_km"] = round(ranker.driving_km(lat, lng, g["lat"], g["lng"]), 2)
         deduped.append(g)
 
     # Small businesses only — registry → cached verdicts → batched Gemini.
@@ -438,7 +444,11 @@ async def vibe_search(q: str, lat: float, lng: float, limit: int = 10,
     local_results = []
     for row in biz_repo.vibe_search(embeddings.to_pgvector(query_vector), limit):
         canon = _local_to_canonical(row, lat, lng)
-        if canon["distance_km"] is not None and canon["distance_km"] > VIBE_LOCAL_RANGE_KM:
+        # VIBE_LOCAL_RANGE_KM is a straight-line candidate radius; distance_km is
+        # the driving estimate, so divide the factor back out to compare.
+        if canon["distance_km"] is not None and (
+            canon["distance_km"] / ranker.CIRCUITY_FACTOR
+        ) > VIBE_LOCAL_RANGE_KM:
             continue
         canon["similarity"] = round(float(row["similarity"]), 3)
         local_results.append(canon)
@@ -518,7 +528,7 @@ async def get_detail(ref: str, user_lat: Optional[float] = None, user_lng: Optio
         if not detail:
             return None
         detail["distance_km"] = (
-            round(ranker.haversine_km(user_lat, user_lng, detail["lat"], detail["lng"]), 2)
+            round(ranker.driving_km(user_lat, user_lng, detail["lat"], detail["lng"]), 2)
             if user_lat is not None and detail.get("lat") is not None else None
         )
         detail["hours_text"] = detail.get("weekday_text") or []

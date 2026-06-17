@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from app.services.ranker import (
+    CIRCUITY_FACTOR,
     DISTANCE_SIGMA_KM,
     bayesian_rating,
+    driving_km,
     haversine_km,
     rank_businesses,
     sort_results,
@@ -29,6 +31,29 @@ def test_haversine_known_distance():
     # Washington Square Park → Times Square ≈ 3.1 km.
     d = haversine_km(40.7308, -73.9973, 40.7580, -73.9855)
     assert 2.8 < d < 3.4
+
+
+def test_driving_km_inflates_straight_line_by_circuity():
+    """Driving distance = straight-line × the road-circuity factor, and is always
+    longer than the great-circle distance (you drive streets, not rooftops)."""
+    a = (40.7308, -73.9973)
+    b = (40.7580, -73.9855)
+    straight = haversine_km(*a, *b)
+    drive = driving_km(*a, *b)
+    assert drive == straight * CIRCUITY_FACTOR
+    assert drive > straight
+    assert CIRCUITY_FACTOR > 1.0
+
+
+def test_proximity_curve_stays_calibrated_to_straight_line():
+    """Because the sigma is scaled by the same circuity factor, a business at its
+    DRIVING distance keeps the proximity score its straight-line distance had —
+    the unit switch doesn't silently make search more distance-averse."""
+    import math
+    straight_km = 2.0
+    drive_km = straight_km * CIRCUITY_FACTOR
+    proximity = math.exp(-(drive_km**2) / (2 * DISTANCE_SIGMA_KM**2))
+    assert abs(proximity - math.exp(-0.5)) < 1e-9  # ≈ 0.607, the old "at sigma" value
 
 
 def test_gaussian_decay_is_monotonic():

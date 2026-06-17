@@ -14,7 +14,9 @@ Two techniques worth explaining in Q&A:
   average reviews). A 4.9★/5-review place lands near 4.3; a 4.6★/400-review
   place stays ~4.59 and correctly ranks higher.
 * **Haversine distance** — great-circle distance between two lat/lng points in
-  kilometers (the earth is round; flat math is wrong over a city).
+  kilometers (the earth is round; flat math is wrong over a city). The
+  user-facing distance is this scaled by a road-circuity factor (``driving_km``),
+  because you drive the streets, not a straight line.
 """
 
 from __future__ import annotations
@@ -46,6 +48,24 @@ def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(d_lng / 2) ** 2
     )
     return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+# Roads aren't straight lines: real driving distance is longer than the
+# great-circle "as the crow flies" distance. The ratio (route circuity) is
+# well-studied — roughly 1.3 on average across the US, higher in dense one-way
+# grids — so we scale by 1.4 for the NYC demo metro. A single uniform factor
+# keeps it free, instant, and offline-safe (no routing API to fail mid-demo);
+# the trade-off vs a live Routes call is that it can't model one specific
+# river-crossing detour — it inflates every distance by the same realistic ratio.
+CIRCUITY_FACTOR = 1.4
+
+
+def driving_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Estimated driving distance (km): the great-circle distance scaled by the
+    road-circuity factor. This is the "X km away" users see and the distance the
+    closeness ranking uses — a more honest "how far is it really" than a straight
+    line over rooftops."""
+    return haversine_km(lat1, lng1, lat2, lng2) * CIRCUITY_FACTOR
 
 
 def sort_results(results: list[dict], sort: str) -> list[dict]:
@@ -90,7 +110,11 @@ def sort_results(results: list[dict], sort: str) -> list[dict]:
 # Example: OPEN_NOW multiplies the open-status weight ×5, so "what's open?"
 # actually ranks open places first instead of just nearby ones.
 
-DISTANCE_SIGMA_KM = 2.0  # Gaussian decay length: score ≈ 0.61 at 2 km, 0.14 at 4 km
+# Gaussian decay length, expressed in DRIVING km. Scaled by the circuity factor
+# so the proximity curve stays calibrated to the same real-world closeness as
+# before the straight-line→driving switch (≈ the old 2 km straight-line):
+# score ≈ 0.61 at 2.8 driving-km, 0.14 at 5.6.
+DISTANCE_SIGMA_KM = round(2.0 * CIRCUITY_FACTOR, 1)  # 2.8
 
 DEFAULT_WEIGHTS: dict[str, float] = {
     "distance": 0.25, "rating": 0.22, "review_count": 0.13, "independence": 0.14,

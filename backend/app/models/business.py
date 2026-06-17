@@ -35,6 +35,8 @@ class BusinessOut(BaseModel):
     verdict_source: Optional[str] = None
     verdict_reason: Optional[str] = None
     is_open_now: Optional[bool] = None
+    # Estimated DRIVING distance (straight-line × a road-circuity factor), not
+    # as-the-crow-flies — what you'd actually travel by road. See ranker.driving_km.
     distance_km: Optional[float] = None
     photo_url: Optional[str] = None
     # Smart-crop focal point as % of the frame (Phase F); None = center crop.
