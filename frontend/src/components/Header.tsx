@@ -41,10 +41,14 @@ export function Header() {
         <div className="container-page flex h-16 items-center justify-between gap-4">
           <Link
             to="/"
-            className="font-display text-2xl font-semibold tracking-tight text-ink"
+            className="flex items-center gap-2"
             aria-label="LocalLens home"
           >
-            Local<span className="text-accent-700">Lens</span>
+            {/* The "L" mark; alt="" — decorative, the wordmark beside it names it. */}
+            <img src="/logo.png" alt="" className="h-7 w-auto sm:h-8" />
+            <span className="font-display text-2xl font-semibold tracking-tight text-ink">
+              Local<span className="text-accent-700">Lens</span>
+            </span>
           </Link>
 
           {/* Desktop nav (>=1024px). Below lg the hamburger takes over. */}
