@@ -26,6 +26,11 @@ interface Props {
   hoveredRef: string | null;
   onHover: (ref: string | null) => void;
   onSelect: (ref: string) => void;
+  /** Initial zoom. Search uses the default (neighborhood); a single-business
+   *  detail map passes a tighter value so the one pin isn't lost. */
+  zoom?: number;
+  /** Accessible label for the map region (defaults to the search context). */
+  ariaLabel?: string;
 }
 
 /**
@@ -56,6 +61,8 @@ export function MapView({
   hoveredRef,
   onHover,
   onSelect,
+  zoom = 14,
+  ariaLabel = "Map of search results",
 }: Props) {
   const theme = useTheme();
 
@@ -79,14 +86,14 @@ export function MapView({
         key={theme}
         colorScheme={theme === "dark" ? ColorScheme.DARK : ColorScheme.LIGHT}
         defaultCenter={center}
-        defaultZoom={14}
+        defaultZoom={zoom}
         gestureHandling="greedy"
         disableDefaultUI={false}
         mapTypeControl={false}
         streetViewControl={false}
         fullscreenControl={false}
         className="h-full min-h-[20rem] w-full rounded-lg border border-border"
-        aria-label="Map of search results"
+        aria-label={ariaLabel}
       >
         <PanToCenter center={center} />
         {businesses.map((b, i) => {
@@ -113,7 +120,9 @@ export function MapView({
                   transform: hovered ? "translateY(-2px)" : undefined,
                 }}
               >
-                {i + 1}
+                {/* Numbered in a list of results; an unlabeled location pin
+                    when it's a single business (the detail-page map). */}
+                {businesses.length > 1 ? i + 1 : null}
               </div>
             </AdvancedMarker>
           );

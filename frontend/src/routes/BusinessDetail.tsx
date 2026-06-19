@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { MapView } from "../components/MapView";
 import { Reveal } from "../components/Reveal";
 import { VerdictBreakdown } from "../components/VerdictBreakdown";
 import {
@@ -344,6 +345,28 @@ export function BusinessDetail() {
           </section>
         )}
       </div>
+
+      {/* Location — one pin for this business. Not wrapped in <Reveal> on
+          purpose: a transform ancestor can mis-size a Google map. Guarded by
+          coords so a result missing lat/lng simply omits the map (§13). */}
+      {typeof biz.lat === "number" && typeof biz.lng === "number" && (
+        <section aria-label="Location" className="mt-6">
+          <h2 className="font-display text-lg font-semibold text-ink">
+            Location
+          </h2>
+          <div className="mt-2 h-80 sm:h-96">
+            <MapView
+              businesses={[biz]}
+              center={{ lat: biz.lat, lng: biz.lng }}
+              zoom={16}
+              hoveredRef={null}
+              onHover={() => {}}
+              onSelect={() => {}}
+              ariaLabel={`Map showing ${biz.name}`}
+            />
+          </div>
+        </section>
+      )}
 
       {/* Deals (local businesses only) */}
       {deals.length > 0 && (
