@@ -61,8 +61,20 @@ TARGET_STOPS: dict[str, int] = {"quick": 3, "half": 4, "full": 6}
 DEFAULT_CHIPS = ["Coffee", "Restaurant", "Dessert", "Bookstore", "Bar"]
 MAX_PER_CHIP = 2  # at most two coffee stops, two meals, etc.
 
-WALK_MIN_PER_KM = 12      # ~5 km/h city walking pace
+WALK_MIN_PER_KM = 13      # ~4.6 km/h — a real sightseeing pace (stops, nav, lights)
 TRIP_RADIUS_M = 4000      # candidates within a short walk/transit of the start
+MAX_LEG_KM = 1.5          # a single on-foot leg shouldn't exceed ~20 min between stops
+DAY_END_MIN = 21 * 60     # don't schedule a NEW stop to ARRIVE after 9:00 PM
+# Active-time budget per day shape (walking + dwelling, NOT idle gaps). The day is
+# truncated rather than run absurdly long; pairs with the 9 PM cutoff above.
+DAY_BUDGET_MIN: dict[str, int] = {"quick": 240, "half": 360, "full": 540}
+# Earliest sensible ARRIVAL for time-of-day-bound roles — so a meal can't land at
+# 9 AM or a bar at 10 AM. Untimed roles (coffee/browse/shop/market) are any-time.
+ROLE_EARLIEST_MIN: dict[str, int] = {"eat": 11 * 60, "drinks": 16 * 60, "dessert": 11 * 60 + 30}
+# Wait at most this long for a role's window to open. An early-start day will hold
+# for lunch, but a "quick coffee at 8 AM" day won't sit idle until a 4 PM bar —
+# that stop is simply skipped (the combo doesn't fit the day).
+MAX_WAIT_MIN = 180
 
 # The day "shapes" we offer. Each scores stops differently — ``prox_w`` is the
 # weight on walking-proximity (the rest goes to rating), ``sigma`` is the
@@ -221,35 +233,65 @@ def _slot_score(candidate: dict, prev_lat: float, prev_lng: float, *,
     return score
 
 
-# Keep the day varied: never more than this many stops of the same role, so a
-# coffee/restaurant/dessert day can't degrade into five restaurants just because
-# restaurants are the most abundant kind nearby.
+# Keep the day varied: default per-role ceiling when a plan doesn't say otherwise.
 MAX_PER_ROLE = 2
+# Browsing / coffee / shopping can repeat to fill a day, but meals, dessert, and
+# bars are capped low — three restaurants or three bars back-to-back isn't a real
+# day (and the extra ones would land between meal windows anyway).
+ROLE_MAX: dict[str, int] = {"eat": 2, "dessert": 2, "drinks": 2}
+
+
+def _fmt_clock(total_min: int) -> str:
+    """Absolute minutes-from-midnight → a 12-hour clock label."""
+    total_min %= 24 * 60
+    return dt.time(total_min // 60, total_min % 60).strftime("%-I:%M %p")
 
 
 def _build_stops(chips: list[str], pools: dict[str, list[dict]], start_lat: float,
-                 start_lng: float, start_time: dt.time, *, strategy: dict[str, Any],
-                 avoid: set[str]) -> list[dict]:
-    """Greedy fill, kind by kind in the day's order. Each stop is labelled by
-    the POOL it was drawn from (its role/dwell), so a restaurant fetched as a
-    substitute reads as "eat", not mislabelled by its category order. When a
-    kind is used up, we borrow from another of the user's chosen kinds —
-    preferring the least-used role and never exceeding MAX_PER_ROLE — so the day
-    reaches its length while staying varied and on-theme. ``strategy`` sets the
-    proximity/rating trade-off; ``avoid`` (earlier options' picks) steers this
-    option toward fresh businesses."""
+                 start_lng: float, start_time: dt.time, *, duration: str,
+                 strategy: dict[str, Any], avoid: set[str]) -> list[dict]:
+    """Greedy fill, kind by kind in the day's order, kept REALISTIC:
+      * each leg stays walkable (``MAX_LEG_KM``) — pick the best candidate within a
+        short walk; only a scattered area falls back to the nearest, never a hole;
+      * a kind can appear as many times as the PLAN asked for (a "mostly shopping"
+        day really is mostly shops — the old flat per-role cap truncated those);
+      * time-of-day is honoured — a meal/bar can't arrive before its window opens
+        (``ROLE_EARLIEST_MIN``); and
+      * the day stops before it runs too late or too long (``DAY_END_MIN`` /
+        ``DAY_BUDGET_MIN``), so an itinerary never rolls past midnight.
+
+    Each stop is labelled by the POOL it was drawn from (its role/dwell). When a
+    kind is used up we borrow from another of the user's chosen kinds, least-used
+    role first, so the day reaches its length while staying varied. ``strategy``
+    sets the proximity/rating trade-off; ``avoid`` (earlier options' picks) steers
+    this option toward fresh businesses."""
     stops: list[dict[str, Any]] = []
     picked: set[str] = set()
     role_counts: dict[str, int] = {}
+    # Per-role cap comes from the PLAN itself, so the day matches what was asked
+    # for (e.g. a 6-stop shopping day allows 6 shops, not a hardcoded 2).
+    role_cap: dict[str, int] = {}
+    for ch in chips:
+        r = CHIP_SLOTS[ch]["role"]
+        role_cap[r] = role_cap.get(r, 0) + 1
+    # ...but never more meals/bars/desserts than is realistic for one day.
+    role_cap = {r: min(n, ROLE_MAX.get(r, len(chips))) for r, n in role_cap.items()}
+
     prev_lat, prev_lng = start_lat, start_lng
-    clock = dt.datetime.combine(dt.date.today(), start_time)
+    start_min = start_time.hour * 60 + start_time.minute
+    clock = start_min
+    active_min = 0  # walking + dwelling so far (idle gaps don't count)
+    budget = DAY_BUDGET_MIN.get(duration, 360)
     distinct = list(dict.fromkeys(chips))
 
     def _available(chip: str) -> list[dict]:
         role = CHIP_SLOTS[chip]["role"]
-        if role_counts.get(role, 0) >= MAX_PER_ROLE:
+        if role_counts.get(role, 0) >= role_cap.get(role, MAX_PER_ROLE):
             return []
         return [c for c in pools.get(chip, []) if c["ref"] not in picked]
+
+    def _leg_km(c: dict) -> float:
+        return ranker.haversine_km(prev_lat, prev_lng, c["lat"], c["lng"])
 
     for chip in chips:
         # This kind first; then the user's other kinds, least-used role first.
@@ -262,27 +304,49 @@ def _build_stops(chips: list[str], pools: dict[str, list[dict]], start_lat: floa
             continue  # nothing left that keeps the day varied
         src, pool = choice
 
-        best = max(pool, key=lambda c: _slot_score(
-            c, prev_lat, prev_lng,
-            prox_w=strategy["prox_w"], sigma=strategy["sigma"], avoid=avoid))
+        # Walkable leg first: choose the best-scoring candidate within a short
+        # walk; only if NONE are close (a genuinely scattered area) take the
+        # nearest, so we never cross town for a marginally better rating.
+        near = [c for c in pool if _leg_km(c) <= MAX_LEG_KM]
+        if near:
+            best = max(near, key=lambda c: _slot_score(
+                c, prev_lat, prev_lng,
+                prox_w=strategy["prox_w"], sigma=strategy["sigma"], avoid=avoid))
+        else:
+            best = min(pool, key=_leg_km)
+
         role = CHIP_SLOTS[src]["role"]
         dwell = CHIP_SLOTS[src]["dwell"]
+        walk_km = round(_leg_km(best), 2)
+        walk_min = round(walk_km * WALK_MIN_PER_KM)
+        arrive = clock + walk_min
+        # Time-of-day realism: hold for a meal/bar window to open rather than
+        # arriving for dinner at 9 AM — but only up to MAX_WAIT_MIN, so an early
+        # day doesn't sit idle for hours waiting on a late-window kind (skip it).
+        earliest = ROLE_EARLIEST_MIN.get(role)
+        if earliest is not None and arrive < earliest:
+            if earliest - arrive > MAX_WAIT_MIN:
+                continue
+            arrive = earliest
+        # End the day before it lands too late or its activity load overruns the
+        # shape's budget — but always keep the first stop so a day is never empty.
+        if arrive > DAY_END_MIN:
+            break
+        if stops and active_min + walk_min + dwell > budget:
+            break
+
         picked.add(best["ref"])
         role_counts[role] = role_counts.get(role, 0) + 1
-
-        walk_km = round(ranker.haversine_km(prev_lat, prev_lng, best["lat"], best["lng"]), 2)
-        walk_min = round(walk_km * WALK_MIN_PER_KM)
-        clock += dt.timedelta(minutes=walk_min)
-
+        active_min += walk_min + dwell
         stops.append({
             **best,
             "slot": role,
-            "arrive": clock.strftime("%-I:%M %p"),
+            "arrive": _fmt_clock(arrive),
             "dwell_min": dwell,
             "walk_from_prev_km": walk_km,
             "walk_from_prev_min": walk_min,
         })
-        clock += dt.timedelta(minutes=dwell)
+        clock = arrive + dwell
         prev_lat, prev_lng = best["lat"], best["lng"]
 
     return stops
@@ -361,7 +425,7 @@ async def plan(*, lat: Optional[float], lng: Optional[float], duration: str,
     signatures: set[frozenset[str]] = set()
     for strat in STRATEGIES:
         stops = _build_stops(chips, pools, start_lat, start_lng, parsed_start,
-                             strategy=strat, avoid=set(used))
+                             duration=duration, strategy=strat, avoid=set(used))
         if not stops:
             continue
         sig = frozenset(s["ref"] for s in stops)

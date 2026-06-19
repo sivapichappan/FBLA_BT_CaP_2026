@@ -301,3 +301,79 @@ def test_keyword_interpret_unit():
     lunch = trip_planner._keyword_interpret("lunch then dessert", allowed)["interests"]
     assert "Restaurant" in lunch and "Dessert" in lunch
     assert trip_planner._keyword_interpret("just vibes", allowed) is None
+
+
+# ── Realism guards (the 100-scenario audit fixes) ───────────────────────────
+
+import datetime as _dt
+
+
+def _arrmin(label: str) -> int:
+    """The planner's "%-I:%M %p" arrival label → minutes-from-midnight."""
+    t = _dt.datetime.strptime(label.strip(), "%I:%M %p")
+    return t.hour * 60 + t.minute
+
+
+# A dense, tightly-clustered area (every candidate within ~0.6 km) so a walk leg
+# is never the limiting factor in these timing/emphasis tests.
+_DENSE = {
+    cat: [_biz(f"{cat[:2]}{i}", f"{cat} {i}", 40.0 + 0.0008 * i, -74.0 + 0.0008 * i, 4.5)
+          for i in range(6)]
+    for cat in ["Coffee", "Retail", "Restaurant", "Dessert", "Bar", "Bookstore"]
+}
+
+
+def test_meal_and_bar_never_scheduled_before_their_window(monkeypatch):
+    """An 8 AM start must not produce a 9 AM lunch or a 10 AM bar — meals wait for
+    11:00, bars for 16:00 (the reported "unrealistic stuff")."""
+    _wire(monkeypatch, _DENSE, narrative=None)
+    out = asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0, duration="full",
+        interests=["Coffee", "Restaurant", "Dessert", "Bar"], start_time="08:00"))
+    for opt in out["options"]:
+        for s in opt["stops"]:
+            if s["slot"] == "eat":
+                assert _arrmin(s["arrive"]) >= 11 * 60
+            if s["slot"] == "drinks":
+                assert _arrmin(s["arrive"]) >= 16 * 60
+
+
+def test_day_never_runs_past_the_evening(monkeypatch):
+    """A long day from a late start is truncated at the 9 PM cutoff — no stop
+    arrives after 21:00, so an itinerary can't roll past midnight."""
+    _wire(monkeypatch, _DENSE, narrative=None)
+    out = asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0, duration="full",
+        interests=["Coffee", "Restaurant", "Dessert", "Bar"], start_time="18:00"))
+    for opt in out["options"]:
+        for s in opt["stops"]:
+            assert _arrmin(s["arrive"]) <= 21 * 60
+
+
+def test_walk_legs_stay_walkable_in_a_dense_area(monkeypatch):
+    """No single leg exceeds the walkable cap when close candidates exist."""
+    _wire(monkeypatch, _DENSE, narrative=None)
+    out = asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0, duration="full",
+        interests=["Coffee", "Retail", "Bookstore"], start_time="10:00"))
+    for opt in out["options"]:
+        for s in opt["stops"]:
+            assert s["walk_from_prev_km"] <= trip_planner.MAX_LEG_KM + 0.01
+
+
+def test_single_repeatable_interest_fills_the_day(monkeypatch):
+    """The old flat per-role cap truncated a "shopping day" to 2 stops; a
+    repeatable kind now fills toward the duration target."""
+    _wire(monkeypatch, _DENSE, narrative=None)
+    out = asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0, duration="full", interests=["Retail"], start_time="10:00"))
+    assert max(len(o["stops"]) for o in out["options"]) >= 4
+
+
+def test_meals_are_capped_low(monkeypatch):
+    """Meals don't repeat into an unrealistic three-restaurant day."""
+    _wire(monkeypatch, _DENSE, narrative=None)
+    out = asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0, duration="full", interests=["Restaurant"], start_time="11:00"))
+    for opt in out["options"]:
+        assert sum(1 for s in opt["stops"] if s["slot"] == "eat") <= 2
