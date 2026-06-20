@@ -14,7 +14,7 @@
  * are never shown publicly.
  */
 
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { ApiError, businessSnapshot, visitApi } from "../lib/api";
 import type { Business, VisitResult } from "../types";
@@ -329,7 +329,7 @@ export function CheckInFlow({
         <p className="mt-1 font-serif text-sm text-ink-soft">{business.name}</p>
 
         {showMap && (
-          <div className="mt-4 h-44 sm:h-52">
+          <div className="mt-4 h-44 overflow-hidden rounded-lg sm:h-52">
             <MapView
               businesses={[business]}
               center={{ lat: business.lat, lng: business.lng }}
@@ -339,171 +339,163 @@ export function CheckInFlow({
               onSelect={() => {}}
               geofence={{ lat: business.lat, lng: business.lng, radiusM }}
               userPosition={userPos}
+              minHeightClass="min-h-0"
               ariaLabel={`Map showing the check-in area around ${business.name}`}
             />
           </div>
         )}
 
+        {/* Phase content. No per-phase fade — switching states should be instant
+            so a "Try again" message never flickers away. */}
         <div className="mt-4">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={phase}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.18 }}
-            >
-              {phase === "intro" && (
-                <div>
-                  <p className="font-serif text-ink">
-                    We'll use your location once, right now, to confirm you're
-                    at {business.name}. We don't track you — your coordinates
-                    are only used to verify this visit and are never shown
-                    publicly.
-                  </p>
+          {phase === "intro" && (
+            <div>
+              <p className="font-serif text-ink">
+                We'll use your location once, right now, to confirm you're at{" "}
+                {business.name}. We don't track you — your coordinates are only
+                used to verify this visit and are never shown publicly.
+              </p>
+              <button
+                type="button"
+                onClick={start}
+                className="mt-4 w-full rounded-md bg-accent-700 px-4 py-2.5 font-serif text-cream hover:bg-accent-600"
+              >
+                📍 Check me in
+              </button>
+
+              {/* Counter-code path: type (or scan) the rotating code shown
+                      at the business — highest-trust, still geofenced. */}
+              <div className="mt-4 border-t border-border pt-4">
+                <label
+                  htmlFor="checkin-code"
+                  className="font-serif text-sm text-ink-soft"
+                >
+                  At the counter? Enter the code shown there:
+                </label>
+                <div className="mt-1 flex gap-2">
+                  <input
+                    id="checkin-code"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    maxLength={16}
+                    placeholder="e.g. 5SKSAIIE"
+                    className="min-w-0 flex-1 rounded-md border border-border bg-cream px-3 py-2 font-mono tracking-widest"
+                  />
                   <button
                     type="button"
-                    onClick={start}
-                    className="mt-4 w-full rounded-md bg-accent-700 px-4 py-2.5 font-serif text-cream hover:bg-accent-600"
+                    onClick={startQr}
+                    disabled={!code.trim()}
+                    className="rounded-md border border-accent-600 px-3 py-2 font-serif text-accent-700 hover:bg-accent-700 hover:text-cream disabled:opacity-40"
                   >
-                    📍 Check me in
+                    Verify
                   </button>
-
-                  {/* Counter-code path: type (or scan) the rotating code shown
-                      at the business — highest-trust, still geofenced. */}
-                  <div className="mt-4 border-t border-border pt-4">
-                    <label
-                      htmlFor="checkin-code"
-                      className="font-serif text-sm text-ink-soft"
-                    >
-                      At the counter? Enter the code shown there:
-                    </label>
-                    <div className="mt-1 flex gap-2">
-                      <input
-                        id="checkin-code"
-                        value={code}
-                        onChange={(e) => setCode(e.target.value.toUpperCase())}
-                        maxLength={16}
-                        placeholder="e.g. 5SKSAIIE"
-                        className="min-w-0 flex-1 rounded-md border border-border bg-cream px-3 py-2 font-mono tracking-widest"
-                      />
-                      <button
-                        type="button"
-                        onClick={startQr}
-                        disabled={!code.trim()}
-                        className="rounded-md border border-accent-600 px-3 py-2 font-serif text-accent-700 hover:bg-accent-700 hover:text-cream disabled:opacity-40"
-                      >
-                        Verify
-                      </button>
-                    </div>
-                  </div>
                 </div>
-              )}
+              </div>
+            </div>
+          )}
 
-              {(phase === "locating" || phase === "checking") && (
-                <p role="status" className="py-2 font-serif text-ink">
-                  {phase === "locating"
-                    ? "Getting your location…"
-                    : `Confirming you're at ${business.name}…`}
+          {(phase === "locating" || phase === "checking") && (
+            <p role="status" className="py-2 font-serif text-ink">
+              {phase === "locating"
+                ? "Getting your location…"
+                : `Confirming you're at ${business.name}…`}
+            </p>
+          )}
+
+          {phase === "dwell" && (
+            <div>
+              <p role="status" className="font-serif text-ink">
+                {result?.message ??
+                  "You're here. Stay a moment and we'll confirm your visit."}
+              </p>
+              <p className="mt-2 font-mono text-[11px] text-ink-soft">
+                Keep this open — we'll confirm automatically. ✓
+              </p>
+              <button
+                type="button"
+                onClick={onClose}
+                className="mt-3 font-serif text-sm text-ink-soft underline-offset-2 hover:underline"
+              >
+                Cancel and post an unverified review instead
+              </button>
+            </div>
+          )}
+
+          {phase === "verified" && (
+            <div>
+              <p className="font-serif text-lg text-ink">
+                <span className="text-verified">✓</span> {strengthLabel} — you
+                were here.
+              </p>
+              {result?.verification_strength != null && (
+                <p className="mt-1 font-mono text-[11px] text-ink-soft">
+                  Verification strength {result.verification_strength}/100
                 </p>
               )}
 
-              {phase === "dwell" && (
-                <div>
-                  <p role="status" className="font-serif text-ink">
-                    {result?.message ??
-                      "You're here. Stay a moment and we'll confirm your visit."}
+              {/* Optional spend → the user's "money kept local" total (§17). */}
+              {!spendSet ? (
+                <div className="mt-3">
+                  <p className="font-serif text-sm text-ink-soft">
+                    Roughly how much did you spend? (optional — adds to your
+                    “money kept local”)
                   </p>
-                  <p className="mt-2 font-mono text-[11px] text-ink-soft">
-                    Keep this open — we'll confirm automatically. ✓
-                  </p>
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="mt-3 font-serif text-sm text-ink-soft underline-offset-2 hover:underline"
-                  >
-                    Cancel and post an unverified review instead
-                  </button>
-                </div>
-              )}
-
-              {phase === "verified" && (
-                <div>
-                  <p className="font-serif text-lg text-ink">
-                    <span className="text-verified">✓</span> {strengthLabel} —
-                    you were here.
-                  </p>
-                  {result?.verification_strength != null && (
-                    <p className="mt-1 font-mono text-[11px] text-ink-soft">
-                      Verification strength {result.verification_strength}/100
-                    </p>
-                  )}
-
-                  {/* Optional spend → the user's "money kept local" total (§17). */}
-                  {!spendSet ? (
-                    <div className="mt-3">
-                      <p className="font-serif text-sm text-ink-soft">
-                        Roughly how much did you spend? (optional — adds to your
-                        “money kept local”)
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {[500, 1500, 3000].map((cents) => (
-                          <button
-                            key={cents}
-                            type="button"
-                            onClick={() => recordSpend(cents)}
-                            className="rounded-md border border-border px-3 py-1.5 font-serif text-sm text-ink hover:border-accent-600"
-                          >
-                            ${cents / 100}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="mt-3 font-mono text-[11px] text-verified">
-                      Thanks — added to your local impact.
-                    </p>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="mt-4 w-full rounded-md bg-verified px-4 py-2.5 font-serif text-cream hover:opacity-90"
-                  >
-                    Write my verified review →
-                  </button>
-                </div>
-              )}
-
-              {phase === "failed" && (
-                <div>
-                  <p className="font-serif text-ink">
-                    {error ??
-                      result?.message ??
-                      "We couldn't verify this check-in."}
-                  </p>
-                  <div className="mt-4 flex flex-col gap-2">
-                    {result?.status !== "REJECTED" && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {[500, 1500, 3000].map((cents) => (
                       <button
+                        key={cents}
                         type="button"
-                        onClick={start}
-                        className="w-full rounded-md bg-accent-700 px-4 py-2.5 font-serif text-cream hover:bg-accent-600"
+                        onClick={() => recordSpend(cents)}
+                        className="rounded-md border border-border px-3 py-1.5 font-serif text-sm text-ink hover:border-accent-600"
                       >
-                        Try again
+                        ${cents / 100}
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="w-full rounded-md border border-border px-4 py-2.5 font-serif text-ink-soft hover:text-ink"
-                    >
-                      Post an unverified review instead
-                    </button>
+                    ))}
                   </div>
                 </div>
+              ) : (
+                <p className="mt-3 font-mono text-[11px] text-verified">
+                  Thanks — added to your local impact.
+                </p>
               )}
-            </motion.div>
-          </AnimatePresence>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="mt-4 w-full rounded-md bg-verified px-4 py-2.5 font-serif text-cream hover:opacity-90"
+              >
+                Write my verified review →
+              </button>
+            </div>
+          )}
+
+          {phase === "failed" && (
+            <div>
+              <p className="font-serif text-ink">
+                {error ??
+                  result?.message ??
+                  "We couldn't verify this check-in."}
+              </p>
+              <div className="mt-4 flex flex-col gap-2">
+                {result?.status !== "REJECTED" && (
+                  <button
+                    type="button"
+                    onClick={start}
+                    className="w-full rounded-md bg-accent-700 px-4 py-2.5 font-serif text-cream hover:bg-accent-600"
+                  >
+                    Try again
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full rounded-md border border-border px-4 py-2.5 font-serif text-ink-soft hover:text-ink"
+                >
+                  Post an unverified review instead
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </motion.div>
     </div>

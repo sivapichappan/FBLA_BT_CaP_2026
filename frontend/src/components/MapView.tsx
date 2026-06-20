@@ -35,6 +35,10 @@ interface Props {
   geofence?: { lat: number; lng: number; radiusM: number } | null;
   /** Verified Visits check-in: the user's live position (a blue dot). */
   userPosition?: { lat: number; lng: number } | null;
+  /** Min-height utility class. Defaults to a sensible floor for full-page maps;
+   *  pass "min-h-0" in a small fixed-height container (e.g. the check-in modal)
+   *  so the map fills its box instead of overflowing it. */
+  minHeightClass?: string;
 }
 
 /**
@@ -101,12 +105,15 @@ export function MapView({
   ariaLabel = "Map of search results",
   geofence = null,
   userPosition = null,
+  minHeightClass = "min-h-[20rem]",
 }: Props) {
   const theme = useTheme();
 
   if (!MAPS_KEY) {
     return (
-      <div className="flex h-full min-h-[20rem] items-center justify-center rounded-lg border border-border bg-surface p-6 text-center">
+      <div
+        className={`flex h-full ${minHeightClass} items-center justify-center rounded-lg border border-border bg-surface p-6 text-center`}
+      >
         <p className="font-serif text-ink-soft">
           Map unavailable — results are listed on the left.
         </p>
@@ -130,7 +137,7 @@ export function MapView({
         mapTypeControl={false}
         streetViewControl={false}
         fullscreenControl={false}
-        className="h-full min-h-[20rem] w-full rounded-lg border border-border"
+        className={`h-full ${minHeightClass} w-full rounded-lg border border-border`}
         aria-label={ariaLabel}
       >
         <PanToCenter center={center} />

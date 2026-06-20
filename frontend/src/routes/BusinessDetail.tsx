@@ -5,7 +5,7 @@
  * never a crash (§13).
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { CheckInFlow } from "../components/CheckInFlow";
 import { MapView } from "../components/MapView";
@@ -62,6 +62,8 @@ export function BusinessDetail() {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [linkedVisitId, setLinkedVisitId] = useState<number | null>(null);
   const [checkInOpen, setCheckInOpen] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isLocal = /^\d+$/.test(ref);
   const localId = isLocal ? Number(ref) : null;
@@ -118,6 +120,15 @@ export function BusinessDetail() {
   useEffect(() => {
     if (searchParams.get("checkin") === "1") setCheckInOpen(true);
   }, [searchParams]);
+
+  // After a verified check-in, bring the user straight to the review form so the
+  // "now write it" step is obvious.
+  useEffect(() => {
+    if (linkedVisitId && formRef.current) {
+      formRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      textareaRef.current?.focus();
+    }
+  }, [linkedVisitId]);
 
   async function toggleFavorite() {
     if (!user || !biz) {
@@ -448,27 +459,78 @@ export function BusinessDetail() {
         {/* Write/edit form — one review per user (§8.2). */}
         {user && (!myReview || editingId) ? (
           <form
+            ref={formRef}
             onSubmit={submitReview}
             className="mt-3 rounded-lg border border-border bg-surface p-4"
           >
-            <div className="flex items-center gap-2">
-              <label htmlFor="rating" className="font-serif text-ink-soft">
-                Rating
-              </label>
-              <select
-                id="rating"
-                value={rating}
-                onChange={(e) => setRating(Number(e.target.value))}
-                className="rounded-md border border-border bg-cream px-2 py-1 font-serif"
-              >
-                {[5, 4, 3, 2, 1].map((r) => (
-                  <option key={r} value={r}>
-                    {r} ★
-                  </option>
-                ))}
-              </select>
+            <h3 className="font-display text-lg font-semibold text-ink">
+              {editingId ? "Edit your review" : "Leave a review"}
+            </h3>
+
+            {/* Verification choice (new reviews only) — framed as the payoff. */}
+            {!editingId &&
+              (linkedVisitId ? (
+                <p className="mt-2 flex items-center gap-2 rounded-md border border-verified bg-surface px-3 py-2 font-serif text-sm text-verified">
+                  <span aria-hidden="true">✓</span> Verified visit attached —
+                  your review will carry a Verified badge.
+                </p>
+              ) : (
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-border bg-cream px-3 py-2">
+                  <span className="font-serif text-sm text-ink">
+                    Here right now? Check in for a{" "}
+                    <span className="text-verified">✓ Verified</span> badge.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCheckInOpen(true)}
+                    className="rounded-md bg-accent-700 px-3 py-1.5 font-serif text-sm text-cream hover:bg-accent-600"
+                  >
+                    📍 Check in
+                  </button>
+                  <span className="font-mono text-[11px] text-ink-soft">
+                    optional
+                  </span>
+                </div>
+              ))}
+
+            {/* Interactive star picker — clearer than a dropdown. */}
+            <label className="mt-3 block font-serif text-sm text-ink-soft">
+              Your rating
+            </label>
+            <div
+              className="mt-1 flex items-center gap-1"
+              role="radiogroup"
+              aria-label="Your rating"
+            >
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setRating(n)}
+                  aria-label={`${n} star${n > 1 ? "s" : ""}`}
+                  aria-pressed={rating === n}
+                  className="rounded p-0.5 transition-transform hover:scale-110"
+                >
+                  <svg
+                    width="28"
+                    height="28"
+                    viewBox="0 0 24 24"
+                    fill={n <= rating ? "var(--accent-600)" : "none"}
+                    stroke={n <= rating ? "var(--accent-600)" : "var(--chain)"}
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                </button>
+              ))}
+              <span className="ml-2 font-serif text-sm text-ink-soft">
+                {rating}/5
+              </span>
             </div>
+
             <textarea
+              ref={textareaRef}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               required
@@ -478,30 +540,6 @@ export function BusinessDetail() {
               className="mt-3 w-full rounded-md border border-border bg-cream p-3 font-serif"
               aria-label="Review text"
             />
-            {/* Verified Visits: attach a confirmed visit so the review is
-                  verified. Optional — a review posts fine without one. */}
-            {!editingId && (
-              <div className="mt-3">
-                {linkedVisitId ? (
-                  <p className="inline-flex items-center gap-1.5 rounded-full border border-verified px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-verified">
-                    ✓ Verified visit attached
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setCheckInOpen(true)}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-accent-600 px-3 py-1.5 font-serif text-sm text-accent-700 hover:bg-accent-700 hover:text-cream"
-                    >
-                      📍 Check in to verify this review
-                    </button>
-                    <span className="font-mono text-[11px] text-ink-soft">
-                      Optional — posts as a normal review without it.
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
             <div className="mt-2 flex gap-2">
               <button
                 type="submit"
