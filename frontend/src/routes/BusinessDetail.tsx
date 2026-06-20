@@ -6,10 +6,13 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { CheckInFlow } from "../components/CheckInFlow";
 import { MapView } from "../components/MapView";
 import { Reveal } from "../components/Reveal";
+import { TrustAdjustedRating } from "../components/TrustAdjustedRating";
 import { VerdictBreakdown } from "../components/VerdictBreakdown";
+import { VerifiedRating } from "../components/VerifiedRating";
 import {
   BizImage,
   EmptyState,
@@ -22,6 +25,7 @@ import {
 import {
   ApiError,
   businessApi,
+  businessSnapshot,
   dealApi,
   favoriteApi,
   reviewApi,
@@ -33,6 +37,7 @@ import type { Business, Deal, Review } from "../types";
 
 export function BusinessDetail() {
   const { ref = "" } = useParams();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const coords = useLocation();
 
@@ -52,6 +57,11 @@ export function BusinessDetail() {
   // Owner reply form state (only this business's owner ever sees it).
   const [replyingId, setReplyingId] = useState<number | null>(null);
   const [replyBody, setReplyBody] = useState("");
+  // Verified Visits: the trust toggle, an attached verified visit, and the
+  // check-in modal.
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [linkedVisitId, setLinkedVisitId] = useState<number | null>(null);
+  const [checkInOpen, setCheckInOpen] = useState(false);
 
   const isLocal = /^\d+$/.test(ref);
   const localId = isLocal ? Number(ref) : null;
@@ -61,15 +71,20 @@ export function BusinessDetail() {
   const myReview = user
     ? reviews.find((r) => r.user_id === user.id)
     : undefined;
+  // The "Verified reviews only" toggle filters the list client-side (no refetch).
+  const shownReviews = verifiedOnly
+    ? reviews.filter((r) => r.is_verified)
+    : reviews;
   usePageTitle(biz?.name ?? "Business");
 
+  // Reviews work for ANY business now (a not-yet-materialized Google business
+  // simply returns []), so we load them by ref regardless of source.
   const loadReviews = useCallback(() => {
-    if (localId)
-      reviewApi
-        .list(localId)
-        .then(setReviews)
-        .catch(() => setReviews([]));
-  }, [localId]);
+    reviewApi
+      .list(ref)
+      .then(setReviews)
+      .catch(() => setReviews([]));
+  }, [ref]);
 
   useEffect(() => {
     setLoading(true);
@@ -78,8 +93,9 @@ export function BusinessDetail() {
       .then(setBiz)
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
+    loadReviews();
+    // Deals + the AI review summary remain local-business features.
     if (localId) {
-      loadReviews();
       dealApi
         .forBusiness(localId)
         .then(setDeals)
@@ -96,6 +112,12 @@ export function BusinessDetail() {
         .then((r) => setIsFavorite(r.is_favorite))
         .catch(() => {});
   }, [ref, localId, user, coords.lat, coords.lng, loadReviews]);
+
+  // A scanned kiosk QR deep-links here with ?checkin=1&code=… — auto-open the
+  // check-in modal so the customer can verify in one step.
+  useEffect(() => {
+    if (searchParams.get("checkin") === "1") setCheckInOpen(true);
+  }, [searchParams]);
 
   async function toggleFavorite() {
     if (!user || !biz) {
@@ -131,14 +153,23 @@ export function BusinessDetail() {
 
   async function submitReview(e: React.FormEvent) {
     e.preventDefault();
-    if (!localId) return;
+    if (!biz) return;
     setMessage(null);
     try {
       if (editingId) {
         await reviewApi.update(editingId, { rating, body });
         setEditingId(null);
       } else {
-        await reviewApi.create(localId, rating, body);
+        // Review by ref (materializing a Google business via the snapshot) and
+        // attach the verified visit (if any) so the review is verified.
+        await reviewApi.create(
+          ref,
+          rating,
+          body,
+          linkedVisitId ?? undefined,
+          businessSnapshot(biz),
+        );
+        setLinkedVisitId(null);
       }
       setBody("");
       setRating(5);
@@ -242,19 +273,21 @@ export function BusinessDetail() {
             <h1 className="font-display text-4xl font-semibold text-ink">
               {biz.name}
             </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              {biz.review_count > 0 && (
-                <span className="flex items-center gap-1.5">
-                  <StarRating rating={biz.average_rating} size={18} />
-                  <span className="font-serif text-ink-soft">
-                    {biz.average_rating.toFixed(1)} · {biz.review_count} review
-                    {biz.review_count === 1 ? "" : "s"}
-                  </span>
-                </span>
-              )}
-              <PriceLevel level={biz.price_level} />
-              <OpenBadge open={biz.is_open_now} />
-              <LocalBadge badge={biz.local_badge} />
+            <div className="mt-2">
+              {/* Two-tier rating + the headline "Verified reviews only" toggle. */}
+              <VerifiedRating
+                rawRating={biz.average_rating}
+                rawCount={biz.review_count}
+                verifiedRating={biz.verified_rating ?? null}
+                verifiedCount={biz.verified_reviews ?? 0}
+                verifiedOnly={verifiedOnly}
+                onToggle={setVerifiedOnly}
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <PriceLevel level={biz.price_level} />
+                <OpenBadge open={biz.is_open_now} />
+                <LocalBadge badge={biz.local_badge} />
+              </div>
             </div>
             <p className="mt-2 font-serif text-ink-soft">
               {biz.categories.join(" · ")}
@@ -262,6 +295,8 @@ export function BusinessDetail() {
             </p>
             {/* Glass-box (§9.4): the detector's reasoning, on demand. */}
             <VerdictBreakdown businessRef={biz.ref} />
+            {/* Glass-box trust-weighted rating (verified reviews count more). */}
+            <TrustAdjustedRating trust={biz.trust} />
           </div>
           <button
             type="button"
@@ -403,225 +438,264 @@ export function BusinessDetail() {
       )}
 
       {/* Reviews (local businesses only) */}
-      {isLocal && (
-        <section className="mt-8" aria-label="Reviews">
-          <h2 className="font-display text-2xl font-semibold text-ink">
-            Reviews
-          </h2>
+      {/* Reviews + check-in — available for ANY business (Google ones are
+          materialized on first review/visit). */}
+      <section className="mt-8" aria-label="Reviews">
+        <h2 className="font-display text-2xl font-semibold text-ink">
+          Reviews
+        </h2>
 
-          {/* Write/edit form — one review per user (§8.2). */}
-          {user && (!myReview || editingId) ? (
-            <form
-              onSubmit={submitReview}
-              className="mt-3 rounded-lg border border-border bg-surface p-4"
-            >
-              <div className="flex items-center gap-2">
-                <label htmlFor="rating" className="font-serif text-ink-soft">
-                  Rating
-                </label>
-                <select
-                  id="rating"
-                  value={rating}
-                  onChange={(e) => setRating(Number(e.target.value))}
-                  className="rounded-md border border-border bg-cream px-2 py-1 font-serif"
-                >
-                  {[5, 4, 3, 2, 1].map((r) => (
-                    <option key={r} value={r}>
-                      {r} ★
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                required
-                maxLength={2000}
-                rows={3}
-                placeholder="What makes this place worth knowing about?"
-                className="mt-3 w-full rounded-md border border-border bg-cream p-3 font-serif"
-                aria-label="Review text"
-              />
-              <div className="mt-2 flex gap-2">
-                <button
-                  type="submit"
-                  className="rounded-md bg-accent-700 px-4 py-2 font-serif text-cream hover:bg-accent-600"
-                >
-                  {editingId ? "Update review" : "Post review"}
-                </button>
-                {editingId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingId(null);
-                      setBody("");
-                    }}
-                    className="font-serif text-ink-soft"
-                  >
-                    Cancel
-                  </button>
+        {/* Write/edit form — one review per user (§8.2). */}
+        {user && (!myReview || editingId) ? (
+          <form
+            onSubmit={submitReview}
+            className="mt-3 rounded-lg border border-border bg-surface p-4"
+          >
+            <div className="flex items-center gap-2">
+              <label htmlFor="rating" className="font-serif text-ink-soft">
+                Rating
+              </label>
+              <select
+                id="rating"
+                value={rating}
+                onChange={(e) => setRating(Number(e.target.value))}
+                className="rounded-md border border-border bg-cream px-2 py-1 font-serif"
+              >
+                {[5, 4, 3, 2, 1].map((r) => (
+                  <option key={r} value={r}>
+                    {r} ★
+                  </option>
+                ))}
+              </select>
+            </div>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              required
+              maxLength={2000}
+              rows={3}
+              placeholder="What makes this place worth knowing about?"
+              className="mt-3 w-full rounded-md border border-border bg-cream p-3 font-serif"
+              aria-label="Review text"
+            />
+            {/* Verified Visits: attach a confirmed visit so the review is
+                  verified. Optional — a review posts fine without one. */}
+            {!editingId && (
+              <div className="mt-3">
+                {linkedVisitId ? (
+                  <p className="inline-flex items-center gap-1.5 rounded-full border border-verified px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-verified">
+                    ✓ Verified visit attached
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCheckInOpen(true)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-accent-600 px-3 py-1.5 font-serif text-sm text-accent-700 hover:bg-accent-700 hover:text-cream"
+                    >
+                      📍 Check in to verify this review
+                    </button>
+                    <span className="font-mono text-[11px] text-ink-soft">
+                      Optional — posts as a normal review without it.
+                    </span>
+                  </div>
                 )}
               </div>
-            </form>
-          ) : !user ? (
-            <p className="mt-3 font-serif text-ink-soft">
-              <Link
-                to="/login"
-                className="text-accent-700 underline-offset-2 hover:underline"
-              >
-                Sign in
-              </Link>{" "}
-              to leave a review.
-            </p>
-          ) : null}
-
-          <div className="mt-4 space-y-3">
-            {reviews.length === 0 && (
-              <p className="font-serif text-ink-soft">
-                No reviews yet — be the first.
-              </p>
             )}
-            {reviews.map((r) => (
-              <article
-                key={r.id}
-                className="rounded-lg border border-border bg-surface p-4"
+            <div className="mt-2 flex gap-2">
+              <button
+                type="submit"
+                className="rounded-md bg-accent-700 px-4 py-2 font-serif text-cream hover:bg-accent-600"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <StarRating rating={r.rating} />
-                    <span className="font-serif font-medium text-ink">
-                      {r.username}
-                    </span>
-                    <span className="font-mono text-xs text-ink-soft">
-                      {new Date(r.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  {user?.id === r.user_id && (
-                    <span className="flex gap-3 font-serif text-sm">
-                      <button
-                        type="button"
-                        className="text-accent-700"
-                        onClick={() => {
-                          setEditingId(r.id);
-                          setRating(r.rating);
-                          setBody(r.body);
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="text-ink-soft"
-                        onClick={() => deleteReview(r.id)}
-                      >
-                        Delete
-                      </button>
+                {editingId ? "Update review" : "Post review"}
+              </button>
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingId(null);
+                    setBody("");
+                  }}
+                  className="font-serif text-ink-soft"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </form>
+        ) : !user ? (
+          <p className="mt-3 font-serif text-ink-soft">
+            <Link
+              to="/login"
+              className="text-accent-700 underline-offset-2 hover:underline"
+            >
+              Sign in
+            </Link>{" "}
+            to leave a review.
+          </p>
+        ) : null}
+
+        <div className="mt-4 space-y-3">
+          {shownReviews.length === 0 && (
+            <p className="font-serif text-ink-soft">
+              {verifiedOnly
+                ? "No verified reviews yet — check in to leave the first."
+                : "No reviews yet — be the first."}
+            </p>
+          )}
+          {shownReviews.map((r) => (
+            <article
+              key={r.id}
+              className="rounded-lg border border-border bg-surface p-4"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center gap-2">
+                  <StarRating rating={r.rating} />
+                  <span className="font-serif font-medium text-ink">
+                    {r.username}
+                  </span>
+                  <span className="font-mono text-xs text-ink-soft">
+                    {new Date(r.created_at).toLocaleDateString()}
+                  </span>
+                  {r.is_verified && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-verified px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-verified">
+                      ✓ Verified visit
                     </span>
                   )}
                 </div>
-                <p className="mt-2 font-serif text-ink">{r.body}</p>
-
-                {/* Owner's response (visible to everyone) */}
-                {r.reply && replyingId !== r.id && (
-                  <div className="mt-3 border-l-2 border-accent-600/50 bg-cream/60 py-2 pl-3 pr-2">
-                    <p className="font-mono text-[11px] uppercase tracking-wide text-accent-700">
-                      Response from the owner
-                    </p>
-                    <p className="mt-1 font-serif text-sm text-ink">
-                      {r.reply.body}
-                    </p>
-                    <p className="mt-1 font-mono text-[10px] text-ink-soft">
-                      @{r.reply.owner_username} ·{" "}
-                      {new Date(r.reply.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
+                {user?.id === r.user_id && (
+                  <span className="flex gap-3 font-serif text-sm">
+                    <button
+                      type="button"
+                      className="text-accent-700"
+                      onClick={() => {
+                        setEditingId(r.id);
+                        setRating(r.rating);
+                        setBody(r.body);
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="text-ink-soft"
+                      onClick={() => deleteReview(r.id)}
+                    >
+                      Delete
+                    </button>
+                  </span>
                 )}
+              </div>
+              <p className="mt-2 font-serif text-ink">{r.body}</p>
 
-                {/* Owner reply form (create or edit) */}
-                {isOwner && replyingId === r.id && (
-                  <form
-                    className="mt-3"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      submitReply(r.id);
-                    }}
-                  >
-                    <label htmlFor={`reply-${r.id}`} className="sr-only">
-                      Reply to this review
-                    </label>
-                    <textarea
-                      id={`reply-${r.id}`}
-                      value={replyBody}
-                      onChange={(e) => setReplyBody(e.target.value)}
-                      required
-                      maxLength={1000}
-                      rows={2}
-                      placeholder="Thank the reviewer, answer a concern, share an update…"
-                      className="w-full rounded-md border border-border bg-cream p-2 font-serif text-sm"
-                    />
-                    <div className="mt-1 flex gap-2">
-                      <button
-                        type="submit"
-                        className="rounded-md bg-accent-700 px-3 py-1.5 font-serif text-sm text-cream hover:bg-accent-600"
-                      >
-                        {r.reply ? "Update reply" : "Post reply"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setReplyingId(null);
-                          setReplyBody("");
-                        }}
-                        className="font-serif text-sm text-ink-soft"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                )}
-
-                <div className="mt-2 flex items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      user &&
-                      reviewApi
-                        .helpful(r.id)
-                        .then(loadReviews)
-                        .catch(() => {})
-                    }
-                    className="font-mono text-xs text-ink-soft hover:text-accent-700"
-                  >
-                    Helpful ({r.helpful_count})
-                  </button>
-                  {isOwner && replyingId !== r.id && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setReplyingId(r.id);
-                          setReplyBody(r.reply?.body ?? "");
-                        }}
-                        className="font-mono text-xs text-accent-700 hover:underline"
-                      >
-                        {r.reply ? "Edit reply" : "Reply as owner"}
-                      </button>
-                      {r.reply && (
-                        <button
-                          type="button"
-                          onClick={() => removeReply(r.id)}
-                          className="font-mono text-xs text-ink-soft hover:text-accent-700"
-                        >
-                          Delete reply
-                        </button>
-                      )}
-                    </>
-                  )}
+              {/* Owner's response (visible to everyone) */}
+              {r.reply && replyingId !== r.id && (
+                <div className="mt-3 border-l-2 border-accent-600/50 bg-cream/60 py-2 pl-3 pr-2">
+                  <p className="font-mono text-[11px] uppercase tracking-wide text-accent-700">
+                    Response from the owner
+                  </p>
+                  <p className="mt-1 font-serif text-sm text-ink">
+                    {r.reply.body}
+                  </p>
+                  <p className="mt-1 font-mono text-[10px] text-ink-soft">
+                    @{r.reply.owner_username} ·{" "}
+                    {new Date(r.reply.created_at).toLocaleDateString()}
+                  </p>
                 </div>
-              </article>
-            ))}
-          </div>
-        </section>
+              )}
+
+              {/* Owner reply form (create or edit) */}
+              {isOwner && replyingId === r.id && (
+                <form
+                  className="mt-3"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    submitReply(r.id);
+                  }}
+                >
+                  <label htmlFor={`reply-${r.id}`} className="sr-only">
+                    Reply to this review
+                  </label>
+                  <textarea
+                    id={`reply-${r.id}`}
+                    value={replyBody}
+                    onChange={(e) => setReplyBody(e.target.value)}
+                    required
+                    maxLength={1000}
+                    rows={2}
+                    placeholder="Thank the reviewer, answer a concern, share an update…"
+                    className="w-full rounded-md border border-border bg-cream p-2 font-serif text-sm"
+                  />
+                  <div className="mt-1 flex gap-2">
+                    <button
+                      type="submit"
+                      className="rounded-md bg-accent-700 px-3 py-1.5 font-serif text-sm text-cream hover:bg-accent-600"
+                    >
+                      {r.reply ? "Update reply" : "Post reply"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReplyingId(null);
+                        setReplyBody("");
+                      }}
+                      className="font-serif text-sm text-ink-soft"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              <div className="mt-2 flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() =>
+                    user &&
+                    reviewApi
+                      .helpful(r.id)
+                      .then(loadReviews)
+                      .catch(() => {})
+                  }
+                  className="font-mono text-xs text-ink-soft hover:text-accent-700"
+                >
+                  Helpful ({r.helpful_count})
+                </button>
+                {isOwner && replyingId !== r.id && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReplyingId(r.id);
+                        setReplyBody(r.reply?.body ?? "");
+                      }}
+                      className="font-mono text-xs text-accent-700 hover:underline"
+                    >
+                      {r.reply ? "Edit reply" : "Reply as owner"}
+                    </button>
+                    {r.reply && (
+                      <button
+                        type="button"
+                        onClick={() => removeReply(r.id)}
+                        className="font-mono text-xs text-ink-soft hover:text-accent-700"
+                      >
+                        Delete reply
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+      {checkInOpen && (
+        <CheckInFlow
+          business={biz}
+          onVerified={(visitId) => setLinkedVisitId(visitId)}
+          onClose={() => setCheckInOpen(false)}
+          initialCode={searchParams.get("code") ?? undefined}
+        />
       )}
     </main>
   );

@@ -17,7 +17,7 @@ _SELECT_BUSINESS = """
     SELECT b.id, b.name, b.lat, b.lng, b.address, b.phone, b.website,
            b.price_level, b.is_independent, b.local_confidence,
            b.average_rating, b.review_count, b.photo_url, b.owner_id,
-           b.photo_focus_x, b.photo_focus_y,
+           b.photo_focus_x, b.photo_focus_y, b.geofence_radius_m,
            COALESCE(
                array_agg(DISTINCT c.name) FILTER (WHERE c.name IS NOT NULL),
                '{}'
@@ -38,14 +38,58 @@ def list_categories() -> list[dict[str, Any]]:
 
 
 def fetch_active() -> list[dict[str, Any]]:
-    """Every active business with its categories + hours (for local search)."""
-    return query(_SELECT_BUSINESS + " GROUP BY b.id")
+    """Every active business with its categories + hours (for local search).
+
+    Excludes businesses materialized from Google (google_place_id IS NOT NULL):
+    those exist only to anchor reviews/visits and must NOT join the curated local
+    backbone (the live Google layer already returns them, so including them here
+    would duplicate the card and bypass the chain filter)."""
+    return query(_SELECT_BUSINESS + " WHERE b.google_place_id IS NULL GROUP BY b.id")
 
 
 def get_local(business_id: int) -> Optional[dict[str, Any]]:
     """A single local business with categories + hours, or None."""
     rows = query(_SELECT_BUSINESS + " WHERE b.id = %s GROUP BY b.id", [business_id])
     return rows[0] if rows else None
+
+
+def get_by_place_id(place_id: str) -> Optional[dict[str, Any]]:
+    """The materialized row for a Google place, or None if not yet reviewed."""
+    rows = query(
+        "SELECT id, average_rating, review_count, geofence_radius_m "
+        "FROM businesses WHERE google_place_id = %s",
+        [place_id],
+    )
+    return rows[0] if rows else None
+
+
+def create_from_google(place_id: str, snapshot: dict[str, Any]) -> int:
+    """Materialize a lightweight local row for a Google business so it can carry
+    reviews/visits. Idempotent via the google_place_id unique index — a
+    concurrent first-write returns the same row instead of erroring. The snapshot
+    is the data already on the user's screen (no extra Places call needed)."""
+    params = {
+        "name": snapshot["name"],
+        "lat": snapshot["lat"],
+        "lng": snapshot["lng"],
+        "address": snapshot.get("address"),
+        "phone": snapshot.get("phone"),
+        "website": snapshot.get("website"),
+        "price_level": snapshot.get("price_level"),
+        "place_id": place_id,
+    }
+    with transaction() as conn:
+        row = conn.execute(
+            """INSERT INTO businesses
+                   (name, lat, lng, address, phone, website, price_level,
+                    is_independent, local_confidence, google_place_id)
+               VALUES (%(name)s, %(lat)s, %(lng)s, %(address)s, %(phone)s,
+                       %(website)s, %(price_level)s, TRUE, 0.9, %(place_id)s)
+               ON CONFLICT (google_place_id) DO UPDATE SET name = EXCLUDED.name
+               RETURNING id""",
+            params,
+        ).fetchone()
+    return row["id"]
 
 
 def list_by_owner(owner_id: int) -> list[dict[str, Any]]:
@@ -106,6 +150,25 @@ def update(business_id: int, data: dict[str, Any]) -> None:
                WHERE id = %(id)s""",
             {"photo_url": None, **data, "id": business_id},
         )
+
+
+def enable_qr(business_id: int, secret: bytes) -> None:
+    """Store the per-business QR secret if not already set (idempotent enable —
+    COALESCE keeps an existing secret so re-enabling never rotates it out)."""
+    with transaction() as conn:
+        conn.execute(
+            "UPDATE businesses SET qr_secret = COALESCE(qr_secret, %s) WHERE id = %s",
+            [secret, business_id],
+        )
+
+
+def get_qr_secret(business_id: int) -> Optional[bytes]:
+    """The per-business QR secret, or None if code check-in isn't enabled.
+    Server-only — never returned in any API payload."""
+    rows = query("SELECT qr_secret FROM businesses WHERE id = %s", [business_id])
+    if not rows or rows[0]["qr_secret"] is None:
+        return None
+    return bytes(rows[0]["qr_secret"])
 
 
 def log_view(business_id: int, user_id: Optional[int]) -> None:

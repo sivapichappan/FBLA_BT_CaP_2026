@@ -21,10 +21,12 @@ import { Discover } from "./routes/Discover";
 import { Favorites } from "./routes/Favorites";
 import { Login } from "./routes/Login";
 import { AddBusiness } from "./routes/owner/AddBusiness";
+import { CheckinKiosk } from "./routes/owner/CheckinKiosk";
 import { OwnerDashboard } from "./routes/owner/Dashboard";
 import { EditBusiness } from "./routes/owner/EditBusiness";
 import { PostDeal } from "./routes/owner/PostDeal";
 import { Verify } from "./routes/owner/Verify";
+import { Passport } from "./routes/Passport";
 import { Plan } from "./routes/Plan";
 import { Profile } from "./routes/Profile";
 import { Register } from "./routes/Register";
@@ -69,6 +71,7 @@ export default function App() {
                 <Route path="/business/:ref" element={<BusinessDetail />} />
                 <Route path="/favorites" element={<Favorites />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/passport" element={<Passport />} />
                 <Route path="/deals" element={<Deals />} />
                 <Route path="/plan" element={<Plan />} />
                 <Route path="/owner" element={<OwnerDashboard />} />
@@ -76,6 +79,7 @@ export default function App() {
                 <Route path="/owner/post-deal" element={<PostDeal />} />
                 <Route path="/owner/edit/:id" element={<EditBusiness />} />
                 <Route path="/owner/verify" element={<Verify />} />
+                <Route path="/owner/checkin-code" element={<CheckinKiosk />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="*" element={<NotFound />} />

@@ -45,6 +45,21 @@ class BusinessOut(BaseModel):
     editorial_summary: Optional[str] = None
 
 
+class BusinessSnapshot(BaseModel):
+    """Enough of a live Google business to materialize a local row on first
+    review/check-in — so ANY business nationwide is reviewable, not just the
+    seeded NYC set. It's the data already on the user's screen, so no extra
+    Places call is needed. Ignored for businesses that already exist locally."""
+
+    name: str = Field(min_length=1, max_length=200)
+    lat: Annotated[float, Field(ge=-90, le=90)]
+    lng: Annotated[float, Field(ge=-180, le=180)]
+    address: Optional[str] = Field(default=None, max_length=300)
+    phone: Optional[str] = Field(default=None, max_length=40)
+    website: Optional[str] = Field(default=None, max_length=400)
+    price_level: Optional[Annotated[int, Field(ge=1, le=4)]] = None
+
+
 class SearchParams(BaseModel):
     """Normalized, validated search inputs (built from query params in the router)."""
 

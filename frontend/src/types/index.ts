@@ -50,6 +50,27 @@ export interface Business {
   owner_id?: number | null;
   /** Present on vibe-search results: cosine similarity to the query (0–1). */
   similarity?: number;
+  /* ── Verified Visits (detail page only) ──────────────────────────────── */
+  /** The verified-only average (null when no verified reviews exist yet). */
+  verified_rating?: number | null;
+  /** How many of this business's reviews are backed by a confirmed visit. */
+  verified_reviews?: number;
+  /** verified_reviews / total reviews (0–1). */
+  verification_rate?: number;
+  /** Geofence radius in metres — drives the check-in map ring. */
+  geofence_radius_m?: number | null;
+  /** Glass-box trust-weighted rating (detail page only). */
+  trust?: TrustRating;
+}
+
+/** The glass-box trust-weighted rating: the raw average re-weighted so verified
+ *  reviews count more than anonymous unverified ones. */
+export interface TrustRating {
+  adjusted_rating: number | null;
+  raw_rating: number | null;
+  review_count: number;
+  verified_share: number;
+  factors: string[];
 }
 
 /* ── Trip planner ────────────────────────────────────────────────────────── */
@@ -130,9 +151,99 @@ export interface Review {
   body: string;
   helpful_count: number;
   created_at: string;
+  /** True when this review is backed by a verified visit (shows the badge). */
+  is_verified?: boolean;
   reply: ReviewReply | null;
   /** Present on /reviews/mine (profile page). */
   business_name?: string;
+}
+
+/* ── Verified Visits ──────────────────────────────────────────────────── */
+
+/** Enough of a live Google business to materialize a local row on first
+ *  review/check-in — so any business nationwide is reviewable. */
+export interface BusinessSnapshot {
+  name: string;
+  lat: number;
+  lng: number;
+  address?: string;
+  phone?: string;
+  website?: string;
+  price_level?: number;
+}
+
+export type VisitMethod =
+  | "GPS_GEOFENCE"
+  | "GPS_GEOFENCE_DWELL"
+  | "QR_GEOFENCE"
+  | "RECEIPT"
+  | "MANUAL_CODE";
+
+export type VisitStatus =
+  | "PENDING"
+  | "AWAITING_DWELL"
+  | "VERIFIED"
+  | "FAILED"
+  | "REJECTED"
+  | "EXPIRED";
+
+/** The result of initiating a visit or submitting a checkpoint. */
+export interface VisitResult {
+  visit_id: number;
+  business_id: number;
+  business_name: string | null;
+  status: VisitStatus;
+  method: string;
+  distance_m: number | null;
+  verification_strength: number | null;
+  needs_another_checkpoint: boolean;
+  expires_at: string;
+  verified_at: string | null;
+  /** User-safe reason on a non-success terminal state (OUTSIDE_GEOFENCE etc.). */
+  reason: string | null;
+  message: string;
+}
+
+/** The rotating counter-code an owner displays on the kiosk. */
+export interface CheckinCode {
+  business_id: number;
+  business_name: string;
+  token: string;
+  period_seconds: number;
+}
+
+/** A row in the user's visit history / passport (GET /visits/mine). */
+export interface MyVisit {
+  id: number;
+  business_id: number;
+  business_name: string;
+  method: string;
+  status: VisitStatus;
+  verified_at: string | null;
+  verification_strength: number | null;
+  spend_cents: number | null;
+  initiated_at: string;
+}
+
+/* ── Passport (§17) ───────────────────────────────────────────────────── */
+
+export interface PassportBadge {
+  key: string;
+  label: string;
+  icon: string;
+  desc: string;
+  have: number;
+  need: number;
+  earned: boolean;
+}
+
+export interface Passport {
+  total_verified: number;
+  distinct_businesses: number;
+  streak_days: number;
+  money_local_cents: number;
+  badges: PassportBadge[];
+  recent: MyVisit[];
 }
 
 /** A "For you" pick: a business plus the human-readable why. */

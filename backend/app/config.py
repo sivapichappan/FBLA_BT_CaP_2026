@@ -63,6 +63,24 @@ class Settings(BaseSettings):
     demo_lat: float = 40.7308
     demo_lng: float = -73.9973
 
+    # ── Verified Visits (proof-of-presence; the bot-prevention engine) ──────
+    # Tunables for the check-in verification engine. Defaults are deliberately
+    # conservative; every value is env-overridable so, e.g., the geofence can be
+    # widened or the dwell shortened when recording the demo video.
+    geofence_radius_default_m: int = 100        # fence radius used when a business carries none
+    accuracy_grace_m: int = 15                  # accept distance up to radius + this (GPS jitter)
+    max_gps_accuracy_m: int = 75                # reject checkpoints fuzzier than this (too imprecise to trust)
+    strong_accuracy_m: int = 20                 # a strength bonus is granted at/under this accuracy
+    dwell_minutes: int = 2                      # GPS_GEOFENCE_DWELL: required gap between the two checkpoints
+    visit_initiate_ttl_minutes: int = 15        # a PENDING/AWAITING_DWELL visit expires after this
+    review_link_window_hours: int = 24          # a review may link a visit verified within this window
+    max_verified_visits_per_business_per_day: int = 2  # anti-farming: cap verified visits per (user, business)
+    max_travel_kmh: float = 900.0               # impossible-travel threshold (generous — allows air travel)
+    qr_token_period_seconds: int = 30           # rotating-QR token lifetime (TOTP-style)
+    strict_mock: bool = False                   # True => reject any mock-flagged checkpoint outright
+    strict_review_link: bool = True             # reject an invalid visit link (vs. silently storing unverified)
+    checkpoint_retention_days: int = 30         # purge raw checkpoint coordinates older than this
+
     model_config = SettingsConfigDict(
         env_file=".env",          # loaded when uvicorn runs from the backend/ dir
         env_file_encoding="utf-8",

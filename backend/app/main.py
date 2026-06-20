@@ -35,9 +35,11 @@ from app.routers import (
     businesses,
     deals,
     favorites,
+    passport,
     recommendations,
     reviews,
     trips,
+    visits,
 )
 
 log = logging.getLogger("locallens")
@@ -117,6 +119,8 @@ def create_app() -> FastAPI:
     app.include_router(analytics.router)
     app.include_router(recommendations.router)
     app.include_router(trips.router)
+    app.include_router(visits.router)
+    app.include_router(passport.router)
 
     return app
 

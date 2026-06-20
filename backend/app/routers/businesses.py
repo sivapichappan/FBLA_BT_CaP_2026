@@ -23,7 +23,7 @@ from app.models.business import (
     SearchResponse,
 )
 from app.repositories import businesses as biz_repo
-from app.services import places, search_service
+from app.services import places, qr_service, search_service
 
 router = APIRouter(prefix="/businesses", tags=["businesses"])
 
@@ -187,6 +187,19 @@ async def signals(ref: str):
     if not result:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Business not found.")
     return result
+
+
+@router.post("/{business_id}/qr/enable")
+async def enable_qr(business_id: int, user: dict = Depends(current_user)) -> dict:
+    """Owner: turn on rotating-code check-in for this business."""
+    return qr_service.enable(business_id, user)
+
+
+@router.get("/{business_id}/checkin-code")
+async def checkin_code(business_id: int, user: dict = Depends(current_user)) -> dict:
+    """Owner kiosk: the current rotating code to display (polled each period).
+    Never returns the secret — only the short-lived token."""
+    return qr_service.current_code(business_id, user)
 
 
 # NOTE: keep this LAST — a path param would otherwise swallow /search, /categories.

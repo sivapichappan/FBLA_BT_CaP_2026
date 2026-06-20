@@ -58,6 +58,22 @@ CREATE TABLE IF NOT EXISTS businesses (
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS photo_focus_x SMALLINT CHECK (photo_focus_x BETWEEN 0 AND 100);
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS photo_focus_y SMALLINT CHECK (photo_focus_y BETWEEN 0 AND 100);
 
+-- Verified Visits (proof-of-presence). geofence_radius_m is the circle, in
+-- metres, a user must be inside to check in (a tight storefront can shrink it; a
+-- mall can widen it). qr_secret is the per-business HMAC key for the rotating
+-- check-in QR code — NULL until the owner enables QR, never sent to clients.
+-- Additive + idempotent, so existing rows pick up the 100 m default untouched.
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS geofence_radius_m INTEGER NOT NULL DEFAULT 100 CHECK (geofence_radius_m BETWEEN 10 AND 1000);
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS qr_secret BYTEA;
+
+-- A live Google-Places business has no row here until someone reviews or checks
+-- in at it — then we "materialize" a lightweight row keyed by its place id, so
+-- ANY business nationwide becomes reviewable, not just the seeded NYC set. The
+-- unique index lets ON CONFLICT find an existing row (Postgres treats the many
+-- NULLs on seeded/owner businesses as distinct, so they don't collide).
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS google_place_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_businesses_google_place ON businesses(google_place_id);
+
 -- ── Categories + many-to-many junction ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS categories (
   id   BIGSERIAL PRIMARY KEY,
@@ -92,6 +108,79 @@ CREATE TABLE IF NOT EXISTS reviews (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (business_id, user_id)
 );
+
+-- ── Verified Visits: proof a user was physically at a business ──────────────
+-- The trust backbone — and our PRIMARY bot-prevention answer: a review counts
+-- as "verified" only when it links to a VERIFIED visit here, which a bot sitting
+-- at a keyboard cannot produce. A visit is a short state machine
+-- (PENDING → AWAITING_DWELL → VERIFIED, else FAILED/REJECTED/EXPIRED) driven by
+-- server-validated location checkpoints. `method` is a defense-in-depth ladder
+-- (plain geofence → dwell → QR-at-the-counter). Every timestamp is
+-- server-authoritative; the client clock is accepted only as advisory metadata.
+CREATE TABLE IF NOT EXISTS visits (
+  id                    BIGSERIAL PRIMARY KEY,
+  user_id               BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  business_id           BIGINT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  method                TEXT NOT NULL CHECK (method IN
+                          ('GPS_GEOFENCE', 'GPS_GEOFENCE_DWELL', 'QR_GEOFENCE', 'RECEIPT', 'MANUAL_CODE')),
+  status                TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN
+                          ('PENDING', 'AWAITING_DWELL', 'VERIFIED', 'FAILED', 'REJECTED', 'EXPIRED')),
+  -- evidence: the last accepted checkpoint (the full trail lives in visit_checkpoints)
+  latitude              DOUBLE PRECISION,
+  longitude             DOUBLE PRECISION,
+  gps_accuracy_m        DOUBLE PRECISION,
+  distance_m            DOUBLE PRECISION,            -- metres to the business centre
+  mock_location_flag    BOOLEAN NOT NULL DEFAULT FALSE,
+  -- lifecycle timestamps (server clock)
+  initiated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  first_checkpoint_at   TIMESTAMPTZ,                 -- when the dwell window started
+  verified_at           TIMESTAMPTZ,
+  expires_at            TIMESTAMPTZ NOT NULL,        -- initiated_at + TTL; PENDING dies here
+  verification_strength SMALLINT CHECK (verification_strength BETWEEN 0 AND 100),
+  spend_cents           INTEGER CHECK (spend_cents >= 0),  -- optional, powers "money kept local"
+  rejection_reason      TEXT,                        -- internal audit only; NEVER returned to a client
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Every location sample submitted during a visit — the audit trail that makes
+-- dwell timing, velocity checks, and debugging clean. Purged after a retention
+-- window (the derived visit summary above is what we keep long-term).
+CREATE TABLE IF NOT EXISTS visit_checkpoints (
+  id              BIGSERIAL PRIMARY KEY,
+  visit_id        BIGINT NOT NULL REFERENCES visits(id) ON DELETE CASCADE,
+  latitude        DOUBLE PRECISION NOT NULL,
+  longitude       DOUBLE PRECISION NOT NULL,
+  gps_accuracy_m  DOUBLE PRECISION,
+  distance_m      DOUBLE PRECISION NOT NULL,
+  inside_geofence BOOLEAN NOT NULL,
+  mock_location   BOOLEAN NOT NULL DEFAULT FALSE,
+  client_ts       TIMESTAMPTZ,                       -- advisory only (untrusted)
+  server_ts       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- One QR token per business changes every period; this stops a single user from
+-- replaying the same period's token. (A remote friend is already blocked because
+-- QR_GEOFENCE also requires an in-geofence checkpoint — both must be present.)
+CREATE TABLE IF NOT EXISTS qr_redemptions (
+  id          BIGSERIAL PRIMARY KEY,
+  business_id BIGINT NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  period      BIGINT NOT NULL,                       -- floor(epoch / qr_token_period_seconds)
+  token       TEXT NOT NULL,
+  visit_id    BIGINT REFERENCES visits(id) ON DELETE SET NULL,
+  redeemed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (business_id, user_id, period)
+);
+
+-- A review MAY tie to a VERIFIED visit (proof the reviewer was there). NULL = an
+-- ordinary unverified review (still allowed — verification is a badge, not a
+-- gate). The link is only written when the visit is VERIFIED, same user+business,
+-- inside the link window, so "visit_id IS NOT NULL" is exactly "verified review"
+-- — which keeps the two-tier rating query a single FILTER. The partial-unique
+-- index stops one visit from minting many reviews. ON DELETE SET NULL so purging
+-- an old visit downgrades the review to unverified rather than deleting it.
+ALTER TABLE reviews ADD COLUMN IF NOT EXISTS visit_id BIGINT REFERENCES visits(id) ON DELETE SET NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_review_visit ON reviews(visit_id) WHERE visit_id IS NOT NULL;
 
 -- ── Deals + redemptions ──────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS deals (
@@ -194,3 +283,8 @@ CREATE INDEX IF NOT EXISTS idx_views_business   ON business_views(business_id, v
 CREATE INDEX IF NOT EXISTS idx_redemptions_code ON deal_redemptions(code);
 CREATE INDEX IF NOT EXISTS idx_trips_user       ON trips(user_id);
 CREATE INDEX IF NOT EXISTS idx_chain_source     ON chain_registry(source);
+-- Verified Visits hot paths: a user's visits to a business (idempotency + daily
+-- cap), the expiry sweep, and a visit's checkpoint trail (dwell + velocity).
+CREATE INDEX IF NOT EXISTS idx_visits_user_business ON visits(user_id, business_id, initiated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_visits_status_expires ON visits(status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_checkpoints_visit     ON visit_checkpoints(visit_id, server_ts);

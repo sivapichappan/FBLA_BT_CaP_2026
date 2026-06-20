@@ -18,7 +18,15 @@ from typing import Any, Optional
 from app.config import settings
 from app.models.business import SearchParams, SearchResponse
 from app.repositories import businesses as biz_repo
-from app.services import classifier, embeddings, places, places_cache, ranker
+from app.repositories import reviews as reviews_repo
+from app.services import (
+    classifier,
+    embeddings,
+    places,
+    places_cache,
+    ranker,
+    review_trust,
+)
 
 try:  # America/New_York for open-now; degrade to None if tz data is unavailable.
     from zoneinfo import ZoneInfo
@@ -532,6 +540,22 @@ async def get_detail(ref: str, user_lat: Optional[float] = None, user_lng: Optio
             if user_lat is not None and detail.get("lat") is not None else None
         )
         detail["hours_text"] = detail.get("weekday_text") or []
+        # If this Google business has been reviewed/visited before, a lightweight
+        # local row exists carrying our community reviews — merge the two-tier
+        # rating, and let OUR aggregate take over the headline once we have
+        # reviews (so raw vs verified compare the same population).
+        local = biz_repo.get_by_place_id(ref[3:])
+        if local:
+            detail.update(reviews_repo.rating_breakdown(local["id"]))
+            detail["trust"] = review_trust.trust_weighted_rating(local["id"])
+            if local.get("review_count"):
+                detail["average_rating"] = float(local.get("average_rating") or 0.0)
+                detail["review_count"] = int(local["review_count"])
+            detail["geofence_radius_m"] = (
+                local.get("geofence_radius_m") or settings.geofence_radius_default_m
+            )
+        else:
+            detail["geofence_radius_m"] = settings.geofence_radius_default_m
         return detail
 
     if not ref.isdigit():
@@ -543,4 +567,10 @@ async def get_detail(ref: str, user_lat: Optional[float] = None, user_lng: Optio
                                 user_lng if user_lng is not None else row["lng"])
     canon["owner_id"] = row.get("owner_id")
     canon["hours_text"] = _format_hours(row.get("hours"))
+    # The geofence radius drives the check-in map ring on the detail page.
+    canon["geofence_radius_m"] = row.get("geofence_radius_m")
+    # Two-tier rating (raw vs verified-only) for the detail page's trust toggle.
+    # Only computed here (one business), never in the per-result search path.
+    canon.update(reviews_repo.rating_breakdown(int(ref)))
+    canon["trust"] = review_trust.trust_weighted_rating(int(ref))
     return canon

@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Optional
 
 from fastapi import HTTPException, status
 
+from app.config import settings
 from app.models.review import ReplyIn, ReviewIn, ReviewUpdateIn
 from app.repositories import businesses as biz_repo
 from app.repositories import reviews as reviews_repo
+from app.repositories import visits as visits_repo
 from app.services import llm, places_cache
+
+
+def _now() -> dt.datetime:
+    return dt.datetime.now(dt.timezone.utc)
 
 # A summary needs enough material to be honest about "what people love".
 MIN_REVIEWS_FOR_SUMMARY = 3
@@ -66,12 +73,75 @@ def delete_reply(review_id: int, user: dict) -> None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No reply to delete.")
 
 
-def create_review(business_id: int, user: dict, data: ReviewIn) -> dict:
-    if not biz_repo.get_local(business_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Business not found.")
+def _resolve_business_id(ref, snapshot: Optional[dict], *, materialize: bool) -> Optional[int]:
+    """Map a business ref → a local businesses.id. A Google business
+    (``gp_<placeid>``) is materialized into a local row on first write so any
+    business nationwide is reviewable. Returns None only on a READ path
+    (materialize=False) when the Google business has no row yet → empty result."""
+    ref = str(ref)
+    if ref.isdigit():
+        if not biz_repo.get_local(int(ref)):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Business not found.")
+        return int(ref)
+    if ref.startswith("gp_"):
+        place_id = ref[3:]
+        existing = biz_repo.get_by_place_id(place_id)
+        if existing:
+            return existing["id"]
+        if not materialize:
+            return None
+        if not snapshot:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                "We need this business's details to save your review.")
+        return biz_repo.create_from_google(place_id, snapshot)
+    raise HTTPException(status.HTTP_404_NOT_FOUND, "Business not found.")
+
+
+def list_reviews(ref: str, *, sort: str, limit: int, offset: int, verified_only: bool) -> list[dict]:
+    """Reviews for a business by ref. A not-yet-materialized Google business
+    simply has no reviews yet (returns [] without creating a row)."""
+    business_id = _resolve_business_id(ref, None, materialize=False)
+    if business_id is None:
+        return []
+    return reviews_repo.list_for_business(
+        business_id, sort=sort, limit=limit, offset=offset, verified_only=verified_only
+    )
+
+
+def _validate_visit_link(business_id: int, user: dict, visit_id: Optional[int]) -> Optional[int]:
+    """Enforce the verified-review invariant: a review may link a visit ONLY if
+    that visit is VERIFIED, belongs to this user, is for this business, and was
+    verified within the link window. A good link is returned (→ verified review);
+    a bad one either raises (strict mode, the default) or is dropped to None so
+    the review still posts as unverified."""
+    if visit_id is None:
+        return None
+    visit = visits_repo.get(visit_id)
+    valid = (
+        visit is not None
+        and visit["user_id"] == user["id"]
+        and visit["business_id"] == business_id
+        and visit["status"] == "VERIFIED"
+        and visit["verified_at"] is not None
+        and visit["verified_at"] >= _now() - dt.timedelta(hours=settings.review_link_window_hours)
+    )
+    if valid:
+        return visit_id
+    if settings.strict_review_link:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            "That check-in can't be linked to this review.")
+    return None
+
+
+def create_review(ref: str, user: dict, data: ReviewIn) -> dict:
+    # Resolve the ref (materializing a Google business on first review) so any
+    # business is reviewable, then apply the same one-per-user + verified-link rules.
+    snapshot = data.snapshot.model_dump() if data.snapshot else None
+    business_id = _resolve_business_id(ref, snapshot, materialize=True)
     if reviews_repo.user_has_reviewed(business_id, user["id"]):
         raise HTTPException(status.HTTP_409_CONFLICT, "You've already reviewed this business.")
-    return reviews_repo.create(business_id, user["id"], data.rating, data.body)
+    visit_id = _validate_visit_link(business_id, user, data.visit_id)
+    return reviews_repo.create(business_id, user["id"], data.rating, data.body, visit_id)
 
 
 def update_review(review_id: int, user: dict, data: ReviewUpdateIn) -> dict:

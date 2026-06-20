@@ -155,8 +155,16 @@ export function OwnerDashboard() {
     if (report.funnel) {
       lines.push(["FUNNEL"], ["step", "count", "conversion_from_previous_pct"]);
       lines.push(["views", String(report.funnel.views), ""]);
-      lines.push(["favorites", String(report.funnel.favorites), String(report.funnel.view_to_favorite_pct)]);
-      lines.push(["redemptions", String(report.funnel.redemptions), String(report.funnel.favorite_to_redemption_pct)]);
+      lines.push([
+        "favorites",
+        String(report.funnel.favorites),
+        String(report.funnel.view_to_favorite_pct),
+      ]);
+      lines.push([
+        "redemptions",
+        String(report.funnel.redemptions),
+        String(report.funnel.favorite_to_redemption_pct),
+      ]);
     }
     // Quote every cell (commas in deal titles are likely).
     const csv = lines
@@ -212,9 +220,15 @@ export function OwnerDashboard() {
           </Link>
           <Link
             to="/owner/verify"
-            className="rounded-md bg-accent-700 px-3 py-1.5 font-serif text-sm text-cream hover:bg-accent-600"
+            className="rounded-md border border-border bg-surface px-3 py-1.5 font-serif text-sm text-ink hover:border-accent-600"
           >
             Verify a code
+          </Link>
+          <Link
+            to="/owner/checkin-code"
+            className="rounded-md bg-accent-700 px-3 py-1.5 font-serif text-sm text-cream hover:bg-accent-600"
+          >
+            Check-in code
           </Link>
         </div>
       </div>
@@ -232,7 +246,10 @@ export function OwnerDashboard() {
                 key={bid}
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 font-serif text-sm"
               >
-                <Link to={`/business/${bid}`} className="text-ink hover:text-accent-700">
+                <Link
+                  to={`/business/${bid}`}
+                  className="text-ink hover:text-accent-700"
+                >
                   {b.name}
                 </Link>
                 <Link
@@ -251,7 +268,10 @@ export function OwnerDashboard() {
       {businesses.length === 0 ? (
         <div className="mt-6">
           <EmptyState title="No businesses yet">
-            <Link to="/owner/add-business" className="text-accent-700 underline">
+            <Link
+              to="/owner/add-business"
+              className="text-accent-700 underline"
+            >
               Add your first listing
             </Link>{" "}
             to see analytics.
@@ -458,7 +478,10 @@ export function OwnerDashboard() {
                     <h2 className="font-display text-lg font-semibold text-ink">
                       Views per day
                     </h2>
-                    <TrendChart data={report.views_trend} color="var(--accent-600)" />
+                    <TrendChart
+                      data={report.views_trend}
+                      color="var(--accent-600)"
+                    />
                   </section>
                 )}
                 {report.rating_distribution && (
@@ -505,37 +528,37 @@ export function OwnerDashboard() {
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="mt-2 w-full min-w-[20rem] font-serif text-sm">
-                        <thead>
-                          <tr className="border-b border-border text-left font-mono text-[11px] uppercase tracking-wide text-ink-soft">
-                            <th className="py-1 pr-2">Deal</th>
-                            <th className="py-1 pr-2">Off</th>
-                            <th className="py-1 pr-2">In range</th>
-                            <th className="py-1">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {report.deals.map((d) => (
-                            <tr
-                              key={d.id}
-                              className="border-b border-border/60"
-                            >
-                              <td className="py-1.5 pr-2 text-ink">
-                                {d.title}
-                              </td>
-                              <td className="py-1.5 pr-2 font-mono">
-                                {d.discount_pct}%
-                              </td>
-                              <td className="py-1.5 pr-2 font-mono">
-                                {d.redemptions_in_range}
-                              </td>
-                              <td className="py-1.5 font-mono">
-                                {d.redemption_count}
-                                {d.total_limit !== null &&
-                                  ` / ${d.total_limit}`}
-                              </td>
+                          <thead>
+                            <tr className="border-b border-border text-left font-mono text-[11px] uppercase tracking-wide text-ink-soft">
+                              <th className="py-1 pr-2">Deal</th>
+                              <th className="py-1 pr-2">Off</th>
+                              <th className="py-1 pr-2">In range</th>
+                              <th className="py-1">Total</th>
                             </tr>
-                          ))}
-                        </tbody>
+                          </thead>
+                          <tbody>
+                            {report.deals.map((d) => (
+                              <tr
+                                key={d.id}
+                                className="border-b border-border/60"
+                              >
+                                <td className="py-1.5 pr-2 text-ink">
+                                  {d.title}
+                                </td>
+                                <td className="py-1.5 pr-2 font-mono">
+                                  {d.discount_pct}%
+                                </td>
+                                <td className="py-1.5 pr-2 font-mono">
+                                  {d.redemptions_in_range}
+                                </td>
+                                <td className="py-1.5 font-mono">
+                                  {d.redemption_count}
+                                  {d.total_limit !== null &&
+                                    ` / ${d.total_limit}`}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
                         </table>
                       </div>
                     )}

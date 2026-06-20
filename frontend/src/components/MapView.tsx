@@ -31,6 +31,42 @@ interface Props {
   zoom?: number;
   /** Accessible label for the map region (defaults to the search context). */
   ariaLabel?: string;
+  /** Verified Visits check-in: draw the geofence the user must stand inside. */
+  geofence?: { lat: number; lng: number; radiusM: number } | null;
+  /** Verified Visits check-in: the user's live position (a blue dot). */
+  userPosition?: { lat: number; lng: number } | null;
+}
+
+/**
+ * Draws the geofence circle on the live map via the raw Maps API (the vis.gl
+ * wrapper has no Circle component). Cleans itself up on unmount / prop change.
+ */
+function GeofenceCircle({
+  center,
+  radiusM,
+}: {
+  center: { lat: number; lng: number };
+  radiusM: number;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const maps = (window as any).google?.maps;
+    if (!map || !maps?.Circle) return;
+    const circle = new maps.Circle({
+      map,
+      center,
+      radius: radiusM,
+      clickable: false,
+      strokeColor: "#2E5C8A", // accent-600 (Maps can't read CSS vars)
+      strokeOpacity: 0.85,
+      strokeWeight: 2,
+      fillColor: "#2E5C8A",
+      fillOpacity: 0.12,
+    });
+    return () => circle.setMap(null);
+  }, [map, center.lat, center.lng, radiusM]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
 }
 
 /**
@@ -63,6 +99,8 @@ export function MapView({
   onSelect,
   zoom = 14,
   ariaLabel = "Map of search results",
+  geofence = null,
+  userPosition = null,
 }: Props) {
   const theme = useTheme();
 
@@ -96,6 +134,25 @@ export function MapView({
         aria-label={ariaLabel}
       >
         <PanToCenter center={center} />
+        {geofence && (
+          <GeofenceCircle
+            center={{ lat: geofence.lat, lng: geofence.lng }}
+            radiusM={geofence.radiusM}
+          />
+        )}
+        {userPosition && (
+          <AdvancedMarker
+            position={userPosition}
+            title="You are here"
+            zIndex={2000}
+          >
+            <div
+              className="rounded-full border-2 border-cream bg-accent-600 shadow-warm"
+              style={{ width: 18, height: 18 }}
+              aria-hidden="true"
+            />
+          </AdvancedMarker>
+        )}
         {businesses.map((b, i) => {
           const hovered = hoveredRef === b.ref;
           return (

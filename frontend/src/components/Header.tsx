@@ -14,7 +14,7 @@ import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { MobileMenu } from "./MobileMenu";
-import { PRIMARY_LINKS, ownerLink } from "./navLinks";
+import { PRIMARY_LINKS, ownerLink, userLinks } from "./navLinks";
 import { ThemeToggle } from "./ThemeToggle";
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -33,7 +33,11 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const owner = ownerLink(user?.role);
-  const links = owner ? [...PRIMARY_LINKS, owner] : PRIMARY_LINKS;
+  const links = [
+    ...PRIMARY_LINKS,
+    ...userLinks(!!user),
+    ...(owner ? [owner] : []),
+  ];
 
   return (
     <>

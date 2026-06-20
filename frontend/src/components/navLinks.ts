@@ -14,6 +14,11 @@ export const PRIMARY_LINKS: NavItem[] = [
   { to: "/favorites", label: "Favorites" },
 ];
 
+/** Signed-in-only links (the verified-visit passport). */
+export function userLinks(signedIn: boolean): NavItem[] {
+  return signedIn ? [{ to: "/passport", label: "Passport" }] : [];
+}
+
 /** The Owner link, or null when the user can't see it. */
 export function ownerLink(role?: string): NavItem | null {
   return role === "owner" || role === "admin"

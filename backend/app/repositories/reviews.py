@@ -22,7 +22,10 @@ _SORT_SQL = {
     "helpful": "r.helpful_count DESC, r.created_at DESC",
 }
 
-_REVIEW_COLS = "r.id, r.business_id, r.user_id, u.username, r.rating, r.body, r.helpful_count, r.created_at"
+_REVIEW_COLS = (
+    "r.id, r.business_id, r.user_id, u.username, r.rating, r.body, "
+    "r.helpful_count, r.created_at, (r.visit_id IS NOT NULL) AS is_verified"
+)
 
 
 def _recompute(conn: psycopg.Connection, business_id: int) -> None:
@@ -36,9 +39,17 @@ def _recompute(conn: psycopg.Connection, business_id: int) -> None:
     )
 
 
-def list_for_business(business_id: int, sort: str = "recent", limit: int = 50, offset: int = 0) -> list[dict]:
-    """Reviews + each one's owner reply (LEFT JOIN: most reviews have none)."""
+def list_for_business(
+    business_id: int, sort: str = "recent", limit: int = 50, offset: int = 0,
+    verified_only: bool = False,
+) -> list[dict]:
+    """Reviews + each one's owner reply (LEFT JOIN: most reviews have none).
+
+    ``verified_only`` restricts to reviews backed by a verified visit — the
+    server-side half of the "Verified reviews only" toggle (the client can also
+    filter on the ``is_verified`` flag without a round-trip)."""
     order = _SORT_SQL.get(sort, _SORT_SQL["recent"])
+    verified_clause = " AND r.visit_id IS NOT NULL" if verified_only else ""
     rows = query(
         f"""SELECT {_REVIEW_COLS},
                    rr.body AS reply_body, rr.created_at AS reply_created_at,
@@ -47,7 +58,7 @@ def list_for_business(business_id: int, sort: str = "recent", limit: int = 50, o
             JOIN users u ON u.id = r.user_id
             LEFT JOIN review_replies rr ON rr.review_id = r.id
             LEFT JOIN users ou ON ou.id = rr.owner_id
-            WHERE r.business_id = %s
+            WHERE r.business_id = %s{verified_clause}
             ORDER BY {order} LIMIT %s OFFSET %s""",
         [business_id, limit, offset],
     )
@@ -89,17 +100,64 @@ def user_has_reviewed(business_id: int, user_id: int) -> bool:
     return bool(query("SELECT 1 FROM reviews WHERE business_id = %s AND user_id = %s", [business_id, user_id]))
 
 
+def rows_for_trust(business_id: int) -> list[dict[str, Any]]:
+    """Per-review signals the glass-box trust weighting needs: the rating, whether
+    it's verified, its visit's strength, the reviewer's account age, and helpful
+    votes."""
+    return query(
+        """SELECT r.id, r.rating, (r.visit_id IS NOT NULL) AS is_verified,
+                  r.helpful_count, v.verification_strength,
+                  u.created_at AS user_created_at, r.created_at
+           FROM reviews r
+           JOIN users u ON u.id = r.user_id
+           LEFT JOIN visits v ON v.id = r.visit_id
+           WHERE r.business_id = %s""",
+        [business_id],
+    )
+
+
+def rating_breakdown(business_id: int) -> dict[str, Any]:
+    """The two-tier rating for one business: the raw average everyone games vs.
+    the verified-only average you can trust.
+
+    Because ``visit_id IS NOT NULL`` IS "verified", this is one query with a
+    FILTER. ``verified_rating`` is None when no verified reviews exist yet (the
+    UI shows an empty state rather than a misleading 0)."""
+    row = query(
+        """SELECT
+               ROUND(AVG(rating)::numeric, 2)                                   AS raw_rating,
+               ROUND(AVG(rating) FILTER (WHERE visit_id IS NOT NULL)::numeric, 2) AS verified_rating,
+               COUNT(*)                                                          AS total_reviews,
+               COUNT(*) FILTER (WHERE visit_id IS NOT NULL)                      AS verified_reviews
+           FROM reviews WHERE business_id = %s""",
+        [business_id],
+    )[0]
+    total = row["total_reviews"] or 0
+    verified = row["verified_reviews"] or 0
+    return {
+        "verified_rating": float(row["verified_rating"]) if row["verified_rating"] is not None else None,
+        "verified_reviews": verified,
+        "verification_rate": round(verified / total, 2) if total else 0.0,
+    }
+
+
 # Trust-score rules (documented in the README; the seed applies the same math):
 # a review is worth +10, a deal redemption +5, a favorite +2. Scores are
 # adjusted IN THE SAME TRANSACTION as the action, floored at zero on deduction.
 TRUST_REVIEW = 10
 
 
-def create(business_id: int, user_id: int, rating: int, body: str) -> dict:
+def create(business_id: int, user_id: int, rating: int, body: str,
+           visit_id: Optional[int] = None) -> dict:
+    """Insert a review (optionally linked to a verified visit), re-aggregate the
+    business rating, and award trust — all in one transaction. ``visit_id`` is
+    pre-validated by the service; here it's just stored, and ``is_verified`` in
+    the returned row reflects whether it was present."""
     with transaction() as conn:
         new_id = conn.execute(
-            "INSERT INTO reviews (business_id, user_id, rating, body) VALUES (%s, %s, %s, %s) RETURNING id",
-            [business_id, user_id, rating, body],
+            "INSERT INTO reviews (business_id, user_id, rating, body, visit_id) "
+            "VALUES (%s, %s, %s, %s, %s) RETURNING id",
+            [business_id, user_id, rating, body, visit_id],
         ).fetchone()["id"]
         _recompute(conn, business_id)
         conn.execute(

@@ -15,7 +15,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useBodyScrollLock, useEscape } from "../lib/hooks";
-import { PRIMARY_LINKS, ownerLink } from "./navLinks";
+import { PRIMARY_LINKS, ownerLink, userLinks } from "./navLinks";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function MobileMenu({
@@ -51,7 +51,11 @@ export function MobileMenu({
   }, [isOpen]);
 
   const owner = ownerLink(user?.role);
-  const links = owner ? [...PRIMARY_LINKS, owner] : PRIMARY_LINKS;
+  const links = [
+    ...PRIMARY_LINKS,
+    ...userLinks(!!user),
+    ...(owner ? [owner] : []),
+  ];
 
   // Minimal Tab focus-trap so keyboard focus stays inside the open dialog.
   function trapTab(e: React.KeyboardEvent) {
@@ -100,7 +104,11 @@ export function MobileMenu({
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
-            transition={{ type: "tween", duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            transition={{
+              type: "tween",
+              duration: 0.25,
+              ease: [0.16, 1, 0.3, 1],
+            }}
           >
             <div className="mb-2 flex items-center justify-between">
               <span className="font-display text-lg font-semibold text-ink">

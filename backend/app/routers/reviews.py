@@ -23,14 +23,20 @@ async def my_reviews(user: dict = Depends(current_user)) -> list[dict]:
     return reviews_repo.list_for_user(user["id"])
 
 
-@router.get("/businesses/{business_id}/reviews", response_model=list[ReviewOut])
-async def list_reviews(business_id: int, sort: str = "recent", limit: int = 50, offset: int = 0) -> list[ReviewOut]:
-    return reviews_repo.list_for_business(business_id, sort=sort, limit=min(limit, 100), offset=offset)
+@router.get("/businesses/{ref}/reviews", response_model=list[ReviewOut])
+async def list_reviews(
+    ref: str, sort: str = "recent", limit: int = 50, offset: int = 0,
+    verified_only: bool = False,
+) -> list[ReviewOut]:
+    # ref is a local id ("12") or a Google ref ("gp_…") — both are reviewable.
+    return reviews_service.list_reviews(
+        ref, sort=sort, limit=min(limit, 100), offset=offset, verified_only=verified_only
+    )
 
 
-@router.post("/businesses/{business_id}/reviews", response_model=ReviewOut, status_code=status.HTTP_201_CREATED)
-async def create_review(business_id: int, body: ReviewIn, user: dict = Depends(current_user)) -> ReviewOut:
-    return reviews_service.create_review(business_id, user, body)
+@router.post("/businesses/{ref}/reviews", response_model=ReviewOut, status_code=status.HTTP_201_CREATED)
+async def create_review(ref: str, body: ReviewIn, user: dict = Depends(current_user)) -> ReviewOut:
+    return reviews_service.create_review(ref, user, body)
 
 
 @router.patch("/reviews/{review_id}", response_model=ReviewOut)

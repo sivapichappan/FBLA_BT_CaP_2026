@@ -24,7 +24,29 @@ import type {
   TripPlan,
   TripStop,
   User,
+  VisitMethod,
+  VisitResult,
+  MyVisit,
+  BusinessSnapshot,
+  CheckinCode,
+  Passport,
 } from "../types";
+
+/** Build the materialize-on-write snapshot for a live Google business (so it
+ *  becomes reviewable); returns undefined for businesses that already exist
+ *  locally (a numeric ref → the server resolves it directly). */
+export function businessSnapshot(b: Business): BusinessSnapshot | undefined {
+  if (b.source !== "google") return undefined;
+  return {
+    name: b.name,
+    lat: b.lat,
+    lng: b.lng,
+    address: b.address ?? undefined,
+    phone: b.phone ?? undefined,
+    website: b.website ?? undefined,
+    price_level: b.price_level ?? undefined,
+  };
+}
 
 const API_BASE: string =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ||
@@ -203,11 +225,27 @@ export const recommendApi = {
 };
 
 export const reviewApi = {
-  list: (businessId: number, sort = "recent") =>
-    get<Review[]>(`/businesses/${businessId}/reviews?sort=${sort}`),
+  // ref is a local id ("12") or a Google ref ("gp_…"); both are reviewable.
+  list: (ref: string, sort = "recent") =>
+    get<Review[]>(
+      `/businesses/${encodeURIComponent(ref)}/reviews?sort=${sort}`,
+    ),
   mine: () => get<Review[]>("/reviews/mine"),
-  create: (businessId: number, rating: number, body: string) =>
-    post<Review>(`/businesses/${businessId}/reviews`, { rating, body }),
+  /** Create a review. Pass a VERIFIED visit id to make it verified, and a
+   *  snapshot to materialize a not-yet-local Google business. */
+  create: (
+    ref: string,
+    rating: number,
+    body: string,
+    visitId?: number,
+    snapshot?: BusinessSnapshot,
+  ) =>
+    post<Review>(`/businesses/${encodeURIComponent(ref)}/reviews`, {
+      rating,
+      body,
+      visit_id: visitId,
+      snapshot,
+    }),
   update: (reviewId: number, data: { rating?: number; body?: string }) =>
     patch<Review>(`/reviews/${reviewId}`, data),
   remove: (reviewId: number) => del<{ status: string }>(`/reviews/${reviewId}`),
@@ -217,6 +255,52 @@ export const reviewApi = {
     post<ReviewReply>(`/reviews/${reviewId}/reply`, { body }),
   deleteReply: (reviewId: number) =>
     del<{ status: string }>(`/reviews/${reviewId}/reply`),
+};
+
+/** Verified Visits: prove physical presence so a review can be marked verified. */
+export const visitApi = {
+  // ref is a local id or a Google ref; snapshot materializes a not-yet-local one.
+  initiate: (ref: string, method: VisitMethod, snapshot?: BusinessSnapshot) =>
+    post<VisitResult>("/visits/initiate", {
+      business_ref: ref,
+      method,
+      snapshot,
+    }),
+  checkpoint: (
+    visitId: number,
+    data: {
+      latitude: number;
+      longitude: number;
+      accuracy_m?: number;
+      mock_location?: boolean;
+      client_ts?: string;
+      spend_cents?: number;
+    },
+  ) => post<VisitResult>(`/visits/${visitId}/checkpoint`, data),
+  /** Verify with the counter code (QR_GEOFENCE) — geofence still required. */
+  submitQr: (
+    visitId: number,
+    data: {
+      token: string;
+      latitude: number;
+      longitude: number;
+      accuracy_m?: number;
+      mock_location?: boolean;
+      client_ts?: string;
+    },
+  ) => post<VisitResult>(`/visits/${visitId}/qr`, data),
+  get: (visitId: number) => get<VisitResult>(`/visits/${visitId}`),
+  mine: () => get<MyVisit[]>("/visits/mine"),
+  /** Record an optional self-reported spend on a verified visit. */
+  setSpend: (visitId: number, spendCents: number) =>
+    post<{ ok: boolean }>(`/visits/${visitId}/spend`, {
+      spend_cents: spendCents,
+    }),
+};
+
+/** The gamified check-in passport: badges, streak, money-kept-local. */
+export const passportApi = {
+  me: () => get<Passport>("/passport/me"),
 };
 
 export const favoriteApi = {
@@ -259,6 +343,12 @@ export const ownerApi = {
   /** Cashier mode: check (and optionally consume) a customer's code. */
   verifyCode: (code: string, markUsed: boolean) =>
     post<CodeVerification>("/deals/verify-code", { code, mark_used: markUsed }),
+  /** Verified Visits: turn on the rotating check-in code for a business. */
+  enableQr: (businessId: number) =>
+    post<{ enabled: boolean }>(`/businesses/${businessId}/qr/enable`),
+  /** The current kiosk code to display (polled each period). */
+  checkinCode: (businessId: number) =>
+    get<CheckinCode>(`/businesses/${businessId}/checkin-code`),
   /** The customizable report (§11): date range + metric selection. */
   report: (
     businessId: number,
