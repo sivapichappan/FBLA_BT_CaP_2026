@@ -29,6 +29,7 @@ import {
   dealApi,
   favoriteApi,
   reviewApi,
+  visitApi,
 } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useLocation } from "../lib/location";
@@ -53,6 +54,9 @@ export function BusinessDetail() {
   // Review form state (create or edit-in-place).
   const [rating, setRating] = useState(5);
   const [body, setBody] = useState("");
+  // Optional spend on a verified visit, chosen IN the composer (feeds "money
+  // kept local", §17). null = not answered; never blocks posting.
+  const [spendCents, setSpendCents] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   // Owner reply form state (only this business's owner ever sees it).
   const [replyingId, setReplyingId] = useState<number | null>(null);
@@ -121,14 +125,15 @@ export function BusinessDetail() {
     if (searchParams.get("checkin") === "1") setCheckInOpen(true);
   }, [searchParams]);
 
-  // After a verified check-in, bring the user straight to the review form so the
-  // "now write it" step is obvious.
+  // After a verified check-in — once the check-in modal has closed — bring the
+  // user straight to the review form so the "now write it" step is obvious and
+  // the textarea gets focus (not stolen back by the modal's focus trap).
   useEffect(() => {
-    if (linkedVisitId && formRef.current) {
+    if (linkedVisitId && !checkInOpen && formRef.current) {
       formRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
       textareaRef.current?.focus();
     }
-  }, [linkedVisitId]);
+  }, [linkedVisitId, checkInOpen]);
 
   async function toggleFavorite() {
     if (!user || !biz) {
@@ -180,7 +185,17 @@ export function BusinessDetail() {
           linkedVisitId ?? undefined,
           businessSnapshot(biz),
         );
+        // Record the spend the user noted while writing — feeds their "money
+        // kept local" total (§17). Optional, and never blocks the review.
+        if (linkedVisitId && spendCents != null) {
+          try {
+            await visitApi.setSpend(linkedVisitId, spendCents);
+          } catch {
+            /* optional — a failed spend never blocks the review */
+          }
+        }
         setLinkedVisitId(null);
+        setSpendCents(null);
       }
       setBody("");
       setRating(5);
@@ -492,6 +507,39 @@ export function BusinessDetail() {
                   </span>
                 </div>
               ))}
+
+            {/* Spend prompt — shown only on a verified visit, asked HERE while
+                you write (not as a gate after check-in). Feeds "money kept
+                local" (§17); tapping a chip again clears it. */}
+            {!editingId && linkedVisitId && (
+              <div className="mt-3">
+                <span className="font-serif text-sm text-ink-soft">
+                  Roughly how much did you spend here?{" "}
+                  <span className="font-mono text-[11px]">
+                    optional — adds to your “money kept local”
+                  </span>
+                </span>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {[500, 1500, 3000].map((cents) => (
+                    <button
+                      key={cents}
+                      type="button"
+                      onClick={() =>
+                        setSpendCents(spendCents === cents ? null : cents)
+                      }
+                      aria-pressed={spendCents === cents}
+                      className={`rounded-md border px-3 py-1.5 font-serif text-sm transition-colors ${
+                        spendCents === cents
+                          ? "border-accent-700 bg-accent-700 text-cream"
+                          : "border-border text-ink hover:border-accent-600"
+                      }`}
+                    >
+                      ${cents / 100}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Interactive star picker — clearer than a dropdown. */}
             <label className="mt-3 block font-serif text-sm text-ink-soft">

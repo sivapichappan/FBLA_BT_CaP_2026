@@ -79,7 +79,6 @@ export function CheckInFlow({
     null,
   );
   const [code, setCode] = useState((initialCode ?? "").toUpperCase());
-  const [spendSet, setSpendSet] = useState(false);
 
   const radiusM = business.geofence_radius_m ?? 100;
 
@@ -255,17 +254,6 @@ export function CheckInFlow({
     }
   }
 
-  async function recordSpend(cents: number) {
-    const visitId = result?.visit_id ?? visitIdRef.current;
-    if (!visitId) return;
-    try {
-      await visitApi.setSpend(visitId, cents);
-    } catch {
-      /* optional — a failed spend never blocks the review */
-    }
-    if (mounted.current) setSpendSet(true);
-  }
-
   // Lifecycle: focus the dialog, close on Esc, clean up the dwell timer.
   useEffect(() => {
     mounted.current = true;
@@ -283,10 +271,6 @@ export function CheckInFlow({
   }, []);
 
   const showMap = phase !== "intro" && userPos !== null;
-  const strengthLabel =
-    result?.verification_strength != null && result.verification_strength >= 75
-      ? "Strongly verified"
-      : "Verified";
 
   return (
     <div
@@ -424,47 +408,21 @@ export function CheckInFlow({
           {phase === "verified" && (
             <div>
               <p className="font-serif text-lg text-ink">
-                <span className="text-verified">✓</span> {strengthLabel} — you
-                were here.
+                <span className="text-verified">✓</span> Verified — you were
+                here.
               </p>
-              {result?.verification_strength != null && (
-                <p className="mt-1 font-mono text-[11px] text-ink-soft">
-                  Verification strength {result.verification_strength}/100
-                </p>
-              )}
-
-              {/* Optional spend → the user's "money kept local" total (§17). */}
-              {!spendSet ? (
-                <div className="mt-3">
-                  <p className="font-serif text-sm text-ink-soft">
-                    Roughly how much did you spend? (optional — adds to your
-                    “money kept local”)
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {[500, 1500, 3000].map((cents) => (
-                      <button
-                        key={cents}
-                        type="button"
-                        onClick={() => recordSpend(cents)}
-                        className="rounded-md border border-border px-3 py-1.5 font-serif text-sm text-ink hover:border-accent-600"
-                      >
-                        ${cents / 100}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="mt-3 font-mono text-[11px] text-verified">
-                  Thanks — added to your local impact.
-                </p>
-              )}
-
+              {/* Straight to the review — the spend question now lives in the
+                  composer, asked while you write (not as a gate here). */}
+              <p className="mt-1 font-serif text-sm text-ink-soft">
+                Now share what you thought — your review will carry a Verified
+                badge.
+              </p>
               <button
                 type="button"
                 onClick={onClose}
                 className="mt-4 w-full rounded-md bg-verified px-4 py-2.5 font-serif text-cream hover:opacity-90"
               >
-                Write my verified review →
+                Write my review →
               </button>
             </div>
           )}
