@@ -19,6 +19,8 @@ interface AuthState {
   /** True while the stored token is being validated on first load. */
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  /** Exchange a Google ID token (from the "Sign in with Google" button) for a session. */
+  loginWithGoogle: (credential: string) => Promise<void>;
   register: (data: {
     email: string;
     password: string;
@@ -53,6 +55,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.user);
   }
 
+  async function loginWithGoogle(credential: string) {
+    // Same outcome as password login — the backend hands back our own token.
+    const res = await authApi.google(credential);
+    tokenStore.set(res.access_token);
+    setUser(res.user);
+  }
+
   async function register(data: {
     email: string;
     password: string;
@@ -70,7 +79,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, loginWithGoogle, register, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -18,6 +18,7 @@ from fastapi import HTTPException, status
 from app.middleware.security import create_access_token, hash_password, verify_password
 from app.models.auth import LoginIn, RegisterIn
 from app.repositories import users as users_repo
+from app.services import google_oauth
 
 # Anti-bot lockout policy (§8.6).
 MAX_FAILED_ATTEMPTS = 5
@@ -89,4 +90,35 @@ def login(data: LoginIn) -> dict:
     # Success → clear the failure counter and issue a token.
     users_repo.reset_login_state(row["id"])
     user = users_repo.get_by_id(row["id"])
+    return {"access_token": create_access_token(user["id"]), "token_type": "bearer", "user": user}
+
+
+async def google_login(credential: str) -> dict:
+    """Verify a Google ID token, resolve it to an account, and issue our own JWT.
+
+    Three cases, in order: (1) the Google identity is already linked → straight
+    in; (2) no link yet, but the (Google-verified) email matches a password
+    account → LINK them, so a returning user lands in the same account they
+    started with; (3) a brand-new visitor → create a password-less account.
+    Either way the caller gets the SAME token shape as email/password login, so
+    nothing downstream cares how the user signed in.
+    """
+    try:
+        info = await google_oauth.verify_id_token(credential)
+    except google_oauth.GoogleAuthError as exc:
+        # One generic status for every verification failure (don't leak which
+        # check failed), with the human-safe message the verifier produced.
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, str(exc))
+
+    user = users_repo.get_by_oauth_sub(info["sub"])
+    if user is None:
+        existing = users_repo.get_by_email(info["email"])
+        if existing is not None:
+            user = users_repo.link_oauth(existing["id"], info["sub"])
+        else:
+            user = users_repo.create_oauth_user(
+                email=info["email"],
+                username=_derive_username(info["email"]),
+                oauth_sub=info["sub"],
+            )
     return {"access_token": create_access_token(user["id"]), "token_type": "bearer", "user": user}

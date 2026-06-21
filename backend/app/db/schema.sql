@@ -31,6 +31,20 @@ CREATE TABLE IF NOT EXISTS users (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- ── Social sign-in (Google) — additive, so existing accounts are untouched ───
+-- An account created via Google has NO password, so password_hash must allow
+-- NULL. (DROP NOT NULL is a no-op when already nullable, so re-running the
+-- schema is safe.) Password accounts keep their hash, and the login path still
+-- requires one — a NULL hash simply can't be matched.
+ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+-- How the account signs in, plus the provider's stable subject id. Google's
+-- `sub` is globally unique, so a unique index stops two rows claiming the same
+-- Google identity. Partial (WHERE NOT NULL) so password-only rows don't collide.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider TEXT NOT NULL DEFAULT 'password'
+  CHECK (auth_provider IN ('password', 'google'));
+ALTER TABLE users ADD COLUMN IF NOT EXISTS oauth_sub TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_oauth_sub ON users(oauth_sub) WHERE oauth_sub IS NOT NULL;
+
 -- ── Businesses ───────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS businesses (
   id               BIGSERIAL PRIMARY KEY,

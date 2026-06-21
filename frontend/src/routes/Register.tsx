@@ -6,13 +6,14 @@
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { GoogleSignInButton } from "../components/GoogleSignInButton";
 import { ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { usePageTitle } from "../lib/usePageTitle";
 
 export function Register() {
   usePageTitle("Join");
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,6 +31,25 @@ export function Register() {
     setBusy(true);
     try {
       await register({ email, password, role: asOwner ? "owner" : "user" });
+      navigate("/");
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Registration failed. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Continue with Google: the backend creates the account on first sign-in
+  // (or links it to an existing one with the same verified email).
+  async function onGoogle(credential: string) {
+    setError(null);
+    setBusy(true);
+    try {
+      await loginWithGoogle(credential);
       navigate("/");
     } catch (err) {
       setError(
@@ -129,6 +149,15 @@ export function Register() {
         >
           {busy ? "Creating account…" : "Create account"}
         </button>
+
+        {/* Continue with Google — only renders when configured + reachable, so
+            the form above stays the dependable path for the live demo. */}
+        <div className="my-5 flex items-center gap-3" aria-hidden="true">
+          <span className="h-px flex-1 bg-border" />
+          <span className="font-mono text-xs text-ink-soft">or</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+        <GoogleSignInButton onCredential={onGoogle} onError={setError} />
 
         <p className="mt-4 text-center font-serif text-sm text-ink-soft">
           Already a member?{" "}

@@ -32,6 +32,13 @@ class LoginIn(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class GoogleLoginIn(BaseModel):
+    # The ID token (a signed JWT) returned by the "Sign in with Google" button.
+    # We don't trust its contents until google_oauth verifies it; the length cap
+    # just bounds the body (real ID tokens are well under 4 KB).
+    credential: str = Field(min_length=1, max_length=4096)
+
+
 class UserOut(BaseModel):
     """Public-safe user shape (never includes the password hash)."""
 

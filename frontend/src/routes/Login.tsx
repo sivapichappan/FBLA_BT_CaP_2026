@@ -5,13 +5,14 @@
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { GoogleSignInButton } from "../components/GoogleSignInButton";
 import { ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { usePageTitle } from "../lib/usePageTitle";
 
 export function Login() {
   usePageTitle("Sign in");
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,6 +25,22 @@ export function Login() {
     setBusy(true);
     try {
       await login(email, password);
+      navigate("/");
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : "Sign-in failed. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Google hands us a verified ID token; the backend turns it into our session.
+  async function onGoogle(credential: string) {
+    setError(null);
+    setBusy(true);
+    try {
+      await loginWithGoogle(credential);
       navigate("/");
     } catch (err) {
       setError(
@@ -95,6 +112,15 @@ export function Login() {
         >
           {busy ? "Signing in…" : "Sign in"}
         </button>
+
+        {/* Social sign-in. The button renders only when configured + reachable,
+            so the email/password path above is always the reliable fallback. */}
+        <div className="my-5 flex items-center gap-3" aria-hidden="true">
+          <span className="h-px flex-1 bg-border" />
+          <span className="font-mono text-xs text-ink-soft">or</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+        <GoogleSignInButton onCredential={onGoogle} onError={setError} />
 
         <p className="mt-4 text-center font-serif text-sm text-ink-soft">
           New here?{" "}

@@ -156,6 +156,9 @@ export const authApi = {
   }) => post<AuthResponse>("/auth/register", data),
   login: (email: string, password: string) =>
     post<AuthResponse>("/auth/login", { email, password }),
+  // Exchange a Google ID token (the GIS "credential") for our app session.
+  google: (credential: string) =>
+    post<AuthResponse>("/auth/google", { credential }),
   me: () => get<User>("/auth/me"),
 };
 

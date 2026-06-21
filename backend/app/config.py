@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     # ── Auth ───────────────────────────────────────────────────────────────
     jwt_secret: str = "dev-only-insecure-change-me"
     jwt_expires_hours: int = 24 * 7  # 7-day access tokens
+    # Google Sign-In: the OAuth client id we accept ID tokens for. We reject any
+    # token whose audience isn't this value, so a token minted for another app
+    # can't be replayed against us. Empty → the Google sign-in route is disabled.
+    google_oauth_client_id: str = ""
 
     # ── Google Maps Platform (Places + Geocoding) ──────────────────────────
     google_maps_api_key: str = ""

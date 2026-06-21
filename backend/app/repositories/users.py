@@ -57,6 +57,43 @@ def create_user(
     return row
 
 
+def get_by_oauth_sub(oauth_sub: str) -> Optional[dict[str, Any]]:
+    """Public row for the account linked to this provider subject id, if any."""
+    rows = query(f"SELECT {_PUBLIC_COLS} FROM users WHERE oauth_sub = %s", [oauth_sub])
+    return rows[0] if rows else None
+
+
+def create_oauth_user(
+    *,
+    email: str,
+    username: str,
+    oauth_sub: str,
+    provider: str = "google",
+    role: str = "user",
+) -> dict[str, Any]:
+    """Insert a password-less account created via social sign-in (password_hash
+    is NULL — these users authenticate through the provider, never a password)."""
+    with transaction() as conn:
+        row = conn.execute(
+            f"""INSERT INTO users (email, password_hash, username, role, auth_provider, oauth_sub)
+                VALUES (%s, NULL, %s, %s, %s, %s)
+                RETURNING {_PUBLIC_COLS}""",
+            [email, username, role, provider, oauth_sub],
+        ).fetchone()
+    return row
+
+
+def link_oauth(user_id: int, oauth_sub: str) -> dict[str, Any]:
+    """Attach a provider identity to an existing account (matched by verified
+    email). auth_provider is left as-is, so a password user keeps BOTH ways in."""
+    with transaction() as conn:
+        row = conn.execute(
+            f"UPDATE users SET oauth_sub = %s WHERE id = %s RETURNING {_PUBLIC_COLS}",
+            [oauth_sub, user_id],
+        ).fetchone()
+    return row
+
+
 def record_failed_login(user_id: int, locked_until: Optional[dt.datetime]) -> None:
     """Increment the failed-login counter and optionally set a lockout time."""
     with transaction() as conn:

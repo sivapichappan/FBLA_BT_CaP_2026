@@ -16,6 +16,7 @@ from pydantic import BaseModel, ValidationError
 from app.middleware.rate_limit import AUTH_LIMIT, limiter
 from app.middleware.security import current_user, hash_password, verify_password
 from app.models.auth import (
+    GoogleLoginIn,
     LoginIn,
     PasswordChangeIn,
     ProfileUpdateIn,
@@ -59,6 +60,14 @@ async def register(request: Request) -> TokenOut:
 async def login(request: Request) -> TokenOut:
     body = await _parse_body(LoginIn, request)
     return auth_service.login(body)
+
+
+@router.post("/google", response_model=TokenOut)
+@limiter.limit(AUTH_LIMIT)
+async def google_login(request: Request) -> TokenOut:
+    # Same rate limit as login/register: a stolen-token replay can't be hammered.
+    body = await _parse_body(GoogleLoginIn, request)
+    return await auth_service.google_login(body.credential)
 
 
 @router.get("/me", response_model=UserOut)
