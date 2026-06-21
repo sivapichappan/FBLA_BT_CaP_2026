@@ -159,7 +159,12 @@ def _passes_filters(b: dict[str, Any], p: SearchParams, effective_radius_m: int)
     if p.min_rating and (b.get("average_rating") or 0) < p.min_rating:
         return False
     if p.price_levels:
-        if b.get("price_level") not in set(p.price_levels):
+        # A price filter excludes only businesses whose KNOWN price is out of
+        # range. Price-UNKNOWN spots (price_level None) are kept — most small
+        # independents carry no price data, and hiding them would leave only the
+        # chains that do (the opposite of this app's whole point).
+        pl = b.get("price_level")
+        if pl is not None and pl not in set(p.price_levels):
             return False
     if p.open_now and b.get("is_open_now") is not True:
         return False
