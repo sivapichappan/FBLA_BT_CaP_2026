@@ -66,6 +66,10 @@ MAX_PER_CHIP = 2  # at most two coffee stops, two meals, etc.
 WALK_MIN_PER_KM = 13      # ~4.6 km/h — a real sightseeing pace (stops, nav, lights)
 TRIP_RADIUS_M = 4000      # candidates within a short walk/transit of the start
 MAX_LEG_KM = 1.5          # a single on-foot leg shouldn't exceed ~20 min between stops
+# The ABSOLUTE max we'll force a walk when nothing is within MAX_LEG_KM (a sparse,
+# spread-out area). Beyond ~40 min it isn't a walk — we'd rather DROP the stop and
+# show a shorter, honestly-walkable day than route the user on a 5 km hike.
+MAX_FALLBACK_LEG_KM = 3.0
 # The day's length + stop count are now the user's explicit start_time / end_time
 # / num_stops, so there are no duration presets here — the window caps the clock
 # (a stop can't ARRIVE, or still be mid-visit, after end_time) and num_stops caps
@@ -255,7 +259,7 @@ def _annotate_open(stops: list[dict], weekday: int,
 # guard below. Single-word, prefix-matched tokens keep it cheap and explainable.
 _GOAL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "Coffee":     ("coffee", "cafe", "cafes", "espresso", "latte", "cappuccino"),
-    "Bookstore":  ("book", "books", "bookshop", "bookstore", "reading"),
+    "Bookstore":  ("book", "books", "bookshop", "bookstore", "read", "reading"),
     "Retail":     ("shop", "shopping", "shops", "browse", "boutique", "store",
                    "stores", "retail", "thrift", "vintage", "mall"),
     "Grocery":    ("grocery", "groceries", "market", "produce"),
@@ -352,11 +356,13 @@ def _plan_chips(num_stops: int, interests: list[str], *,
             break
         _add(c)
 
-    # 2) Pad to the target by priority: the FIRST (most-emphasised) kind takes
-    #    the extra slots; every other kind is capped at MAX_PER_CHIP so the day
-    #    stays varied. The leading kind's cap is the whole day, so a day that's
-    #    "mostly shopping" really is mostly shopping.
-    for idx, c in enumerate(wanted):
+    # 2) Pad to the target with kinds that realistically REPEAT — coffee, browse,
+    #    shopping, markets. Meals, desserts and bars are NOT padded (you don't eat
+    #    two lunches), so a day never sprouts a 2nd restaurant while a requested
+    #    shop or bookstore goes unplaced (the reported bug). The leading repeatable
+    #    kind takes the bulk, so "mostly shopping" really is mostly shopping.
+    repeatable = [c for c in wanted if CHIP_SLOTS[c]["role"] not in ROLE_MAX]
+    for idx, c in enumerate(repeatable):
         cap = target if idx == 0 else MAX_PER_CHIP
         while len(chips) < target and counts.get(c, 0) < cap:
             _add(c)
@@ -456,7 +462,8 @@ def _build_stops(chips: list[str], pools: dict[str, list[dict]], start_lat: floa
                  dwell_mult: float = 1.0, weekday: Optional[int] = None,
                  hours_by_ref: Optional[dict[str, list[dict]]] = None,
                  locked_refs: Optional[set[str]] = None,
-                 favorite_refs: Optional[set[str]] = None) -> list[dict]:
+                 favorite_refs: Optional[set[str]] = None,
+                 diag: Optional[dict] = None) -> list[dict]:
     """Greedy fill, kind by kind in the day's order, kept REALISTIC:
       * each leg stays walkable (``MAX_LEG_KM``) — pick the best candidate within a
         short walk; only a scattered area falls back to the nearest, never a hole;
@@ -542,7 +549,17 @@ def _build_stops(chips: list[str], pools: dict[str, list[dict]], start_lat: floa
         elif near:
             best, is_locked = max(near, key=_scored), False
         else:
-            best, is_locked = min(pool, key=_leg_km), False
+            # No walkable candidate. Take the nearest ONLY if it's within the
+            # absolute fallback distance; otherwise DROP this kind rather than send
+            # the user on a 5 km hike (the reported spread-out-area bug). Skipping
+            # lets the loop try another kind that may be closer to the start; if
+            # nothing is within range the day is honestly short/empty.
+            nearest = min(pool, key=_leg_km)
+            if _leg_km(nearest) > MAX_FALLBACK_LEG_KM:
+                if diag is not None:
+                    diag["spread_out"] = True
+                continue
+            best, is_locked = nearest, False
 
         # A small "bench" of walkable same-kind alternates (best-first) lets the
         # user SWAP this stop instantly + offline — no extra round-trip (idea 1).
@@ -760,6 +777,7 @@ async def plan(*, lat: Optional[float], lng: Optional[float],
     options: list[dict[str, Any]] = []
     used: set[str] = set()
     signatures: set[frozenset[str]] = set()
+    spread_any = False  # did any option drop a stop because it was too far to walk?
     for strat in STRATEGIES:
         # Apply the occasion/audience nudge to this day-shape's scoring.
         tuned = {
@@ -767,10 +785,13 @@ async def plan(*, lat: Optional[float], lng: Optional[float],
             "sigma": _clamp(strat["sigma"] * profile["sigma_mult"], 0.4, 3.0),
             "prox_w": _clamp(strat["prox_w"] + profile["prox_w_add"], 0.0, 1.0),
         }
+        diag: dict[str, Any] = {}
         stops = _build_stops(chips, pools, start_lat, start_lng, parsed_start,
                              end_time=parsed_end, strategy=tuned, avoid=set(used),
                              dwell_mult=dwell_mult, weekday=weekday, hours_by_ref=hours_by_ref,
-                             locked_refs=set(locked_refs or []), favorite_refs=favorite_refs)
+                             locked_refs=set(locked_refs or []), favorite_refs=favorite_refs,
+                             diag=diag)
+        spread_any = spread_any or diag.get("spread_out", False)
         if not stops:
             continue
         if weekday is not None:
@@ -788,6 +809,11 @@ async def plan(*, lat: Optional[float], lng: Optional[float],
             "total_walk_km": round(sum(s["walk_from_prev_km"] for s in stops), 2),
             "estimated_spend": _estimate_spend(stops),
             "sequence_note": _sequence_note(stops, preferred_sequence),
+            "spread_note": (
+                "Some spots near here were too far to walk to — this area is "
+                "spread out, so the day is shorter than asked."
+                if diag.get("spread_out") else None
+            ),
         })
 
     # Narrate the TOP option (one LLM call at most — protects the 20/day Gemini
@@ -808,10 +834,16 @@ async def plan(*, lat: Optional[float], lng: Optional[float],
             opt["narrative"] = _templated_narrative(opt["stops"])
 
     if not options:  # nothing matched anywhere — one empty option carries the note
+        empty_msg = (
+            "Nothing independent was within walking distance — this area is "
+            "spread out, so a walkable day isn't really possible here."
+            if spread_any else _templated_narrative([])
+        )
         options = [{
             "key": "best", "label": "Your day", "stops": [], "total_walk_km": 0.0,
             "estimated_spend": _estimate_spend([]), "sequence_note": None,
-            "narrative": _templated_narrative([]), "mode": "deterministic",
+            "spread_note": None,
+            "narrative": empty_msg, "mode": "deterministic",
         }]
 
     return {

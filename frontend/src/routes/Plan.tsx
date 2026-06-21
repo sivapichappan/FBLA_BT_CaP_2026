@@ -756,6 +756,12 @@ export function Plan() {
                   ↺ {option.sequence_note}
                 </p>
               )}
+              {/* Spread-out area note: some stops were too far to walk to. */}
+              {option.spread_note && (
+                <p className="mt-2 font-mono text-[11px] text-ink-soft">
+                  🚶 {option.spread_note}
+                </p>
+              )}
 
               {/* A day that no longer fits the window after edits (warn, never block). */}
               {overWindow && (

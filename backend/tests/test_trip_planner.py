@@ -688,3 +688,36 @@ def test_favorite_personalization_marks_stop(monkeypatch):
         start_time="10:00", end_time="22:00", num_stops=3, user_id=42))
     favs = [s for opt in out["options"] for s in opt["stops"] if s.get("is_favorite")]
     assert any(s["ref"] == "c1" for s in favs)
+
+
+# ── Bug fixes (reported from real use) ───────────────────────────────────────
+
+
+def test_far_only_pool_is_dropped_not_a_5km_hike(monkeypatch):
+    """A candidate beyond the fallback walk distance (a spread-out suburb) is
+    DROPPED rather than routed as an unwalkable leg — fixes the 9.7 km day."""
+    far = {"Coffee": [_biz("c1", "Far Cafe", 40.06, -74.06)]}  # ~8 km from (40,-74)
+    _wire(monkeypatch, far, narrative=None)
+    out = asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0, interests=["Coffee"], start_time="10:00",
+        end_time="16:00", num_stops=2))
+    for opt in out["options"]:
+        for s in opt["stops"]:
+            assert s["walk_from_prev_km"] <= trip_planner.MAX_FALLBACK_LEG_KM + 0.01
+    assert all(len(o["stops"]) == 0 for o in out["options"])  # nothing walkable here
+    assert "spread out" in out["options"][0]["narrative"]
+
+
+def test_padding_does_not_add_a_second_meal():
+    """The extra stop when padding a day is a repeatable kind (shop/coffee), never
+    a 2nd restaurant — so a requested shop isn't crowded out by a phantom lunch."""
+    chips = trip_planner._plan_chips(4, ["Restaurant", "Retail", "Coffee"])
+    assert chips.count("Restaurant") == 1
+    assert "Retail" in chips and "Coffee" in chips and len(chips) == 4
+
+
+def test_keyword_interpret_maps_read_to_bookstore():
+    """'a 2 hour read' is understood as a bookstore (the offline reader)."""
+    out = trip_planner._keyword_interpret(
+        "coffee then a 2 hour read", list(trip_planner.CHIP_SLOTS.keys()))
+    assert "Bookstore" in out["interests"]

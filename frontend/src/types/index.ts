@@ -127,6 +127,7 @@ export interface TripOption {
   mode: "llm" | "deterministic";
   estimated_spend?: TripSpend;
   sequence_note?: string | null;
+  spread_note?: string | null;
 }
 
 /** What Gemini understood from the free-text "describe your day" (null when no
