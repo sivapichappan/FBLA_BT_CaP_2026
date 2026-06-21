@@ -75,19 +75,49 @@ export interface TrustRating {
 
 /* ── Trip planner ────────────────────────────────────────────────────────── */
 
-export type TripDuration = "quick" | "half" | "full";
-
 export interface TripStop extends Business {
   slot: string;
   arrive: string;
+  arrive_min?: number;
   dwell_min: number;
   walk_from_prev_km: number;
   walk_from_prev_min: number;
+  // Open-when-you-arrive (idea 3); only set when a weekday was chosen.
+  open_at_arrival?: boolean | null;
+  hours_known?: boolean;
+  // Edit-in-place (idea 1): same-kind alternates for instant swap; lock flag.
+  bench?: TripStop[];
+  locked?: boolean;
+  // Deals on route + personalization (idea 10a/b).
+  deals?: { id: number; title: string; discount_pct: number }[];
+  is_favorite?: boolean;
+}
+
+/** Re-timed itinerary after a client edit (idea 1). */
+export interface RetimeResult {
+  stops: TripStop[];
+  total_walk_km: number;
+  over_window: boolean;
 }
 
 /** One candidate itinerary. The planner returns several, each optimised for a
  *  different goal (best overall / top-rated / shortest walk) and made of
  *  different businesses — the user picks the one they like. */
+/** A rough "money kept local" estimate for an option (idea 8). */
+export interface TripSpend {
+  low: number;
+  high: number;
+  unknown_count: number;
+}
+
+/** The optional personalisation knobs (idea 4/6/8). */
+export interface TripKnobs {
+  audience: "solo" | "couple" | "family" | "group" | null;
+  occasion: "casual" | "date" | "celebrate" | null;
+  pace: "relaxed" | "normal" | "packed" | null;
+  budget: number | null; // 1=$ 2=$$ 3=$$$
+}
+
 export interface TripOption {
   key: string;
   label: string;
@@ -95,21 +125,26 @@ export interface TripOption {
   total_walk_km: number;
   narrative: string;
   mode: "llm" | "deterministic";
+  estimated_spend?: TripSpend;
+  sequence_note?: string | null;
 }
 
 /** What Gemini understood from the free-text "describe your day" (null when no
  *  description was given or the model was unavailable). */
 export interface TripInterpretation {
   interests: string[];
+  sequence?: string[];
   keep_close: boolean;
   summary: string;
 }
 
 export interface TripPlan {
   options: TripOption[];
-  duration: TripDuration;
   interests: string[];
+  num_stops: number;
+  end_time: string;
   start: { lat: number; lng: number; time: string };
+  knobs?: TripKnobs;
   interpretation?: TripInterpretation | null;
 }
 
@@ -119,6 +154,7 @@ export interface SavedTrip {
   params: Record<string, unknown>;
   stops: TripStop[];
   created_at: string;
+  share_token?: string | null;
 }
 
 export interface SearchResponse {

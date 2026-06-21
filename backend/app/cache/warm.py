@@ -100,10 +100,11 @@ async def warm() -> None:
         else:
             print(f"  vibe “{q}” → UNAVAILABLE (LLM offline — UI shows the notice)")
 
-    # One plan warms the shared independent-only candidate sweep; duration and
+    # One plan warms the shared independent-only candidate sweep; the window and
     # interests only change which cached candidates get picked, not the fetch.
     plan = await trip_planner.plan(
-        lat=lat, lng=lng, duration="half", interests=[], start_time="10:00"
+        lat=lat, lng=lng, interests=[],
+        start_time="10:00", end_time="16:00", num_stops=4,
     )
     top = plan["options"][0]
     print(f"  trip plan → {len(plan['options'])} options, "

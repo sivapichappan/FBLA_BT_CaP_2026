@@ -53,6 +53,38 @@ def get_local(business_id: int) -> Optional[dict[str, Any]]:
     return rows[0] if rows else None
 
 
+def hours_for_ids(ids: list[int]) -> dict[int, list[dict[str, Any]]]:
+    """Structured opening hours for the given local business ids, keyed by id —
+    ONE query (no N+1). Same shape search uses ({dow, open, close, closed}), so the
+    ``open_at`` helper works on it directly. Businesses with no hours rows simply
+    don't appear in the result."""
+    if not ids:
+        return {}
+    rows = query(
+        """SELECT business_id,
+                  json_agg(json_build_object(
+                      'dow', day_of_week, 'open', open_time,
+                      'close', close_time, 'closed', is_closed)
+                  ORDER BY day_of_week) AS hours
+           FROM business_hours WHERE business_id = ANY(%s) GROUP BY business_id""",
+        [ids],
+    )
+    return {r["business_id"]: r["hours"] for r in rows}
+
+
+def place_ids_to_local_ids(place_ids: list[str]) -> dict[str, int]:
+    """Map Google place ids → their materialized local business ids (only those
+    materialized via a prior review/visit). One query; used to resolve deals for
+    Google trip-planner stops."""
+    if not place_ids:
+        return {}
+    rows = query(
+        "SELECT id, google_place_id FROM businesses WHERE google_place_id = ANY(%s)",
+        [place_ids],
+    )
+    return {r["google_place_id"]: r["id"] for r in rows}
+
+
 def get_by_place_id(place_id: str) -> Optional[dict[str, Any]]:
     """The materialized row for a Google place, or None if not yet reviewed."""
     rows = query(

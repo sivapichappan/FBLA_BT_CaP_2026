@@ -253,8 +253,15 @@ Examples (input -> interests):
 - "lunch, then dessert and a cocktail"  -> ["Restaurant", "Dessert", "Bar"]
 - "a slow morning of cafes"             -> ["Coffee"]
 
+Also return "sequence": the SAME kinds, but in the CHRONOLOGICAL ORDER the user
+said they'd do them — driven by order words ("first", "then", "after", "finish
+with"), NOT by emphasis. "quick coffee, then long shopping, then a bite" ->
+interests ["Retail","Restaurant","Coffee"] but sequence ["Coffee","Retail",
+"Restaurant"]. If the user implies no particular order, use [].
+
 Return ONLY a JSON object:
 {{"interests": [<allowed items, most-emphasized first>],
+  "sequence": [<the same kinds in the order they'd do them, or []>],
   "keep_close": <true if they want things nearby / walkable / "nothing far", else false>,
   "summary": <one warm sentence, under 25 words, framing the day they described>}}
 
@@ -290,6 +297,8 @@ async def interpret_trip_goals(goals: str, allowed_interests: list[str]) -> Opti
         interests = [c for c in parsed.get("interests", []) if c in allowed]
         return {
             "interests": interests,
+            # The chronological order the user described (idea 2); [] if none implied.
+            "sequence": [c for c in parsed.get("sequence", []) if c in allowed],
             "keep_close": bool(parsed.get("keep_close")),
             "summary": str(parsed.get("summary") or "")[:200],
         }

@@ -73,7 +73,7 @@ _TYPE_TO_CHIPS: dict[str, list[str]] = {
     "gym": ["Fitness"], "fitness_center": ["Fitness"], "yoga_studio": ["Fitness"],
     "florist": ["Florist"], "flower_shop": ["Florist"],
     "clothing_store": ["Retail"], "gift_shop": ["Retail"], "shoe_store": ["Retail"],
-    "jewelry_store": ["Retail"], "store": ["Retail"], "shopping_mall": ["Retail"],
+    "jewelry_store": ["Retail"], "shopping_mall": ["Retail"],
     "home_goods_store": ["Retail"], "furniture_store": ["Retail"],
     "meal_takeaway": ["Restaurant", "Food"], "meal_delivery": ["Restaurant", "Food"],
     "food_court": ["Food"], "diner": ["Restaurant", "Food"],
@@ -83,10 +83,22 @@ _TYPE_TO_CHIPS: dict[str, list[str]] = {
 def _chip_categories(primary: Optional[str], types: list[str]) -> list[str]:
     """Translate Google machine types into our chip vocabulary (order-stable,
     deduped). A specific cuisine like "mexican_restaurant" maps to
-    "Restaurant" + "Food" via the substring rule so category filters match."""
+    "Restaurant" + "Food" via the substring rule so category filters match.
+
+    Generic "this is a shop" signals — the bare ``store`` type, or an unmapped
+    ``*_shop`` / ``*_store`` subtype — only become **Retail** when Google gave
+    NO more-specific category. Otherwise a "bagel_shop", a bakery, or a bookstore
+    that also carries a generic "store" tag would masquerade as a clothing store
+    (the reported bug: a Retail/"clothing store" slot filled with bagels and a
+    duplicate bookstore). Places keep their real identity; only a truly generic
+    store (nothing else identified it) is treated as Retail."""
     chips: list[str] = []
+    generic_retail = False
     for t in [primary, *types]:
         if not t:
+            continue
+        if t == "store":
+            generic_retail = True            # ambiguous alone — decided below
             continue
         mapped = _TYPE_TO_CHIPS.get(t)
         if mapped is None:
@@ -94,12 +106,16 @@ def _chip_categories(primary: Optional[str], types: list[str]) -> list[str]:
             if t.endswith("_restaurant") or t == "restaurant":
                 mapped = ["Restaurant", "Food"]
             elif "store" in t or "shop" in t:
-                mapped = ["Retail"]
+                generic_retail = True        # e.g. bagel_shop, gift_store — defer
+                continue
             else:
                 mapped = []
         for chip in mapped:
             if chip not in chips:
                 chips.append(chip)
+    # A generic shop signal is Retail ONLY when nothing more specific was found.
+    if generic_retail and not chips:
+        chips.append("Retail")
     return chips
 
 
@@ -120,7 +136,10 @@ _CHIP_TO_QUERY: dict[str, tuple[str, list[str]]] = {
     "Bookstore": ("bookstore", ["book_store"]),
     "Grocery": ("grocery store", ["grocery_store", "supermarket"]),
     "Pharmacy": ("pharmacy", ["pharmacy", "drugstore"]),
-    "Retail": ("shop", ["clothing_store", "gift_shop", "store"]),
+    # "clothing store" (not the generic "shop") so Google returns apparel/retail
+    # rather than bagel shops, smoke shops, and bookstores — the Retail chip's
+    # real intent. _passes_filters still trims to genuine retail.
+    "Retail": ("clothing store", ["clothing_store", "gift_shop", "store"]),
     "Dessert": ("dessert", ["dessert_shop", "ice_cream_shop", "donut_shop"]),
     "Barber": ("barber shop", ["barber_shop"]),
     "Salon": ("hair salon", ["hair_salon", "beauty_salon", "nail_salon"]),

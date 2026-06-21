@@ -4,8 +4,8 @@
  * so the palette/typography can be tuned here in one place.
  *
  * Aesthetic: warm editorial — premium, calm, "printed-magazine". A beige
- * paper canvas with a single deep-indigo accent; Playfair Display headlines
- * over Lora body text. No gradients, no generic SaaS glow. Warm-tinted
+ * paper canvas with a single deep-indigo accent; Space Grotesk headlines
+ * over IBM Plex Sans body text. No gradients, no generic SaaS glow. Warm-tinted
  * shadows, hairline borders, paper grain.
  * ========================================================================== */
 
@@ -22,8 +22,8 @@
   --border: #e8e0d4; /* warm hairline borders */
   --shadow: 0 8px 24px rgba(80, 50, 20, 0.08); /* warm, soft */
   --shadow-lift: 0 18px 40px -12px rgba(80, 50, 20, 0.18); /* deeper, for card hover-lift */
-  --font-display: "Playfair Display", Georgia, serif;
-  --font-body: "Lora", Georgia, serif;
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
   color-scheme: light; /* native widgets (selects, time inputs) match */
 }
 

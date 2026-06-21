@@ -70,27 +70,39 @@ import datetime as _dt
 def _hm(s):  # "HH:MM" → minutes
     h, m = s.split(":"); return int(h) * 60 + int(m)
 
+def _fmt(mins):  # minutes-from-midnight → "HH:MM"
+    return f"{mins // 60:02d}:{mins % 60:02d}"
+
 def _arr_min(s):  # the planner's "%-I:%M %p" label → minutes-from-midnight
     t = _dt.datetime.strptime(s.strip(), "%I:%M %p")
     return t.hour * 60 + t.minute
 
-BUDGET_MIN = {"quick": 240, "half": 360, "full": 540}      # ACTIVE time cap (walk+dwell)
-WALK_CAP_KM = {"quick": 4.0, "half": 6.0, "full": 9.0}
-TARGET = tp.TARGET_STOPS
+# Each "shape" is a window LENGTH (hours after the start) + a stop target — the
+# explicit start/end/num_stops replacement for the old duration presets. The
+# audit derives an end_time = start + hours (capped) so every start time gets a
+# sensible window.
+SHAPES = {
+    "quick": {"hours": 3, "stops": 3, "walk_cap": 4.0},
+    "half":  {"hours": 5, "stops": 4, "walk_cap": 6.0},
+    "full":  {"hours": 8, "stops": 6, "walk_cap": 9.0},
+}
+DAY_CAP_MIN = 22 * 60 + 30          # never run a window past 22:30, whatever the start
 MAX_LEG_KM = 1.6
 LATE = 21 * 60 + 30                                          # 21:30
 MEAL_OK = [(11 * 60, 21 * 60)]   # a meal any time 11am–9pm is fine (no 9am "dinner")
 
-def audit_option(opt, duration, start_min, dense):
+def _end_min(start_min, shape):
+    return min(start_min + SHAPES[shape]["hours"] * 60, DAY_CAP_MIN)
+
+def audit_option(opt, shape, start_min, end_min, dense):
     """Score one itinerary using the planner's OWN scheduled arrival times."""
     stops = opt["stops"]
     v = set()
     if not stops:
         return v
-    legs, total_walk, active = [], 0.0, 0
+    legs, total_walk = [], 0.0
     for s in stops:
         arr = _arr_min(s["arrive"])
-        active += s["walk_from_prev_min"] + s["dwell_min"]
         legs.append(s["walk_from_prev_km"]); total_walk += s["walk_from_prev_km"]
         role = s["slot"]
         if role == "eat" and not any(a <= arr <= b for a, b in MEAL_OK):
@@ -99,18 +111,18 @@ def audit_option(opt, duration, start_min, dense):
             v.add("bar_too_early")
         if arr > LATE:
             v.add("arrives_after_2130")
-    if dense and len(stops) < TARGET[duration]:
+        if arr > end_min:                       # the window cap must be respected
+            v.add("arrives_after_window_end")
+    if dense and len(stops) < SHAPES[shape]["stops"]:
         v.add("under_filled_in_dense_area")
-    if active > BUDGET_MIN[duration]:
-        v.add("over_active_budget")
     if max(legs) > MAX_LEG_KM:
         v.add("walk_leg_over_1p6km")
-    if total_walk > WALK_CAP_KM[duration]:
+    if total_walk > SHAPES[shape]["walk_cap"]:
         v.add("total_walk_too_high")
     return v
 
 # ─────────────────────────── scenario grid (~104) ───────────────────────────
-DURATIONS = ["quick", "half", "full"]
+SHAPE_KEYS = list(SHAPES)
 STARTS = ["08:00", "10:00", "13:00", "18:00"]
 INTEREST_SETS = [
     ["Coffee", "Restaurant", "Dessert"],
@@ -127,7 +139,7 @@ GEO = ["clustered", "mixed", "scattered"]
 def run():
     import asyncio
     scenarios = []
-    for i, (d, st, ints) in enumerate(itertools.product(DURATIONS, STARTS, INTEREST_SETS)):
+    for i, (d, st, ints) in enumerate(itertools.product(SHAPE_KEYS, STARTS, INTEREST_SETS)):
         scenarios.append((d, st, ints, GEO[i % 3], 6, True))  # dense
     # a few sparse scenarios — graceful degradation, NOT counted as bugs
     for i, (d, ints) in enumerate(itertools.product(["half", "full"], INTEREST_SETS[:4])):
@@ -139,15 +151,17 @@ def run():
     scen_with_any = 0
     for (d, st, ints, geo, dens, dense) in scenarios:
         _wire(_pools(geo, dens))
-        out = asyncio.run(tp.plan(lat=40.0, lng=-74.0, duration=d,
-                                  interests=ints, start_time=st))
         smin = _hm(st)
+        emin = _end_min(smin, d)
+        out = asyncio.run(tp.plan(lat=40.0, lng=-74.0, interests=ints,
+                                  start_time=st, end_time=_fmt(emin),
+                                  num_stops=SHAPES[d]["stops"]))
         scen_bad = False
         COVERAGE = {"under_filled_in_dense_area"}  # a fewer-stops trade-off, not "unrealistic"
         for opt in out["options"]:
             n_opts += 1
             opts_geo[geo] = opts_geo.get(geo, 0) + 1
-            vs = audit_option(opt, d, smin, dense)
+            vs = audit_option(opt, d, smin, emin, dense)
             if vs - COVERAGE:
                 by_geo[geo] = by_geo.get(geo, 0) + 1
             for x in vs:
@@ -171,7 +185,7 @@ def run():
     print("\n--- one example per violation ---")
     for k in sorted(tally, key=lambda kv: -tally[kv]):
         d, st, ints, geo, key, nstops, walk, stoplist = examples[k]
-        print(f"\n[{k}]  duration={d} start={st} interests={ints} geo={geo} opt={key} "
+        print(f"\n[{k}]  shape={d} start={st} interests={ints} geo={geo} opt={key} "
               f"stops={nstops} walk={walk}km")
         for arr, slot, leg in stoplist:
             print(f"     {arr:>9}  {slot:8}  {leg}km leg")

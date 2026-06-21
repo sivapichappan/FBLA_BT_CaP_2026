@@ -20,10 +20,11 @@ export default {
         border: "var(--border)",
       },
       fontFamily: {
-        // Playfair Display headlines vs Lora body (via tokens.css variables);
-        // mono stays system (codes/IDs).
-        display: ["var(--font-display)", "Georgia", "serif"],
-        serif: ["var(--font-body)", "Georgia", "serif"],
+        // Space Grotesk headlines vs IBM Plex Sans body (via tokens.css
+        // variables). The `serif` key is the historical name for the body slot;
+        // both now fall back to a sans stack. Mono stays system (codes/IDs).
+        display: ["var(--font-display)", "system-ui", "sans-serif"],
+        serif: ["var(--font-body)", "system-ui", "sans-serif"],
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       boxShadow: {

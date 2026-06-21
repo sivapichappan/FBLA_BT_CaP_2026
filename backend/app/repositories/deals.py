@@ -39,6 +39,22 @@ def list_for_business(business_id: int) -> list[dict[str, Any]]:
     )
 
 
+def list_active_for_businesses(business_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
+    """Active deals for MANY businesses in one query, grouped by business_id — so
+    the trip planner can surface deals on its stops without an N+1 of per-stop calls."""
+    if not business_ids:
+        return {}
+    rows = query(
+        f"""SELECT {_DEAL_COLS} FROM deals d JOIN businesses b ON b.id = d.business_id
+            WHERE d.business_id = ANY(%s) AND {_LIVE_WHERE} ORDER BY d.ends_at ASC""",
+        [business_ids],
+    )
+    out: dict[int, list[dict[str, Any]]] = {}
+    for r in rows:
+        out.setdefault(r["business_id"], []).append(r)
+    return out
+
+
 def get(deal_id: int) -> Optional[dict[str, Any]]:
     rows = query(
         f"SELECT {_DEAL_COLS} FROM deals d JOIN businesses b ON b.id = d.business_id WHERE d.id = %s",

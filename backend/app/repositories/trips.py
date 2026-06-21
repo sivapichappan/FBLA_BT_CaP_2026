@@ -26,15 +26,40 @@ def create(user_id: int, title: str, params: dict, stops: list[dict]) -> dict[st
 
 def list_for_user(user_id: int) -> list[dict[str, Any]]:
     return query(
-        "SELECT id, title, params, stops, created_at FROM trips WHERE user_id = %s ORDER BY created_at DESC",
+        "SELECT id, title, params, stops, share_token, created_at "
+        "FROM trips WHERE user_id = %s ORDER BY created_at DESC",
         [user_id],
     )
 
 
 def get(trip_id: int, user_id: int) -> Optional[dict[str, Any]]:
     rows = query(
-        "SELECT id, title, params, stops, created_at FROM trips WHERE id = %s AND user_id = %s",
+        "SELECT id, title, params, stops, share_token, created_at "
+        "FROM trips WHERE id = %s AND user_id = %s",
         [trip_id, user_id],
+    )
+    return rows[0] if rows else None
+
+
+def set_share_token(trip_id: int, user_id: int, token: str) -> Optional[dict[str, Any]]:
+    """Give a trip a public share token (owner-scoped). Idempotent at the service
+    level — the caller only mints a new token when one isn't already set."""
+    with transaction() as conn:
+        row = conn.execute(
+            """UPDATE trips SET share_token = %s
+               WHERE id = %s AND user_id = %s
+               RETURNING id, title, params, stops, share_token, created_at""",
+            [token, trip_id, user_id],
+        ).fetchone()
+    return row
+
+
+def get_by_share_token(token: str) -> Optional[dict[str, Any]]:
+    """A trip by its public share token — NO user scope (read-only public view).
+    Returns only display fields (never user_id)."""
+    rows = query(
+        "SELECT id, title, params, stops, created_at FROM trips WHERE share_token = %s",
+        [token],
     )
     return rows[0] if rows else None
 

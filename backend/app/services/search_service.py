@@ -51,20 +51,38 @@ def _local_badge(is_independent: Optional[bool], confidence: Optional[float]) ->
     return None
 
 
+def open_at(hours: Optional[list[dict]], weekday: int, minute_of_day: int) -> Optional[bool]:
+    """Is a business with these structured hours open at a given weekday (0=Sun..
+    6=Sat, our schema's convention) + minute-of-day? Returns None when the hours
+    are unknown for that day, True/False otherwise. Handles a window that spans
+    midnight (close ≤ open, e.g. a bar open till 2 AM). Reused by ``_open_now``
+    (current time) and the trip planner's "open when you arrive" check."""
+    if not hours:
+        return None
+    today = next((h for h in hours if h.get("dow") == weekday), None)
+    if not today or today.get("closed") or not today.get("open") or not today.get("close"):
+        return False if today else None
+    try:
+        # open/close arrive as "HH:MM:SS" strings from json_build_object(TIME).
+        o = dt.time.fromisoformat(str(today["open"]))
+        c = dt.time.fromisoformat(str(today["close"]))
+    except (ValueError, TypeError):
+        return None
+    om = o.hour * 60 + o.minute
+    cm = c.hour * 60 + c.minute
+    m = minute_of_day % (24 * 60)
+    if cm <= om:                 # spans midnight, e.g. 18:00 → 02:00
+        return m >= om or m < cm
+    return om <= m <= cm
+
+
 def _open_now(hours: Optional[list[dict]]) -> Optional[bool]:
     """Compute open-now from seeded hours + current ET time. None if unknown."""
     if not hours or _ET is None:
         return None
     try:
         now = dt.datetime.now(_ET)
-        dow = now.isoweekday() % 7  # → 0=Sunday .. 6=Saturday (our schema's convention)
-        today = next((h for h in hours if h.get("dow") == dow), None)
-        if not today or today.get("closed") or not today.get("open") or not today.get("close"):
-            return False if today else None
-        # open/close arrive as "HH:MM:SS" strings from json_build_object(TIME).
-        o = dt.time.fromisoformat(str(today["open"]))
-        c = dt.time.fromisoformat(str(today["close"]))
-        return o <= now.time() <= c
+        return open_at(hours, now.isoweekday() % 7, now.hour * 60 + now.minute)
     except Exception:
         return None
 

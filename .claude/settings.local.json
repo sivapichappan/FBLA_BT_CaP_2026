@@ -50,7 +50,17 @@
       "Bash(curl -s \"http://127.0.0.1:8000/businesses/gp_NOPE/reviews\")",
       "Bash(PYTHONPATH=. ./.venv/bin/python /tmp/smoke_qr.py)",
       "Bash(npm test *)",
-      "Bash(node kiosk.mjs)"
+      "Bash(node kiosk.mjs)",
+      "Bash(.venv/bin/python -c ' *)",
+      "Bash(grep -nE \"km on foot|businesses=\\\\{option.stops\\\\}|option.stops,\" src/routes/Plan.tsx)",
+      "Bash(grep -nA6 \"def list_for_user\" app/repositories/favorites.py)",
+      "Bash(nohup .venv/bin/uvicorn app.main:app --port 8000)",
+      "Bash(curl -s -m 3 -o /dev/null http://localhost:8000/health)",
+      "Bash(curl -s -m 50 -X POST http://localhost:8000/trips/plan -H 'Content-Type: application/json' -d '{\"lat\":40.7308,\"lng\":-73.9973,\"interests\":[\"Coffee\",\"Restaurant\"],\"start_time\":\"10:00\",\"end_time\":\"15:00\",\"num_stops\":3}' -o /dev/null -w 'anon plan HTTP %{http_code}\\\\n')",
+      "Bash(.venv/bin/python -c \"from app.repositories import deals as d; a=d.list_active\\(\\); print\\('active deals in DB:', len\\(a\\)\\); print\\('sample:', [\\(x['business_id'], x['title']\\) for x in a[:3]]\\)\")",
+      "Bash(grep -nA9 \"CREATE TABLE IF NOT EXISTS trips\" app/db/schema.sql)",
+      "Bash(.venv/bin/python -m app.db.migrate)",
+      "Bash(grep -nA7 \"export interface SavedTrip\" src/types/index.ts)"
     ],
     "deny": [],
     "ask": []

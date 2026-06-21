@@ -17,10 +17,10 @@ import type {
   Report,
   Review,
   ReviewReply,
+  RetimeResult,
   SavedTrip,
   SearchResponse,
   ClassifierVerdict,
-  TripDuration,
   TripPlan,
   TripStop,
   User,
@@ -106,13 +106,17 @@ function extractMessage(body: unknown, status: number): string {
 // error after 15 s instead of an infinite spinner.
 const REQUEST_TIMEOUT_MS = 15_000;
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
+): Promise<T> {
   const token = tokenStore.get();
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
       ...init,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -136,11 +140,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 const get = <T>(path: string) => request<T>(path);
-const post = <T>(path: string, body?: unknown) =>
-  request<T>(path, {
-    method: "POST",
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+const post = <T>(path: string, body?: unknown, timeoutMs?: number) =>
+  request<T>(
+    path,
+    {
+      method: "POST",
+      body: body === undefined ? undefined : JSON.stringify(body),
+    },
+    timeoutMs,
+  );
 const patch = <T>(path: string, body: unknown) =>
   request<T>(path, { method: "PATCH", body: JSON.stringify(body) });
 const del = <T>(path: string) => request<T>(path, { method: "DELETE" });
@@ -207,15 +215,38 @@ export const tripApi = {
   plan: (data: {
     lat?: number;
     lng?: number;
-    duration: TripDuration;
     interests: string[];
     start_time: string;
+    end_time: string;
+    num_stops: number;
     goals?: string;
-  }) => post<TripPlan>("/trips/plan", data),
+    // Optional personalisation knobs (idea 4/6/8); omit for the neutral default.
+    audience?: "solo" | "couple" | "family" | "group";
+    occasion?: "casual" | "date" | "celebrate";
+    pace?: "relaxed" | "normal" | "packed";
+    budget?: number; // 1=$ 2=$$ 3=$$$
+    weekday?: number; // 0=Sun..6=Sat (open-on-arrival)
+    locked_refs?: string[]; // stops kept when re-planning (idea 1)
+    // Planning runs several live category searches; at a fresh location that's
+    // legitimately slower than a normal call, so it gets a longer client budget.
+  }) => post<TripPlan>("/trips/plan", data, 45_000),
+  // Re-time an edited itinerary (server owns the clock math, idea 1).
+  retime: (data: {
+    start: { lat: number; lng: number; time: string };
+    end_time: string;
+    stops: TripStop[];
+    dwell_overrides: Record<string, number>;
+  }) => post<RetimeResult>("/trips/retime", data),
   save: (title: string, params: Record<string, unknown>, stops: TripStop[]) =>
     post<SavedTrip>("/trips", { title, params, stops }),
   mine: () => get<SavedTrip[]>("/trips"),
   remove: (id: number) => del<{ status: string }>(`/trips/${id}`),
+  // Share + calendar export (idea 10c).
+  share: (id: number) => post<{ share_token: string }>(`/trips/${id}/share`),
+  sharedTrip: (token: string) =>
+    get<SavedTrip>(`/trips/share/${encodeURIComponent(token)}`),
+  icsUrl: (token: string) =>
+    `${API_BASE}/trips/share/${encodeURIComponent(token)}.ics`,
 };
 
 export const recommendApi = {

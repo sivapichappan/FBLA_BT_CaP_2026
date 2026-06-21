@@ -28,6 +28,7 @@ import { PostDeal } from "./routes/owner/PostDeal";
 import { Verify } from "./routes/owner/Verify";
 import { Passport } from "./routes/Passport";
 import { Plan } from "./routes/Plan";
+import { SharedTrip } from "./routes/SharedTrip";
 import { Profile } from "./routes/Profile";
 import { Register } from "./routes/Register";
 import { Search } from "./routes/Search";
@@ -74,6 +75,7 @@ export default function App() {
                 <Route path="/passport" element={<Passport />} />
                 <Route path="/deals" element={<Deals />} />
                 <Route path="/plan" element={<Plan />} />
+                <Route path="/trip/shared/:token" element={<SharedTrip />} />
                 <Route path="/owner" element={<OwnerDashboard />} />
                 <Route path="/owner/add-business" element={<AddBusiness />} />
                 <Route path="/owner/post-deal" element={<PostDeal />} />

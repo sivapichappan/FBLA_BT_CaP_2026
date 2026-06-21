@@ -241,10 +241,14 @@ CREATE TABLE IF NOT EXISTS trips (
   id         BIGSERIAL PRIMARY KEY,
   user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   title      TEXT NOT NULL CHECK (char_length(title) BETWEEN 1 AND 120),
-  params     JSONB NOT NULL,   -- the request that built it (duration, interests, start)
+  params     JSONB NOT NULL,   -- the request that built it (window, interests, knobs)
   stops      JSONB NOT NULL,   -- ordered stop snapshots; survive source deletion
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Public share token (idea 10c): a random slug that exposes a READ-ONLY trip via
+-- /trips/share/{token} (no auth) + an .ics export. Null until the owner shares.
+ALTER TABLE trips ADD COLUMN IF NOT EXISTS share_token TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_trips_share_token ON trips(share_token) WHERE share_token IS NOT NULL;
 
 -- ── Favorites (local id OR Google place id; denormalized snapshot) ──────────
 CREATE TABLE IF NOT EXISTS favorites (
