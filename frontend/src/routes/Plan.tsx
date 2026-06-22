@@ -778,7 +778,7 @@ export function Plan() {
                 {editedStops.map((s, i) => (
                   <Fragment key={s.ref}>
                     <li
-                      className={`flex gap-3 rounded-lg border bg-surface p-3 transition-colors ${
+                      className={`flex flex-col gap-3 rounded-lg border bg-surface p-3 transition-colors ${
                         hoveredRef === s.ref
                           ? "border-accent-600"
                           : "border-border"
@@ -786,184 +786,188 @@ export function Plan() {
                       onMouseEnter={() => setHoveredRef(s.ref)}
                       onMouseLeave={() => setHoveredRef(null)}
                     >
-                      <div className="flex w-16 shrink-0 flex-col items-center">
-                        <span className="font-mono text-xs font-bold text-accent-700">
-                          {s.arrive}
-                        </span>
-                        <span className="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-accent-700 font-mono text-sm font-bold text-cream">
-                          {i + 1}
-                        </span>
-                        {s.walk_from_prev_min > 0 && (
-                          <span className="mt-1 text-center font-mono text-[10px] text-ink-soft">
-                            {s.walk_from_prev_min} min walk
+                      {/* Media row: time · image · details, sized to its content so
+                          the image fills the row with no dead space beside it. */}
+                      <div className="flex gap-3">
+                        <div className="flex w-16 shrink-0 flex-col items-center">
+                          <span className="font-mono text-xs font-bold text-accent-700">
+                            {s.arrive}
                           </span>
-                        )}
+                          <span className="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-accent-700 font-mono text-sm font-bold text-cream">
+                            {i + 1}
+                          </span>
+                          {s.walk_from_prev_min > 0 && (
+                            <span className="mt-1 text-center font-mono text-[10px] text-ink-soft">
+                              {s.walk_from_prev_min} min walk
+                            </span>
+                          )}
+                        </div>
+                        <BizImage
+                          photoUrl={s.photo_url}
+                          name={s.name}
+                          className="w-28 shrink-0 self-stretch rounded-md border border-border min-h-[4.5rem]"
+                          focusX={s.photo_focus_x}
+                          focusY={s.photo_focus_y}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(`/business/${encodeURIComponent(s.ref)}`)
+                            }
+                            className="truncate font-display text-lg font-semibold text-ink hover:text-accent-700"
+                          >
+                            {s.name}
+                          </button>
+                          <p className="font-mono text-[10px] uppercase tracking-wide text-ink-soft">
+                            {s.slot} · stay ~{s.dwell_min} min
+                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            {s.review_count > 0 && (
+                              <span className="flex items-center gap-1">
+                                <StarRating
+                                  rating={s.average_rating}
+                                  size={12}
+                                />
+                                <span className="font-serif text-xs text-ink-soft">
+                                  {s.average_rating.toFixed(1)}
+                                </span>
+                              </span>
+                            )}
+                            <LocalBadge badge={s.local_badge} />
+                            {/* Open-when-you-arrive (idea 3): only for stops whose
+                            hours we actually know (seeded businesses). */}
+                            {s.hours_known && s.open_at_arrival === true && (
+                              <span className="rounded-full border border-verified px-2 py-0.5 font-mono text-[10px] text-verified">
+                                ✓ Open when you arrive
+                              </span>
+                            )}
+                            {s.hours_known && s.open_at_arrival === false && (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-chain px-2 py-0.5 font-mono text-[10px] text-ink-soft">
+                                ⚠ May be closed
+                              </span>
+                            )}
+                            {s.is_favorite && (
+                              <span className="rounded-full border border-accent-600 px-2 py-0.5 font-mono text-[10px] text-accent-700">
+                                ♥ Your favorite
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Active LocalLens deals on this stop (idea 10a) — redeem
+                          right from the itinerary. */}
+                          {s.deals?.map((d) => (
+                            <button
+                              key={d.id}
+                              type="button"
+                              onClick={() => redeemDeal(d.id)}
+                              className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-accent-600 bg-cream px-2 py-1 font-serif text-xs text-accent-700 hover:bg-accent-700 hover:text-cream"
+                            >
+                              🏷 {d.discount_pct}% off — {d.title} · Redeem
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      <BizImage
-                        photoUrl={s.photo_url}
-                        name={s.name}
-                        className="h-20 w-24 shrink-0 rounded-md border border-border"
-                        focusX={s.photo_focus_x}
-                        focusY={s.photo_focus_y}
-                      />
-                      <div className="min-w-0 flex-1">
+
+                      {/* Actions footer — a full-width toolbar, so each card reads as
+                          a balanced media row + actions with no dead space. Controls
+                          are large, clearly labelled, and touch-friendly; each has a
+                          descriptive accessible name. */}
+                      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
                         <button
                           type="button"
-                          onClick={() =>
-                            navigate(`/business/${encodeURIComponent(s.ref)}`)
+                          onClick={() => swapStop(i)}
+                          disabled={!s.bench?.length}
+                          title={
+                            s.bench?.length
+                              ? "Swap for a nearby alternative"
+                              : "No nearby alternative to swap to"
                           }
-                          className="truncate font-display text-lg font-semibold text-ink hover:text-accent-700"
+                          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-border bg-cream px-3 py-1.5 font-serif text-xs text-ink hover:border-accent-600 hover:text-accent-700 disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          {s.name}
+                          <span aria-hidden>♻</span> Swap
                         </button>
-                        <p className="font-mono text-[10px] uppercase tracking-wide text-ink-soft">
-                          {s.slot} · stay ~{s.dwell_min} min
-                        </p>
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          {s.review_count > 0 && (
-                            <span className="flex items-center gap-1">
-                              <StarRating rating={s.average_rating} size={12} />
-                              <span className="font-serif text-xs text-ink-soft">
-                                {s.average_rating.toFixed(1)}
-                              </span>
-                            </span>
-                          )}
-                          <LocalBadge badge={s.local_badge} />
-                          {/* Open-when-you-arrive (idea 3): only for stops whose
-                            hours we actually know (seeded businesses). */}
-                          {s.hours_known && s.open_at_arrival === true && (
-                            <span className="rounded-full border border-verified px-2 py-0.5 font-mono text-[10px] text-verified">
-                              ✓ Open when you arrive
-                            </span>
-                          )}
-                          {s.hours_known && s.open_at_arrival === false && (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-chain px-2 py-0.5 font-mono text-[10px] text-ink-soft">
-                              ⚠ May be closed
-                            </span>
-                          )}
-                          {s.is_favorite && (
-                            <span className="rounded-full border border-accent-600 px-2 py-0.5 font-mono text-[10px] text-accent-700">
-                              ♥ Your favorite
-                            </span>
-                          )}
-                        </div>
 
-                        {/* Active LocalLens deals on this stop (idea 10a) — redeem
-                          right from the itinerary. */}
-                        {s.deals?.map((d) => (
-                          <button
-                            key={d.id}
-                            type="button"
-                            onClick={() => redeemDeal(d.id)}
-                            className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-accent-600 bg-cream px-2 py-1 font-serif text-xs text-accent-700 hover:bg-accent-700 hover:text-cream"
-                          >
-                            🏷 {d.discount_pct}% off — {d.title} · Redeem
-                          </button>
-                        ))}
+                        <button
+                          type="button"
+                          onClick={() => toggleLock(s.ref)}
+                          aria-pressed={!!s.locked}
+                          title={
+                            s.locked
+                              ? "Locked — kept when you re-plan"
+                              : "Lock this stop so re-planning keeps it"
+                          }
+                          className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-md border px-3 py-1.5 font-serif text-xs ${
+                            s.locked
+                              ? "border-accent-700 bg-accent-700 text-cream"
+                              : "border-border bg-cream text-ink hover:border-accent-600 hover:text-accent-700"
+                          }`}
+                        >
+                          <span aria-hidden>{s.locked ? "🔒" : "🔓"}</span>
+                          {s.locked ? "Locked" : "Lock"}
+                        </button>
 
-                        {/* Per-stop edit controls (idea 1) — large, clearly
-                            labelled, and touch-friendly so the day is easy to
-                            tweak; every control has a descriptive accessible name. */}
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => swapStop(i)}
-                            disabled={!s.bench?.length}
-                            title={
-                              s.bench?.length
-                                ? "Swap for a nearby alternative"
-                                : "No nearby alternative to swap to"
-                            }
-                            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-border bg-cream px-3 py-1.5 font-serif text-xs text-ink hover:border-accent-600 hover:text-accent-700 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            <span aria-hidden>♻</span> Swap
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => toggleLock(s.ref)}
-                            aria-pressed={!!s.locked}
-                            title={
-                              s.locked
-                                ? "Locked — kept when you re-plan"
-                                : "Lock this stop so re-planning keeps it"
-                            }
-                            className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-md border px-3 py-1.5 font-serif text-xs ${
-                              s.locked
-                                ? "border-accent-700 bg-accent-700 text-cream"
-                                : "border-border bg-cream text-ink hover:border-accent-600 hover:text-accent-700"
-                            }`}
-                          >
-                            <span aria-hidden>{s.locked ? "🔒" : "🔓"}</span>
-                            {s.locked ? "Locked" : "Lock"}
-                          </button>
-
-                          {/* Stay (dwell) stepper — shows the live value so the
+                        {/* Stay (dwell) stepper — shows the live value so the
                               −/＋ buttons are self-explanatory. */}
-                          <div className="inline-flex min-h-[36px] items-center gap-0.5 rounded-md border border-border bg-cream px-1">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                changeDwell(s.ref, s.dwell_min, -15)
-                              }
-                              aria-label={`Shorten the stay at ${s.name} by 15 minutes`}
-                              title="Shorter stay"
-                              className="flex h-8 w-8 items-center justify-center rounded text-xl leading-none text-ink-soft hover:bg-surface hover:text-ink"
-                            >
-                              −
-                            </button>
-                            <span className="min-w-[5rem] text-center font-serif text-xs text-ink">
-                              Stay {s.dwell_min} min
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                changeDwell(s.ref, s.dwell_min, 15)
-                              }
-                              aria-label={`Lengthen the stay at ${s.name} by 15 minutes`}
-                              title="Longer stay"
-                              className="flex h-8 w-8 items-center justify-center rounded text-xl leading-none text-ink-soft hover:bg-surface hover:text-ink"
-                            >
-                              +
-                            </button>
-                          </div>
-
-                          {/* Reorder earlier / later. */}
-                          <div className="inline-flex min-h-[36px] items-center rounded-md border border-border bg-cream">
-                            <button
-                              type="button"
-                              onClick={() => moveStop(i, -1)}
-                              disabled={i === 0}
-                              aria-label={`Move ${s.name} earlier in the day`}
-                              title="Move earlier"
-                              className="flex h-9 w-9 items-center justify-center rounded-l-md text-base text-ink-soft hover:bg-surface hover:text-ink disabled:opacity-30"
-                            >
-                              ↑
-                            </button>
-                            <span className="h-5 w-px bg-border" aria-hidden />
-                            <button
-                              type="button"
-                              onClick={() => moveStop(i, 1)}
-                              disabled={i === editedStops.length - 1}
-                              aria-label={`Move ${s.name} later in the day`}
-                              title="Move later"
-                              className="flex h-9 w-9 items-center justify-center rounded-r-md text-base text-ink-soft hover:bg-surface hover:text-ink disabled:opacity-30"
-                            >
-                              ↓
-                            </button>
-                          </div>
-
-                          {/* Remove — destructive, so it reads as distinct on hover. */}
+                        <div className="inline-flex min-h-[36px] items-center gap-0.5 rounded-md border border-border bg-cream px-1">
                           <button
                             type="button"
-                            onClick={() => removeStop(i)}
-                            aria-label={`Remove ${s.name} from the day`}
-                            title="Remove this stop"
-                            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-border bg-cream px-3 py-1.5 font-serif text-xs text-ink-soft hover:border-red-400 hover:bg-red-50 hover:text-red-700"
+                            onClick={() => changeDwell(s.ref, s.dwell_min, -15)}
+                            aria-label={`Shorten the stay at ${s.name} by 15 minutes`}
+                            title="Shorter stay"
+                            className="flex h-8 w-8 items-center justify-center rounded text-xl leading-none text-ink-soft hover:bg-surface hover:text-ink"
                           >
-                            <span aria-hidden>✕</span> Remove
+                            −
+                          </button>
+                          <span className="min-w-[5rem] text-center font-serif text-xs text-ink">
+                            Stay {s.dwell_min} min
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => changeDwell(s.ref, s.dwell_min, 15)}
+                            aria-label={`Lengthen the stay at ${s.name} by 15 minutes`}
+                            title="Longer stay"
+                            className="flex h-8 w-8 items-center justify-center rounded text-xl leading-none text-ink-soft hover:bg-surface hover:text-ink"
+                          >
+                            +
                           </button>
                         </div>
+
+                        {/* Reorder earlier / later. */}
+                        <div className="inline-flex min-h-[36px] items-center rounded-md border border-border bg-cream">
+                          <button
+                            type="button"
+                            onClick={() => moveStop(i, -1)}
+                            disabled={i === 0}
+                            aria-label={`Move ${s.name} earlier in the day`}
+                            title="Move earlier"
+                            className="flex h-9 w-9 items-center justify-center rounded-l-md text-base text-ink-soft hover:bg-surface hover:text-ink disabled:opacity-30"
+                          >
+                            ↑
+                          </button>
+                          <span className="h-5 w-px bg-border" aria-hidden />
+                          <button
+                            type="button"
+                            onClick={() => moveStop(i, 1)}
+                            disabled={i === editedStops.length - 1}
+                            aria-label={`Move ${s.name} later in the day`}
+                            title="Move later"
+                            className="flex h-9 w-9 items-center justify-center rounded-r-md text-base text-ink-soft hover:bg-surface hover:text-ink disabled:opacity-30"
+                          >
+                            ↓
+                          </button>
+                        </div>
+
+                        {/* Remove — destructive, so it reads as distinct on hover. */}
+                        <button
+                          type="button"
+                          onClick={() => removeStop(i)}
+                          aria-label={`Remove ${s.name} from the day`}
+                          title="Remove this stop"
+                          className="ml-auto inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-border bg-cream px-3 py-1.5 font-serif text-xs text-ink-soft hover:border-red-400 hover:bg-red-50 hover:text-red-700"
+                        >
+                          <span aria-hidden>✕</span> Remove
+                        </button>
                       </div>
                     </li>
                     {/* Free time between stops when a short day was spread to fill the
