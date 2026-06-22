@@ -861,84 +861,107 @@ export function Plan() {
                           </button>
                         ))}
 
-                        {/* Per-stop edit controls (idea 1). */}
-                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        {/* Per-stop edit controls (idea 1) — large, clearly
+                            labelled, and touch-friendly so the day is easy to
+                            tweak; every control has a descriptive accessible name. */}
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
                           <button
                             type="button"
                             onClick={() => swapStop(i)}
                             disabled={!s.bench?.length}
-                            title="Swap for a nearby alternative"
-                            className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-ink-soft hover:border-accent-600 hover:text-ink disabled:opacity-30"
+                            title={
+                              s.bench?.length
+                                ? "Swap for a nearby alternative"
+                                : "No nearby alternative to swap to"
+                            }
+                            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-border bg-cream px-3 py-1.5 font-serif text-xs text-ink hover:border-accent-600 hover:text-accent-700 disabled:cursor-not-allowed disabled:opacity-40"
                           >
-                            ♻ Swap
+                            <span aria-hidden>♻</span> Swap
                           </button>
+
                           <button
                             type="button"
                             onClick={() => toggleLock(s.ref)}
                             aria-pressed={!!s.locked}
                             title={
                               s.locked
-                                ? "Locked — kept on re-plan"
-                                : "Lock this stop"
+                                ? "Locked — kept when you re-plan"
+                                : "Lock this stop so re-planning keeps it"
                             }
-                            className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${
+                            className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-md border px-3 py-1.5 font-serif text-xs ${
                               s.locked
                                 ? "border-accent-700 bg-accent-700 text-cream"
-                                : "border-border text-ink-soft hover:border-accent-600 hover:text-ink"
+                                : "border-border bg-cream text-ink hover:border-accent-600 hover:text-accent-700"
                             }`}
                           >
-                            {s.locked ? "🔒 Locked" : "🔓 Lock"}
+                            <span aria-hidden>{s.locked ? "🔒" : "🔓"}</span>
+                            {s.locked ? "Locked" : "Lock"}
                           </button>
-                          <span className="inline-flex items-center rounded border border-border">
+
+                          {/* Stay (dwell) stepper — shows the live value so the
+                              −/＋ buttons are self-explanatory. */}
+                          <div className="inline-flex min-h-[36px] items-center gap-0.5 rounded-md border border-border bg-cream px-1">
                             <button
                               type="button"
                               onClick={() =>
                                 changeDwell(s.ref, s.dwell_min, -15)
                               }
-                              aria-label="Shorter stay"
-                              className="px-1.5 py-0.5 font-mono text-[11px] text-ink-soft hover:text-ink"
+                              aria-label={`Shorten the stay at ${s.name} by 15 minutes`}
+                              title="Shorter stay"
+                              className="flex h-8 w-8 items-center justify-center rounded text-xl leading-none text-ink-soft hover:bg-surface hover:text-ink"
                             >
                               −
                             </button>
-                            <span className="px-1 font-mono text-[10px] text-ink-soft">
-                              stay
+                            <span className="min-w-[5rem] text-center font-serif text-xs text-ink">
+                              Stay {s.dwell_min} min
                             </span>
                             <button
                               type="button"
                               onClick={() =>
                                 changeDwell(s.ref, s.dwell_min, 15)
                               }
-                              aria-label="Longer stay"
-                              className="px-1.5 py-0.5 font-mono text-[11px] text-ink-soft hover:text-ink"
+                              aria-label={`Lengthen the stay at ${s.name} by 15 minutes`}
+                              title="Longer stay"
+                              className="flex h-8 w-8 items-center justify-center rounded text-xl leading-none text-ink-soft hover:bg-surface hover:text-ink"
                             >
                               +
                             </button>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => moveStop(i, -1)}
-                            disabled={i === 0}
-                            aria-label="Move up"
-                            className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-ink-soft hover:border-accent-600 hover:text-ink disabled:opacity-30"
-                          >
-                            ▲
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveStop(i, 1)}
-                            disabled={i === editedStops.length - 1}
-                            aria-label="Move down"
-                            className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-ink-soft hover:border-accent-600 hover:text-ink disabled:opacity-30"
-                          >
-                            ▼
-                          </button>
+                          </div>
+
+                          {/* Reorder earlier / later. */}
+                          <div className="inline-flex min-h-[36px] items-center rounded-md border border-border bg-cream">
+                            <button
+                              type="button"
+                              onClick={() => moveStop(i, -1)}
+                              disabled={i === 0}
+                              aria-label={`Move ${s.name} earlier in the day`}
+                              title="Move earlier"
+                              className="flex h-9 w-9 items-center justify-center rounded-l-md text-base text-ink-soft hover:bg-surface hover:text-ink disabled:opacity-30"
+                            >
+                              ↑
+                            </button>
+                            <span className="h-5 w-px bg-border" aria-hidden />
+                            <button
+                              type="button"
+                              onClick={() => moveStop(i, 1)}
+                              disabled={i === editedStops.length - 1}
+                              aria-label={`Move ${s.name} later in the day`}
+                              title="Move later"
+                              className="flex h-9 w-9 items-center justify-center rounded-r-md text-base text-ink-soft hover:bg-surface hover:text-ink disabled:opacity-30"
+                            >
+                              ↓
+                            </button>
+                          </div>
+
+                          {/* Remove — destructive, so it reads as distinct on hover. */}
                           <button
                             type="button"
                             onClick={() => removeStop(i)}
-                            aria-label="Remove stop"
-                            className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-ink-soft hover:border-accent-600 hover:text-ink"
+                            aria-label={`Remove ${s.name} from the day`}
+                            title="Remove this stop"
+                            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-border bg-cream px-3 py-1.5 font-serif text-xs text-ink-soft hover:border-red-400 hover:bg-red-50 hover:text-red-700"
                           >
-                            ✕ Remove
+                            <span aria-hidden>✕</span> Remove
                           </button>
                         </div>
                       </div>
