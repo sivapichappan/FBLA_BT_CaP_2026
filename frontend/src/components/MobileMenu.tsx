@@ -13,6 +13,7 @@
 import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Link, NavLink, useLocation } from "react-router-dom";
+import { trapFocus } from "../lib/focusTrap";
 import { useAuth } from "../lib/auth";
 import { useBodyScrollLock, useEscape } from "../lib/hooks";
 import { PRIMARY_LINKS, ownerLink, userLinks } from "./navLinks";
@@ -57,24 +58,6 @@ export function MobileMenu({
     ...(owner ? [owner] : []),
   ];
 
-  // Minimal Tab focus-trap so keyboard focus stays inside the open dialog.
-  function trapTab(e: React.KeyboardEvent) {
-    if (e.key !== "Tab" || !panelRef.current) return;
-    const focusables = panelRef.current.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), input, [tabindex]:not([tabindex="-1"])',
-    );
-    if (focusables.length === 0) return;
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  }
-
   return (
     <AnimatePresence>
       {isOpen && (
@@ -99,7 +82,7 @@ export function MobileMenu({
             role="dialog"
             aria-modal="true"
             aria-label="Menu"
-            onKeyDown={trapTab}
+            onKeyDown={(e) => trapFocus(e, panelRef.current)}
             className="absolute inset-y-0 right-0 flex w-full max-w-xs flex-col overflow-y-auto bg-surface px-6 pb-8 pt-5 shadow-lift"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}

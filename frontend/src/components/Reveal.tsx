@@ -24,16 +24,3 @@ export function Reveal({
     </motion.div>
   );
 }
-
-/** Stagger a list: each child reveals 60 ms after the previous one. */
-export function RevealList({ items }: { items: ReactNode[] }) {
-  return (
-    <>
-      {items.map((child, i) => (
-        <Reveal key={i} delay={Math.min(i * 0.06, 0.5)}>
-          {child}
-        </Reveal>
-      ))}
-    </>
-  );
-}

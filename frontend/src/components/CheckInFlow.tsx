@@ -17,6 +17,7 @@
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { ApiError, businessSnapshot, visitApi } from "../lib/api";
+import { trapFocus } from "../lib/focusTrap";
 import type { Business, VisitResult } from "../types";
 import { MapView } from "./MapView";
 
@@ -89,23 +90,6 @@ export function CheckInFlow({
   // Always-fresh re-check fn so the dwell interval never calls a stale closure.
   const recheckRef = useRef<() => void>(() => {});
 
-  // Keyboard focus-trap so Tab stays inside the open dialog (WCAG 2.4.3).
-  function trapTab(e: React.KeyboardEvent) {
-    if (e.key !== "Tab" || !cardRef.current) return;
-    const focusables = cardRef.current.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), input, [tabindex]:not([tabindex="-1"])',
-    );
-    if (focusables.length === 0) return;
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  }
 
   function stopDwell() {
     if (dwellTimer.current) {
@@ -289,7 +273,7 @@ export function CheckInFlow({
       <motion.div
         ref={cardRef}
         tabIndex={-1}
-        onKeyDown={trapTab}
+        onKeyDown={(e) => trapFocus(e, cardRef.current)}
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative z-10 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-border bg-surface p-5 shadow-lift outline-none sm:rounded-2xl"
