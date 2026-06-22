@@ -40,8 +40,11 @@ CHAIN_DEMO_QUERIES = {"starbucks"}
 # Extra cities to pre-warm beyond the NYC demo center, so a search anywhere we
 # might demo serves instantly from cache (the paginated Google pages AND the
 # Gemini verdicts cache for 30 days). Add coordinates for any city you'll show.
+# Centred on each city's seeded business cluster (downtown/Southtown San Antonio ·
+# the Mission, San Francisco) so the warmed searches match what the picker shows.
 EXTRA_DEMO_CITIES = [
-    ("San Antonio, TX", 29.4252, -98.4946),
+    ("San Antonio, TX", 29.4246, -98.4910),
+    ("San Francisco, CA", 37.7600, -122.4210),
 ]
 
 DEMO_ADDRESSES = [

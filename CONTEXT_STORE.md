@@ -1,13 +1,14 @@
 # CONTEXT STORE — LocalLens v2 (full session state)
 
 > Working memory for AI-assisted development of this repo. Rewritten 2026-06-13;
-> updated 2026-06-20.
+> updated 2026-06-21.
 > Purpose: enough fidelity that a fresh session (or post-compaction context) can
 > continue EXACTLY where this one left off — decisions, tunables, gotchas, and
 > verification recipes included. Sections 1–8 + 10–11 describe the system as it
-> works NOW; §9 is a dated changelog; **§12 = the Verified Visits feature**.
-> Contains **no secret values** (those live only in gitignored `.env`); demo
-> passwords below are seeded demo data.
+> works NOW; §9 is a dated changelog; **§12 = Verified Visits**, **§13 = Google
+> Sign-In**, **§14 = Trip Planner v2** (all committed + live). Contains **no secret
+> values** (those live only in gitignored `.env`); demo passwords below are seeded
+> demo data.
 
 ---
 
@@ -36,52 +37,62 @@ high-confidence chains learned back into the registry.** A glass-box "why this
 verdict?" panel shows which gate decided + the reason. Every "smart" surface
 (concierge, summaries, vibe, planner) degrades gracefully offline; the chain
 filter degrades to registry-only with unknowns SHOWN as "likely local".
+**Bot-prevention** is answered by **Verified Visits** (§12): proof of physical
+presence before a review counts.
 
-Strategy/rubric analysis: `FBLA_FEATURES_AND_STRATEGY.md` (7-min demo skeleton +
-scorecard). Original brief: `BUILD_SPEC.md`. Browser-Claude build kits:
-`DIAGRAM_PROMPTS.md` (diagram deck) and **`FBLA_DECK_KIT.md`** (the full paste-
-ready **9-slide** presentation [adds a "Usable·Accessible·Trusted" slide] + 4 SVG
-prompts + 3-min demo script — current; also rendered to an editable PPTX). The v1
-app (vanilla JS) is preserved in `legacy/`, superseded.
+Strategy/rubric analysis: `FBLA_FEATURES_AND_STRATEGY.md`. Original brief:
+`BUILD_SPEC.md`. Browser-Claude build kits: `DIAGRAM_PROMPTS.md` + `FBLA_DECK_KIT.md`
+(9-slide deck + SVG prompts + demo script). Feature docs: `VERIFIED_VISITS.md`,
+`GOOGLE_SIGNIN.md`. The v1 app (vanilla JS) is preserved in `legacy/`, superseded.
 
 ## 2. Repo / environment / how to run
 
 - **Repo root:** `/Users/sivapichappan/FBLA2526` (git; branch `master`; remote
-  `https://github.com/sivapichappan/FBLA_BT_CaP_2026.git`, public). **All work
-  through 2026-06-19 is committed + pushed + live** (HEAD `b391bd7`; recent:
-  trip-planner realism, the "L" logo, driving-distance search, zero-horizontal-
-  overflow, mobile-responsive, homepage mobile; deploy commit `c9501e6`). Secrets
-  stay gitignored; user owns commits/pushes. The awwwards UI revamp is parked in
-  `git stash@{0}` (recoverable via `git stash pop`) — see §9. **UNCOMMITTED in the
-  tree (large):** the entire **Verified Visits** feature (Phases 0–5 + the
-  review-anywhere change) — see §12; plus the earlier single-business detail
-  Location map. None committed yet (user owns commits).
+  `https://github.com/sivapichappan/FBLA_BT_CaP_2026.git`, public). **ALL work is
+  committed + pushed + live** (HEAD `abdc7bc`). Recent (newest first): budget-filter
+  fix → trip-planner bug fixes → fonts + Trip Planner v2 → Google Sign-In → Verified
+  Visits → trip-planner realism → the "L" logo → driving-distance search. Secrets
+  stay gitignored; **user owns commits/pushes** (push auto-deploys via the GitHub→
+  Vercel integration — do NOT run `vercel --prod`). The awwwards UI revamp is parked
+  in `git stash@{0}` (recoverable) — see §9.
 - **Stack:** Python 3.12 / FastAPI / psycopg3 / Supabase Postgres (+pgvector);
   React 18 + TypeScript + Vite 5 + Tailwind 3.4 + motion/react.
 - **Run:** `./run.sh` OR backend `cd backend && ./.venv/bin/uvicorn app.main:app
   --host 127.0.0.1 --port 8000`; frontend `cd frontend && npm run dev` (5173,
-  start FROM `frontend/`). Build: `npm run build` (tsc -b first).
+  start FROM `frontend/`). Build: `npm run build` (tsc -b first). uvicorn runs
+  WITHOUT `--reload` here, so a backend code change needs a restart to take effect.
 - **Env (gitignored; .env.example committed):** `backend/.env` → DATABASE_URL
   (Supabase tx-pooler, ref `iwwwgmmffczjlkkjsxgn`, aws-1-us-east-1, port 6543),
   JWT_SECRET, GOOGLE_MAPS_API_KEY (Maps JS + Places New + Geocoding),
-  LLM_API_KEY (**Google AI Studio/Gemini**, `AQ.…`), LLM_BASE_URL=
-  `https://generativelanguage.googleapis.com/v1beta/openai/`,
+  **GOOGLE_OAUTH_CLIENT_ID** (Google Sign-In — the public client id we verify
+  tokens against, §13), LLM_API_KEY (**Google AI Studio/Gemini**, `AQ.…`),
+  LLM_BASE_URL=`https://generativelanguage.googleapis.com/v1beta/openai/`,
   LLM_INTENT_MODEL=`gemini-2.5-flash-lite`, LLM_REPLY_MODEL=`gemini-2.5-flash`,
   LLM_CLASSIFY_MODEL=`gemini-2.5-flash`, LLM_EMBED_MODEL=`gemini-embedding-001`,
   ONLINE=true, CORS_ORIGINS, DEMO_CITY/LAT/LNG (NYC 40.7308,-73.9973).
-  `frontend/.env` → VITE_API_BASE_URL, VITE_GOOGLE_MAPS_API_KEY.
-- **⚠ Gemini quota:** the key is free-tier = **20 requests/day PER MODEL**
-  (probed: flash 20, flash-lite 20, 2.0 models 0). Shared by classifier,
-  concierge, vibe, summaries, trip planner. A real-quota/billed key is the #1
-  pre-competition task. Mitigated by the registry (most chains free), 30-day
-  verdict cache, and `cache/warm.py` (warmed demo cities = 0 live calls).
-- **Cloud — LIVE (v2 deployed 2026-06-13):** Vercel project `fbla-2026`
-  (id `prj_heJW0pbxynK5qegZCH7unSQIFCLa`, team `team_JKtO6sXyzqRra9kL5ECS5jYi`,
-  account `sivapichappan-5633`) → **https://getlocallens.vercel.app** (public,
-  prod). All-on-Vercel serverless: Vite SPA static + FastAPI as ONE Python
-  function. See **§Deployment** below. Env vars set on Vercel (prod+preview) via
-  `vercel env add` — NOT committed. Session Supabase MCP is a different org
+  `frontend/.env` → VITE_API_BASE_URL, VITE_GOOGLE_MAPS_API_KEY,
+  **VITE_GOOGLE_CLIENT_ID** (the same public OAuth client id; renders the
+  "Continue with Google" button).
+- **⚠ Gemini quota:** the key is free-tier = **20 requests/day PER MODEL**. Shared
+  by classifier, concierge, vibe, summaries, trip planner. A real-quota/billed key
+  is the #1 pre-competition task. Mitigated by the registry (most chains free),
+  30-day verdict cache, and `cache/warm.py`. (Hit the 429 cap during this session;
+  the deterministic fallbacks kept everything working offline.)
+- **Cloud — LIVE:** Vercel project `fbla-2026` (id `prj_heJW0pbxynK5qegZCH7unSQIFCLa`,
+  team `team_JKtO6sXyzqRra9kL5ECS5jYi`, account `sivapichappan-5633`) →
+  **https://getlocallens.vercel.app** (public prod). All-on-Vercel serverless: Vite
+  SPA static + FastAPI as ONE Python function. See **§Deployment**. Push to `master`
+  auto-deploys (GitHub integration). Env vars set on Vercel (prod) via `vercel env
+  add` — including `GOOGLE_OAUTH_CLIENT_ID` + `VITE_GOOGLE_CLIENT_ID` added this
+  session. NOTE: `fbla-2026.vercel.app` (the bare auto-domain) serves a DIFFERENT
+  app — the real prod URL is `getlocallens.vercel.app`; preview/branch URLs return
+  401 (Vercel deployment protection). Session Supabase MCP is a different org
   (Wondrlink), can't manage this DB; all DB ops via psycopg.
+- **Google Cloud (OAuth, §13):** the Sign-In OAuth Client ID lives in the SAME
+  Google Cloud project as the Maps key. **Authorized JavaScript origins** must list
+  `http://localhost:5173`, `https://fbla-2026-sivapichappan-5633s-projects.vercel.app`,
+  and `https://getlocallens.vercel.app`. Origin changes take minutes–hours to
+  propagate; until then the button shows a console "origin not allowed" warning.
 - **macOS:** port 5000 = AirPlay → backend uses 8000. pip + live-API tests need
   `dangerouslyDisableSandbox` (DNS blocked in sandbox).
 
@@ -89,7 +100,7 @@ app (vanilla JS) is preserved in `legacy/`, superseded.
 
 | Account | Email / password | Role / notes |
 |---|---|---|
-| demo_user | demo@locallens.app / demodemo | consumer; trust ~51 (lvl 2); 4 reviews; favorites Reggio/Strand/Abraço; saved trip "Village Saturday" |
+| demo_user | demo@locallens.app / demodemo | consumer; trust ~51 (lvl 2); reviews; favorites; saved trip; 4 verified visits, $86 kept local, 2 badges |
 | demo_owner | owner@locallens.app / ownerowner | owns ids 1–5: Caffè Reggio, Joe's Pizza, Buvette, Murray's Cheese, McNally Jackson |
 | admin | admin@locallens.app / adminadmin | full admin (edit any biz, reply anywhere, verify any code) |
 | 12 personas | maya_r…ravi_p @example.com / demodemo | populate reviews/favorites |
@@ -99,604 +110,439 @@ Cashier codes (deal_redemptions): valid-unverified → `CAFE5E6F`, `SLICE9AB`,
 `STRD7FAB` (Strand — NOT demo_owner's → reads not_found for them: privacy demo);
 already-used → `CAFE3C4D`, `SLICE1CD`, `CAFE1A2B`.
 
-Seed: **46 NYC businesses** (Village/SoHo/LES/EV; ids 1–5 owner-run), 16
-categories, 101 reviews (backdated ≤28d), 11 deals (1 expired), 12 redemptions,
-39 favorites, ~1,045 business_views, hours for all 46. Aggregates + trust
-recomputed at seed end. **chain_registry: 2,383 names** (2,233 fuzzy seed +
-150 exact-only) — survives `--reseed`.
+Seed: **3 demo cities, ~90 businesses total** — **~46 NYC** (Village/SoHo/LES/EV;
+ids 1–5 owner-run), **~22 San Antonio** (downtown/Southtown/Pearl — the competition
+host city), **~22 San Francisco** (Mission/Valencia + Hayes Valley + a North Beach
+pair). All coexist in ONE DB; search is radius-bounded, so the **city picker**
+(LocationControl → `DEMO_CITIES`) just moves the map centre and each city's own
+independents surface. Only NYC has the owner account (ids 1–5) + cashier-mode demo
+data; SA/SF are discovery-only (no owner) but get full categories + hours + ~2
+reviews each + a few deals, and `migrate._seed_verified_visits` auto-links ~half
+their reviews to verified visits (so badges/passport work in every city). 16
+categories, ~190 reviews, ~18 active deals, redemptions, favorites, business_views,
+**hours for ALL seeded businesses** (drives the Verified-Visits open-now AND the
+planner's open-on-arrival check, §14). Aggregates + trust recomputed at seed end
+(over ALL businesses). **chain_registry: 2,383 names** — survives `--reseed`.
+**Adding the cities requires `migrate --reseed`** (seed runs only on an empty DB);
+reseed WIPES runtime activity (registry survives) — a destructive prod-DB op, so
+run it deliberately.
+Verified-Visits demo (idempotent): flagship **Caffè Reggio (id 1)** enriched
+(raw 4.48 / verified 3.86 / trust 4.21); ~54 seeded visits. Caffè Reggio also has
+QR check-in enabled (a rotating kiosk code) + active deals (surface in the planner).
 
 ## §Deployment (Vercel, all-on-serverless) — LIVE
 
-Prod: **https://getlocallens.vercel.app** (primary, public) — also
-`fbla-2026-tan.vercel.app`; BOTH are project production domains that auto-follow
-deploys. CLI `vercel` is logged in as `sivapichappan-5633`; repo linked via
-`.vercel/` (gitignored). Deploy with `vercel` (preview, SSO-protected — test via
-`vercel curl <path> --deployment <url>`) then `vercel --prod`. To add a nicer
-`.vercel.app` name use **`vercel domains add <name>.vercel.app`** (a PROJECT
-domain → public + permanent); do NOT use `vercel alias set` (its URL is
-auth-gated 401). `getlocallens` was claimed this way.
+Prod: **https://getlocallens.vercel.app** (primary, public). Push to `master`
+auto-deploys via the GitHub integration. The CLI `vercel` is also authed as
+`sivapichappan-5633` (repo linked via gitignored `.vercel/`). A manual `vercel
+--prod` works too but is NOT needed (and running it alongside a GitHub deploy can
+trip Vercel's burst limit → deployments stuck in `BLOCKED` — happened this session;
+fix = just `git push`). A nicer public name = `vercel domains add <name>.vercel.app`
+(a PROJECT domain); NOT `vercel alias set` (its URL is auth-gated 401).
 
-Files (repo root unless noted):
-- `vercel.json` — `framework: vite`; `buildCommand: cd frontend && npm install &&
-  npm run build`; `outputDirectory: frontend/dist`; function `api/index.py`
-  (maxDuration 300, `includeFiles: backend/app/**`); rewrites `/api/(.*)→/api/index`
-  then SPA `/(.*)→/index.html`.
-- `api/index.py` — ASGI entry: `sys.path`-inserts `backend/`, `from app.main
-  import app as backend_app`, parent `FastAPI()` **mounts backend at `/api`** (so
-  the `/api` URL prefix is consumed; routers keep their native paths; no Mangum).
-- `requirements.txt` (root) — prod dep subset Vercel installs. **Three deps
-  bumped ONLY for Python-3.14 wheels** (Vercel's uv builder forces 3.14 and
-  ignores `.python-version`/`pyproject requires-python`): `psycopg 3.2.13`,
-  `pydantic 2.13.4`, `bcrypt 5.0.0` (Pillow 12.2.0 already had a cp314 wheel).
-  Same bumps mirrored in `backend/requirements.txt` + local venv (48 tests green).
-- `.vercelignore` — excludes `.env*`, node_modules, .venv, tests, legacy, .git;
-  **ships `backend/app/cache`** (48MB warm data → demo searches instant + spare
-  the Gemini quota; read-only writes no-op).
-- `frontend/.env.production` — `VITE_API_BASE_URL=/api` (same-origin → no CORS).
-- `backend/app/db/connection.py` — pool `min_size=0, max_size=4` (serverless).
-
-Env on Vercel (prod+preview, set via `vercel env add`, NOT committed): the §2
-backend vars + `VITE_GOOGLE_MAPS_API_KEY`. The legacy project also carries unused
-Flask/mail/Turnstile vars — harmless (`extra="ignore"`). Smoke test (public prod):
-`/`→200, `/api/health`→ok, `/api/businesses/search?lat=40.7308&lng=-73.9973&q=coffee`
-→ ~19 gemini-classified independents. Caveat: ONLINE=true → live Google+Gemini
-each search (20/day Gemini quota); warmed-cache hits + 30-day verdicts mitigate.
+Files (repo root unless noted): `vercel.json` (framework vite; buildCommand `cd
+frontend && npm install && npm run build`; outputDirectory `frontend/dist`;
+function `api/index.py` maxDuration 300, includeFiles `backend/app/**`; rewrites
+`/api/(.*)→/api/index` then SPA `/(.*)→/index.html`); `api/index.py` (ASGI: inserts
+`backend/` on sys.path, parent `FastAPI()` mounts backend at `/api`, no Mangum);
+`requirements.txt` (root prod subset — `psycopg 3.2.13`, `pydantic 2.13.4`,
+`bcrypt 5.0.0` bumped for Vercel's Python-3.14 wheels; mirrored in
+`backend/requirements.txt` + venv); `.vercelignore` (ships `backend/app/cache`
+warm data); `frontend/.env.production` (`VITE_API_BASE_URL=/api` same-origin — the
+Maps + OAuth public keys are injected as Vercel build env vars, not committed);
+`backend/app/db/connection.py` (pool min 0 / max 4). Smoke (public prod): `/`→200,
+`/api/health`→ok, `/api/businesses/search?...&q=coffee` → gemini-classified
+independents.
 
 ## 4. Backend map (every module, one line)
 
 - `app/main.py` — app factory; CORS; slowapi handler; global exception handler
   (clean 500, logs traceback); lifespan closes pool; routers: auth, businesses,
-  reviews, favorites, deals, ai, analytics, recommendations, trips, **visits,
-  passport** (Verified Visits, §12). `/health` no DB.
+  reviews, favorites, deals, ai, analytics, recommendations, trips, visits,
+  passport. `/health` no DB.
 - `app/config.py` — pydantic-settings `settings`; ONLINE master offline switch;
-  tolerant defaults; LLM_* model names incl. `llm_classify_model`.
+  Verified-Visits §15 block; **`google_oauth_client_id`** (Sign-In audience);
+  LLM_* model names.
 - `db/connection.py` — psycopg3 ThreadedPool (0–4, dict_row, prepare_threshold
-  =None for the Supabase pooler, connect_timeout=10, **check=check_connection +
-  max_idle=240** ← stale-conn fix); `transaction()`, `query()`.
-- `db/schema.sql` — idempotent DDL; `CREATE EXTENSION vector`; chain_registry
-  table; photo_focus_x/y (additive ALTER too); CHECKs double as semantic validation.
-- `db/seed.sql` — see §3; references by name/username sub-selects.
-- `db/migrate.py` — schema; seeds if empty; `--reseed` truncates seed tables;
-  `--fresh` drops all public tables; **idempotently seeds 509 curated brands → chain_registry** (live table reaches **2,383** with the curated bulk import + AI-learned chains; cite 2,383 everywhere user-facing).
-- `db/enrich.py` — pass1 photos (Places text-search, accent-fold name guard,
-  40/46, 6 monogram placeholders); pass2 embeddings (46/46); pass3 photo focal
-  points (Pillow, `_download_photo` resolves proxy via fetch_photo_uri, 41/41).
-- `db/harvest.py` — ~1008 location tests (72 metros × 14 chain-prone queries)
-  to pre-grow the registry; city-level batching (~150 LLM calls), paced (7s),
-  429 retries, flash-lite bucket, 75s timeout. Resumable/idempotent. **Stalled
-  at city 2 on the 20/day quota** — re-run after billing or drip across days.
-- `db/import_chains.py` — bulk-import a curated chain markdown (`- Name` bullets
-  under `## headers`) into the registry, NO API use; normalizes+dedupes,
-  source='seed' (fuzzy), prints single-word names for an ambiguity eyeball pass.
-- `cache/warm.py` — warms the demo flow: DEMO_QUERIES + DEMO_CATEGORIES (6 chip
-  browses) + geocodes + 2 vibe (gemb: embeds) + 1 trip plan, for NYC +
-  EXTRA_DEMO_CITIES=[San Antonio]. Chain-name queries (starbucks) print
-  "0 — chains filtered (expected)". Last run 37/37.
-- `middleware/security.py` — bcrypt(12), JWT HS256 7-day, current_user/optional_user.
-- `middleware/rate_limit.py` — slowapi by IP: AUTH 20/15min (looser than the
-  5-attempt lockout so the lockout is demoable), SEARCH 30/min, GENERAL 100/15min.
-- `repositories/` (ALL SQL): users, businesses (canonical SELECT incl.
-  photo_focus_x/y; create one-txn; log_view; set_photo/set_embedding/
-  set_photo_focus; embedding_doc_rows; vibe_search via `<=>`), reviews
-  (CRUD + `_recompute` + trust ±10 + reply upsert/delete + list_for_user),
-  favorites (`(xmax=0)` +2-once), deals (race-proof `SELECT…FOR UPDATE` redeem,
-  proven 8 threads vs cap 3 → 3), chat, trips (JSONB snapshots), **chains
-  (list_all, add_chains[llm], add_chains_seed[seed], shared `_insert`)**.
-- `services/`: **brands** (509-brand seed set + `match_against(name, set, fuzzy=)`
-  + AMBIGUOUS_BRANDS guard), **chain_registry** (§6), **classifier** (§6),
-  ranker (§6), intent (keyword 8-intent), **llm** (OpenAI-compat httpx; default
-  9s timeout + `timeout` override; **reasoning_effort:"none" only to googleapis**;
-  classify_intent, generate_reply, summarize_reviews, generate_trip_narrative,
-  **classify_chains** + `_CLASSIFY_PROMPT`, **interpret_trip_goals** +
-  `_GOALS_PROMPT` [free-text day → {interests, keep_close, summary}, temp 0]),
-  embeddings (batched 768-dim),
-  **places** (§5; Places New; search_text PAGINATED, search_nearby DISTANCE-
-  ranked; `_TYPE_TO_CHIPS`/`_chip_categories`/`_CHIP_TO_QUERY`/`chip_query`;
-  ONLINE=false reads stale cache), places_cache (sha1 JSON files),
-  **search_service** (§5), concierge (LLM intent → deterministic rank → LLM
-  reply, template fallback, `mode`), analytics (7 metrics + funnel),
-  recommendations (content-based 0.5/0.3/0.2 + reason strings), reviews_service
-  (reply auth + cached get_summary), **trip_planner** (§6), auth_service,
-  deals_service (verify_code; not-my-business→not_found), **photo_focus** (§6).
-  **detector.py DELETED** (2026-06-11).
-- `routers/` (thin): `auth.py` manual `_parse_body` (slowapi hides the signature
-  — keep). businesses.py route order: `/search`, `/categories`, `/vibe`, `/mine`,
-  `/geocode`, `POST ""`, `PATCH /{id}`, `/{id}/summary`, `/{ref}/signals`, then
-  catch-all `/{ref}` LAST. /search + /vibe take the same filter params.
-- `tests/` — **test_classifier.py** (registry fuzzy vs exact, recall harness over
-  labeled_businesses.json [156 rows, floors recall ≥0.80 / FP 0, measured
-  0.849/0], annotate orchestration w/ canned llm_fn, classify_chains parsing,
-  min-10 ladder, **local-backbone-no-leak + shows-within-radius**),
-  **test_search_breadth.py** (chip_query completeness, format_place chip mapping,
-  _passes_filters token rules, deepen-before-widen + page-settle spy, category-
-  browse per-chip + multi-select + early-exit, expanded NEARBY_TYPES),
-  **test_ranker.py** (+ `driving_km` circuity + calibrated proximity),
-  **test_trip_planner.py** (multi-option distinctness; goal-parsing meal guard +
-  keyword fallback + emphasis; **realism guards: meal/bar time-windows, 9pm
-  cutoff, walk-leg cap, single-interest fills, meals capped**),
-  **tests/realism_audit.py** (non-pytest 104-scenario realism harness, re-runnable
-  via `PYTHONPATH=. .venv/bin/python tests/realism_audit.py`). **+ Verified Visits
-  suites** (test_geofence, test_antiabuse, test_visits_service, test_review_link,
-  test_qr, test_passport, test_review_trust — see §12). **110 pytest green.**
+  =None for the Supabase pooler, check + max_idle=240); `transaction()`, `query()`.
+- `db/schema.sql` — idempotent DDL; `CREATE EXTENSION vector`; chain_registry;
+  Verified-Visits tables (§12); **`users` made `password_hash` nullable + `auth_provider`
+  + `oauth_sub`** (Google Sign-In, §13); **`trips.share_token` + unique index**
+  (share link, §14); additive `ALTER … IF NOT EXISTS` throughout; CHECKs = semantic
+  validation.
+- `db/seed.sql` — see §3. `db/migrate.py` — schema; seeds if empty; `--reseed`/
+  `--fresh`; idempotently seeds curated brands → registry (live **2,383**) +
+  Verified-Visits demo (flagship reviews + verified visits).
+- `db/enrich.py` (photos + embeddings + focal points), `db/harvest.py` (registry
+  growth, stalled on quota), `db/import_chains.py` (bulk registry import, no API),
+  `db/purge_checkpoints.py` (privacy: purge raw visit checkpoints past retention),
+  `cache/warm.py` (warms demo flow; the trip-plan warm call uses the new
+  start/end/num_stops signature).
+- `middleware/security.py` — bcrypt(12), JWT HS256 7-day, current_user/optional_user
+  (the planner's `/trips/plan` uses `optional_user` so it personalises when signed
+  in, stays anonymous otherwise).
+- `middleware/rate_limit.py` — slowapi by IP: AUTH 20/15min, SEARCH 30/min,
+  GENERAL 100/15min.
+- `repositories/` (ALL SQL): users (+ `get_by_oauth_sub`/`create_oauth_user`/
+  `link_oauth` for Sign-In; + `hours_for_ids` batch + `place_ids_to_local_ids`
+  batch for the planner), businesses, reviews, favorites, deals (+
+  `list_active_for_businesses` batch), chat, **trips** (JSONB snapshots; +
+  `set_share_token`/`get_by_share_token`), visits, chains.
+- `services/`: brands, chain_registry, classifier, ranker, intent, **llm**
+  (OpenAI-compat httpx; `interpret_trip_goals` now also returns a chronological
+  `sequence`, §14), embeddings, **places** (§5; `_chip_categories` Retail fix;
+  `_CHIP_TO_QUERY["Retail"]`="clothing store"), places_cache, **search_service**
+  (§5; `open_at(hours,weekday,minute)` reusable open-check; price filter keeps
+  price-UNKNOWN businesses), concierge, analytics, recommendations, reviews_service,
+  **trip_planner** (§14 — heavily extended), **trip_export** (hand-rolled `.ics`),
+  **google_oauth** (verify a Google ID token via Google's `tokeninfo` + audience/
+  email-verified checks, §13), auth_service (+ `google_login`), deals_service,
+  photo_focus, geofence/antiabuse/qr/qr_service/visits_service/events/passport/
+  review_trust (Verified Visits, §12).
+- `routers/` (thin): auth (`/auth/google`), businesses, reviews, **trips**
+  (`/plan` [optional_user], `/retime`, save/list/delete, `/{id}/share`,
+  `/share/{token}`, `/share/{token}.ics`), visits, passport, etc.
+- `tests/` — **154 pytest green.** Highlights: test_classifier, test_search_breadth,
+  test_ranker, **test_trip_planner** (multi-option, goal-parsing, realism guards,
+  knobs, sequence, open-on-arrival, edit/retime, deals/favourites, bug-fix
+  regressions), **test_open_at** (open-at-a-time helper), **test_ics** (.ics format),
+  **test_price_filter** (price filter keeps unknowns), **test_google_auth** (Sign-In
+  find/link/create + bad token), Verified-Visits suites (geofence/antiabuse/visits/
+  review_link/qr/passport/review_trust), `tests/realism_audit.py` (non-pytest
+  104-scenario harness).
 
 ## 5. Search behavior (current — IMPORTANT)
 
 `search_service.search(params)` — **chains hidden on EVERY search, no toggle**:
+local backbone (seeded rows, query/semantic-filtered, capped at the REQUESTED
+radius) + a Google layer that branches three ways (`q`→paginated text;
+`categories`→per-chip text; pure browse→`search_nearby` DISTANCE-ranked), each
+Google batch run through `classifier.annotate()` (registry → 30-day verdict cache
+→ ONE batched Gemini audit; uncertain→show as likely_local). Deepen-before-widen
+ladder (MIN 10, MAX_PAGES 3, RADIUS_LADDER 20k/50k).
 
-1. **Local backbone** (seeded/owner rows): query-filtered when `q` (keyword
-   `_matches_query` ≥3-char tokens + ONE gated semantic pass `_semantic_local_
-   matches`, multi-word only, cosine ≥0.50, ≤8 rows). Local rows SKIP the
-   classifier (owner-accountable = small; verdict_source='local-owner') and are
-   **capped at the user's REQUESTED radius** (not the widened one) — so the fixed
-   NYC seed cluster can't flood a search 28 km away (Glen Rock fix, 2026-06-13).
+**`_passes_filters`** — radius cap; **category = token-SUBSET containment**
+("Restaurant"⊆"Mexican Restaurant", "Coffee"⊆"Coffee Shop", "Bar"≠"Barber");
+min_rating; **price (FIXED 2026-06-21): a price filter excludes only businesses
+whose KNOWN price_level is out of range — price-UNKNOWN spots (price_level None)
+are KEPT.** Most small independents carry no price data, so the old "exclude
+unknowns" behaviour hid every independent and surfaced only the chains that had
+explicit prices (the budget→2-stops + chains-appearing bug, §14); open_now;
+structural `is_independent is False → drop`. Sort via ranker; cap 40.
 
-2. **Google layer** branches three ways:
-   - **`q` present** → paginated `places.search_text` (deepen-before-widen, below).
-   - **`categories` present, no `q`** (chip browse) → for EACH selected chip,
-     `places.chip_query(chip)` → paginated text search via the same `_deepen_text`
-     closure (shared `seen` dedupes multi-select; early-exit at MIN_SMALL_RESULTS).
-   - **pure browse** (no q, no chip) → ONE `places.search_nearby` per radius,
-     `rankPreference: DISTANCE` (nearest-first, not prominence — surfaces local
-     independents not big chains), over an expanded ~20-type customer-facing list.
-   Every Google batch → `classifier.annotate()`: registry drop (free) →
-   `verdict:{place_id}` cache (30-day) → ONE batched `classify_chains`; small→keep
-   (verified_local, conf .9, cached); chain→drop+cache + **registry writeback only
-   if confidence=="high"**; LLM-fail/missing-id → PASS likely_local conf .5
-   verdict_source='unverified-offline', NOT cached.
+**Retail category fix (committed):** `_CHIP_TO_QUERY["Retail"]` queries
+**"clothing store"** (not the generic "shop"), and `_chip_categories` promotes a
+generic shop signal (bare `store` type, or an unmapped `*_shop`/`*_store`) to
+**Retail ONLY when Google found no more-specific category** — so bagel shops,
+bakeries, and bookstores stop landing in the clothing-store slot.
 
-3. **Deepen-before-widen ladder** (text/chip search): consts MIN_SMALL_RESULTS=10,
-   MAX_PAGES=3, PAGE_SETTLE_S=2.0, RADIUS_LADDER_M=(20k,50k). Per radius, page
-   0..2 (one Gemini batch/page, `await asyncio.sleep` only between LIVE pages,
-   cache per page `text:…:p{page}` w/ page-0 legacy-key fallback), break at ≥10;
-   only WIDEN radius if pages exhausted. `_passes_filters(b, p, effective_radius_m)`
-   (local rows use `p.radius_m`, Google uses effective). Response carries
-   `radius_used_km` + `radius_expanded` (UI "Widened the search to X km…").
+`open_at(hours, weekday, minute_of_day)` — reusable pure helper (0=Sun..6=Sat,
+"HH:MM:SS" parse, overnight-span aware). `_open_now` is now a thin caller; the trip
+planner reuses it for the open-on-arrival check (§14).
 
-4. **Filters** (`_passes_filters`): radius cap; **category = token-SUBSET
-   containment** (chip tokens ⊆ some category's tokens — "Restaurant"⊆"Mexican
-   Restaurant", "Coffee"⊆"Coffee Shop", but "Bar"≠"Barber"); min_rating; price;
-   open_now; structural `is_independent is False → drop`. Sort via ranker; cap 40.
+`vibe_search`, `GET /businesses/{ref}/signals` (glass-box provenance), `/{id}/summary`
+— unchanged.
 
-`format_place` (places.py): Google `primaryType`/`types` → chip-aligned
-`categories` (via `_TYPE_TO_CHIPS` + `*_restaurant`/`*store`/`*shop` fallbacks)
-THEN the specific cuisine label; raw `primary_type` kept for classifier/vibe.
-
-`vibe_search(q, lat, lng, filters=)` — embed once → (a) curated pgvector index
-within **VIBE_LOCAL_RANGE_KM=40**; (b) live Google text, branch-deduped,
-`_VIBE_EXCLUDED_TYPES` drops landmark POIs (church/park/museum/…), classified,
-embedded on the fly (batched, cached `gemb:{place_id}`), cosine; merge, apply
-`_passes_filters` (same FilterBar params as /search) BEFORE top-10, sort by
-similarity. Offline → `{"available": false}` → calm UI notice.
-
-`GET /businesses/{ref}/signals` — provenance payload {verdict, is_small, source:
-known-registry|gemini|local-owner|unverified-offline, reason, confidence,
-checks: [{step, outcome, detail}×4]}. `/{id}/summary` — cached LLM review digest.
-
-Measured live: cold "coffee" ~6s (1 LLM batch), repeat 0.64s; "starbucks" → 0;
-SA every category chip 11–21; Glen Rock pure browse 20 @0.6–0.9 km (no seed);
-rural KS pharmacy 9 @50 km (widened, honest).
-
-## 6. Algorithms & tunables (single source of truth)
+## 6. Algorithms & tunables (chain filter, ranker, trust)
 
 **Chain filter** (`classifier.py` + `chain_registry.py` + `repositories/chains.py`):
-- **chain_registry table**: normalized_name UNIQUE, display_name, source CHECK
-  ('seed','llm'), reason, created_at. Seed inserted idempotently at migrate.
-- **Matching** (`brands.match_against`): seed rows 4-pass FUZZY (exact →
-  apostrophe-collapse → ≤3-word prefix w/ AMBIGUOUS_BRANDS guard); **llm rows
-  EXACT-normalized only** (a learned "joe's pizza" can't swallow look-alikes).
-- **chain_registry service**: module state, `load()` 600s TTL, DB-failure →
-  in-memory CHAIN_BRANDS, `_set_state_for_tests` seam; `match()`, `record_llm_chains`.
-- **classifier.annotate(candidates, llm_fn=None)**: see §5. CONFIRMED_CONFIDENCE
-  =0.90, UNVERIFIED_CONFIDENCE=0.50, VERDICT_TTL_S=30d. Also `verdict_for_local`,
-  `classify_one` (/signals, never drops).
-- **`llm._CLASSIFY_PROMPT`**: chain = corporate/franchise/national-regional/
-  big-box/banks/VC-multi-city; small = locally-owned incl. handful-of-locations-
-  one-city (Joe's Pizza + Levain few-shot anchors); rule 4 = IF UNSURE → "small";
-  confidence "high" only on positive recognition; strict JSON id→{verdict,
-  confidence, reason}. `classify_chains(rows, model=, timeout=)` tolerant parse,
-  max_tokens=min(8192, 300+110/row).
-- **Measured claim**: registry layer over the 156-row set = recall 0.849 (62/73),
-  FP 0; CI floors recall ≥0.80, FP==0. The misses are the Gemini layer's job —
-  validated behaviorally with canned responses, never quoted as a %.
+chain_registry table (normalized_name UNIQUE, source seed/llm); `brands.match_against`
+(seed rows 4-pass FUZZY w/ AMBIGUOUS_BRANDS guard; llm rows EXACT-normalized only);
+`classifier.annotate` (registry → 30-day verdict cache → ONE batched `classify_chains`;
+small→keep verified_local .9; chain→drop+cache + registry writeback only if
+confidence "high"; LLM-fail→likely_local .5 NOT cached). Measured registry recall
+0.849 / FP 0 on its 156-row set (CI floors ≥0.80 / FP 0); the Gemini layer's misses
+are validated behaviorally, never quoted as a %.
 
-**Ranker** — bayes `(n·avg+m·C)/(n+m)` C=3.7 m=15. **Distance shown/sorted/ranked
-is a DRIVING estimate** (2026-06-16): `driving_km = haversine × CIRCUITY_FACTOR=1.4`
-(`ranker.driving_km`) — the "X km away" label, sort-by-distance, and the best_match
-closeness term all use it; candidate-radius caps stay straight-line (distance_km÷1.4
-in `_passes_filters` + vibe-range). Gaussian distance **σ=2.8 driving-km** (= old 2.0
-× the circuity factor, so the proximity curve stays calibrated; a uniform factor →
-sort order unchanged). DEFAULT_WEIGHTS {distance .25, rating .22, review_count .13, independence .14,
-customer_facing .06, price_fit .08, category_match .07, open_status .05};
-INTENT_MULTIPLIERS {CHEAP_BUDGET price×4, NEARBY distance×3.5, HIGHLY_RATED
-rating×3+reviews×2.5, SPECIFIC category×4, OPEN_NOW open×5+distance×1.5,
-SUPPORT_LOCAL independence×4, EXPLORATORY independence×1.5}; renormalized.
+**Ranker** — bayes `(n·avg+m·C)/(n+m)` C=3.7 m=15. **Distance shown/sorted is a
+DRIVING estimate** `driving_km = haversine × CIRCUITY_FACTOR=1.4`; candidate-radius
+caps stay straight-line; Gaussian σ=2.8 driving-km. DEFAULT_WEIGHTS + INTENT_MULTIPLIERS
+unchanged.
 
-**Trust** (same-txn, floored 0): review +10 (−10 on delete), redemption +5,
-favorite +2/−2 (+2 only on real INSERT via `xmax=0`). Level = score//50 + 1.
+**Trust** (same-txn, floored 0): review +10/−10, redemption +5, favorite +2/−2,
+**verified visit +5** (§12). Level = score//50 + 1.
 
-**Trip planner** (`trip_planner.py`, REBUILT 2026-06-13) — interest-driven, not a
-fixed template:
-- `CHIP_SLOTS`: each interest chip → {cats to fetch, role, dwell, chronological
-  rank}. Coffee→coffee(45,1), Bookstore→browse(40,2), Retail→shop(40,2),
-  Grocery→market(30,2), Restaurant→eat(75,3), Dessert→dessert(30,4), Bar→drinks(60,5).
-- `_plan_chips(duration, interests)`: interests in PRIORITY order; pads to
-  TARGET_STOPS {quick3, half4, full6} by giving the FIRST/most-emphasised kind the
-  extra stops ("long shopping" → 2 shop in a quick day), every other kind capped at
-  MAX_PER_CHIP; ordered by rank (morning→evening). **No kind the user didn't ask
-  for is injected — a meal is NOT force-anchored** (2026-06-15 fix). Only with ZERO
-  interests does it fall back to a balanced DEFAULT_CHIPS=[Coffee,Restaurant,
-  Dessert,Bookstore,Bar] day (which DOES include a meal).
-- `_fetch_pools`: ONE category-driven `search()` PER distinct kind (reuses chip
-  browse) → guarantees no empty slot for lack of nearby coffee/bar.
-- `_build_stops(…, duration, strategy, avoid)`: greedy kind-by-kind, score =
-  `prox_w·proximity(σ) + (1−prox_w)·bayes`; `avoid` (earlier options' picks)
-  ×NOVELTY_PENALTY=0.2 so options diverge yet a sparse area can still reuse. Each
-  stop labelled by the POOL it came from; a thin kind borrows from the user's
-  OTHER kinds (least-used role first). **REALISM GUARDS (2026-06-19, from a
-  100-scenario audit):** (a) **walk-leg cap MAX_LEG_KM=1.5** — pick the best
-  candidate within a short walk; only a genuinely scattered area falls back to the
-  nearest (never a hole). (b) **Per-role cap = what the PLAN asked for** (a
-  "shopping day" really fills with shops — replaces the old flat MAX_PER_ROLE=2
-  that truncated single-interest days), but meals/desserts/bars stay capped low via
-  **ROLE_MAX {eat,dessert,drinks: 2}** (no 3-restaurant day). (c) **Time-of-day
-  gating ROLE_EARLIEST_MIN {eat 11:00, drinks 16:00, dessert 11:30}** — hold for the
-  window, but only up to **MAX_WAIT_MIN=180** (an 8am coffee day SKIPS a 4pm bar
-  instead of idling for it). (d) **DAY_END_MIN=21:00 cutoff + active-time budget
-  DAY_BUDGET_MIN {quick240/half360/full540}** → never past 9pm, never past midnight,
-  never absurdly long. Clock is absolute minutes now (kills the old silent
-  rollover). **WALK 13 min/km** (leisure pace).
-- **Multiple options** (2026-06-13): `plan()` returns `options[]`, one per
-  `STRATEGIES` shape — `best`(prox_w .60/σ1.2), `rated`(.35/σ1.6),
-  `walk`(.85/σ0.8). Pools fetched ONCE and reused (no extra Google/Gemini);
-  each option `avoid`s accepted earlier options' refs; identical stop-sets are
-  collapsed (sparse areas → fewer options). Only `options[0]` is LLM-narrated
-  (1 call — quota guard); rest are templated. Each option = {key, label, stops,
-  total_walk_km, narrative, mode}.
-- **Describe-your-day goals** (2026-06-15): `plan(goals=…)` sends the free text to
-  `llm.interpret_trip_goals` (Gemini, temp 0; sharpened prompt: emphasis from
-  QUANTITY words not sentence order, NO phantom meal). If the LLM is offline/quota,
-  a deterministic `_keyword_interpret` (keyword→chip + emphasis from adjacent
-  more/less words) shapes the day so a typed description is never dropped for the
-  default. A **meal guard** (`_mentions_food`) removes a goals-derived `Restaurant`
-  unless the text actually mentions food — fixes "quick coffee long shopping"
-  wrongly adding a restaurant. Returns `interpretation` {interests, keep_close,
-  summary} for the UI banner; keep_close halves the radius; summary frames option 0.
-- Routes: POST /trips/plan (→ {options, interpretation, duration, interests,
-  start}), POST
-  /trips (save snapshot of the SELECTED option's stops), GET /trips, DELETE
-  /trips/{id}. Frontend `Plan.tsx` shows option tabs (label · N stops · km ·
-  name preview); selected option drives the timeline + map; save records
-  `params.option`.
-- AUDIT (2026-06-19): a deterministic 104-scenario harness (`tests/realism_audit.py`)
-  scored each itinerary vs a realism checklist; the guards above drove time-of-day
-  violations (meals-before-11, bars-before-4, after-9:30, midnight, over-budget) to
-  **0**, and walk violations to **0% dense / 13% mixed / 88% scattered** (the
-  residual is genuine geography — far-apart candidates, nearest-fallback; the NYC
-  demo is dense). Still per-stop time-WINDOWS, not per-business hours; up to ~5
-  category searches/plan (cache/warm mitigates quota).
-
-**Smart photo crop** (`photo_focus.py`) — grayscale → downscale 160px →
-FIND_EDGES → 10×10 grid of SQUARED edge energy → energy-weighted centroid,
-clamped 20–80 → photo_focus_x/y (0–100). BizImage applies `object-position`
-(default 50/50; Google results None).
-
-**Embeddings** — `gemini-embedding-001` @768 (**text-embedding-004 RETIRED →
-404; do not regress**). Batched = one call; cosine scale-invariant.
-
-**Analytics** — ALL_METRICS {summary, rating_distribution, reviews_trend, deals,
-redemptions_trend, views_trend, funnel}; `from`/`to` aliased query params
-(from is a keyword); owner-or-admin only (403); funnel % step + end-to-end.
+(The **trip planner** algorithm is large and now its own section — see §14.)
 
 ## 7. Frontend map
 
-**Routes:** `/` **Discover** (NEW editorial homepage — hero mission + search w/
-Classic|✦Vibe → routes to `/search?q=…&kind=`; "Browse by category" tile grid
-w/ CategoryIcon → `/search?cat=Name`; "Featured near you"/"For you" photo cards
-[forYou if signed in, else nearby browse]; deals strip; Plan-a-day CTA),
-`/search` **Search** (FilterBar URL-synced — NO independent-only / NO vs-Google
-toggle; Classic|✦Vibe w/ similarity chips + offline notice; radius-widened
-notice; For-you strip; LocationControl; results↔map hover sync; reads `?kind=`),
-`/business/:ref` Detail (hero BizImage, badges, **VerdictBreakdown** glass-box
-[verdict + source chip + 4-step trail], AI summary pull-quote, hours, deals +
-redeem, reviews CRUD + helpful + owner replies, **+ a single-business Location
-map** [reuses MapView, zoom 16, unlabeled pin; UNCOMMITTED]), `/favorites`, `/deals`,
-`/plan` ("describe your ideal day" textarea + or-tap category chips + duration
-cards + start time → multi-option day; option tabs; "From your description"
-interpretation banner; timeline + numbered-pin map + ✦/⚙ narration; save/delete),
-`/profile`, `/login`, `/register`, owner:
-`/owner` Dashboard (selector, date range, 7-metric multi-select, stat cards +
-FunnelChart + HTML-flex Bar/TrendChart, CSV/print, edit links), `/owner/
-add-business`, `/owner/edit/:id`, `/owner/post-deal`, `/owner/verify` (cashier).
-**Header:** the L-logo mark + LocalLens lockup; full nav at ≥md, a hamburger →
-full-screen **MobileMenu** overlay below md; favicon/apple-touch/og/theme-color
-wired in index.html.
+**Routes:** `/` Discover (editorial homepage), `/search` Search (FilterBar URL-
+synced, Classic|✦Vibe, List|Map toggle below lg), `/business/:ref` Detail (hero,
+VerdictBreakdown glass-box, AI summary, hours, deals, reviews CRUD + owner replies,
+single-business Location map, **Verified-Visits check-in + two-tier rating toggle**,
+§12), `/favorites`, `/deals`, **`/plan`** (Trip Planner v2 — §14: description
+textarea + category chips + **separate Start / End / Stops** + a collapsible
+**Fine-tune** panel [Who's it for / Occasion / Pace / Budget / Which day] + 3 option
+tabs + an **editable** timeline [swap/lock/remove/▲▼/stay −+/add] + deal & favorite
+& open-on-arrival badges + "kept local" estimate + Save), **`/trip/shared/:token`**
+(public read-only shared day + Add-to-calendar, §14), `/passport` (Verified-Visits
+passport, §12), `/profile`, **`/login`/`/register`** (email/password **+ "Continue
+with Google"**, §13), owner (`/owner`, `/owner/edit/:id`, `/owner/post-deal`,
+`/owner/verify`, **`/owner/checkin-code`** kiosk). **Header:** L-logo lockup + nav
+at ≥md, hamburger→MobileMenu below md.
 
-**Components:** ui.tsx (StarRating, PriceLevel, LocalBadge, OpenBadge, Skeleton,
-EmptyState, **BizImage** w/ monogram fallback + focusX/Y object-position),
-BusinessCard, **CategoryIcon** (16 hand-drawn line glyphs), MapView (@vis.gl/
-react-google-maps, mapId="DEMO_MAP_ID", badge-colored numbered AdvancedMarkers,
-hover sync, **PanToCenter** child re-centers on location change, ColorScheme by
-theme), ConciergeWidget (FAB, ✦/⚙ chip), VerdictBreakdown, charts.tsx (HTML
-flex), LocationControl (geocode/device/NYC-reset; localStorage; event), **Header** (logo
-lockup + ThemeToggle + animated underline at ≥md, else hamburger), **MobileMenu**
-(full-screen overlay; focus-trap/Esc/scroll-lock; motion/react), **MapListToggle**
-(mobile List|Map switch on Search/Plan), **navLinks**/**ThemeToggle** (shared),
-**ScrollProgress** (top reading bar), ErrorBoundary, Reveal (MotionConfig
-reducedMotion="user").
-Cards/tiles have hover lift + image-zoom (`shadow-lift` token). **A full awwwards
-UI revamp (Space Grotesk + spark accent, OverlayMenu, full-bleed hero, SplitText/
-Marquee, PageTransition, Footer, custom cursor, Loader) was built then REVERTED —
-it lives in `git stash@{0}`; only the scroll bar + hovers were kept.**
+**Components:** ui.tsx (StarRating, PriceLevel, LocalBadge, OpenBadge, BizImage),
+BusinessCard, CategoryIcon, MapView (@vis.gl/react-google-maps; + geofence ring +
+user pin for check-in, + numbered pins for the planner), ConciergeWidget,
+VerdictBreakdown, charts.tsx, LocationControl, Header/MobileMenu/MapListToggle/
+navLinks/ThemeToggle/ScrollProgress/ErrorBoundary/Reveal, **CheckInFlow /
+VerifiedRating / TrustAdjustedRating / Passport / CheckinKiosk** (Verified Visits,
+§12), **GoogleSignInButton** (loads Google Identity Services on demand; renders
+nothing if unconfigured/unreachable so email/password is always the fallback, §13),
+**SharedTrip** (public shared-day page, §14). The Plan page's `Segmented` pill row
+is reused for all the Fine-tune knobs.
 
-**lib/:** api.ts (typed client, 15s timeout, ApiError w/ 422 extraction,
-tokenStore, photoSrc(); groups authApi/businessApi[.vibe(params)/.summary/
-.signals→ClassifierVerdict/.geocode]/reviewApi/favoriteApi/dealApi/aiApi/
-ownerApi/recommendApi/tripApi), auth.tsx, location.ts (manual>device>demo),
-**theme.ts** (light/dark; localStorage `locallens_theme`; useTheme), usePageTitle.
+**Design (Indigo · NEW fonts 2026-06-21):** tokens.css + tailwind — cream #FBF7F0,
+surface #FEFCF8, ink #1F1B16/#5A5247, accent-600 #2E5C8A / accent-700 #21436B,
+verified #4F6B4A, likely #7D9477, chain #9A958C, border #E8E0D4. **Typography is now
+`--font-display: "Space Grotesk"` (headings) + `--font-body: "IBM Plex Sans"` (body)**
+— REPLACED Playfair Display / Lora; the `font-serif` Tailwind utility is the historic
+name for the body slot (now a sans stack); `index.html` preloads only these two; the
+Tailwind fallbacks are `system-ui, sans-serif`. Dark mode `:root[data-theme="dark"]`,
+pre-paint script, sun/moon toggle, AA-checked. Fully mobile-responsive; no horizontal
+overflow (`overflow-x:clip` backstop + `min-w-0` grid items). A full awwwards revamp
+was built then REVERTED → `git stash@{0}`.
 
-**Design (Indigo · Playfair, picked 2026-06-11):** tokens.css + tailwind —
-cream #FBF7F0, surface #FEFCF8, ink #1F1B16/#5A5247, **accent-600 #2E5C8A /
-accent-700 #21436B (deep indigo; ALL rust-* renamed accent-*)**, verified
-#4F6B4A, likely #7D9477, chain #9A958C, border #E8E0D4; **Playfair Display /
-Lora** via --font-display/--font-body; mono codes; paper-grain on body::before;
-prefers-reduced-motion kills animation; focus-visible accent ring. NO gradients.
-**Dark mode**: `:root[data-theme="dark"]` — canvas #1E1914, surface #272118, ink
-#EDE5D8/#A89D8C, accent 600 #5B86B5 / 700 #8FB4DC, all AA-checked; pre-paint
-script in index.html; sun/moon toggle; map remounts ColorScheme; grain inverts.
-Container `.container-page` max-w 88rem (mobile gutter 1rem → 1.5rem at sm). **Fully
-mobile-responsive (2026-06-16):** hamburger → overlay nav below md; Search/Plan
-collapse the side-by-side `1fr_1.3fr` map to a **List|Map toggle** below lg (the map
-is keyed by view so it never reveals grey); forms stack; touch targets ≥40px; owner
-dashboard table scroll-wraps; homepage hero/featured tuned for phones. **No
-horizontal overflow on any page** — a global `overflow-x:clip` backstop on the app
-shell + an `img,svg{max-width:100%}` base rule, plus `min-w-0` on the single-column
-grid items that were the root cause. Card distance reads as the **driving estimate**.
+**lib/:** api.ts (typed client; **15s default request timeout with a per-call
+override — the trip plan gets 45s**; ApiError 422 extraction; tokenStore; groups
+authApi[+`.google`]/businessApi/reviewApi/favoriteApi/dealApi/aiApi/ownerApi/
+recommendApi/visitApi/passportApi/**tripApi**[+`.retime`/`.share`/`.sharedTrip`/
+`.icsUrl`]), auth.tsx (+ `loginWithGoogle`), location.ts, theme.ts, usePageTitle.
 
-**Tests:** 5 Vitest files (BusinessCard incl. object-position, FilterBar, charts,
-api, **VerifiedRating** [the trust toggle]) — **40 green**. (The design-look switcher [rust/indigo/grotesk] was a
-temporary exploration, then REMOVED — indigo promoted to base.)
+**Tests:** Vitest suite green (incl. VerifiedRating toggle); `npm run build` clean.
 
 ## 8. Working agreement (how the user wants work done)
 
-Build in **phases, one at a time**; after each STOP, report, prove the gate
-(boots, feature checks, tests green, **zero tracebacks**), and **wait for
-"proceed."** Zero-errors rule is sacred (live demo). Strict layering
-(routers→services→repositories; SQL only in repositories). Comment the WHY (the
-student defends every line in Q&A); prefer hand-rolled explainable code over deps
-(HTML charts, no chart lib). Secrets via env; **never commit .env; never git
-commit/push — user does that** after rotating credentials. Black + Prettier
-(run Prettier after bulk TSX edits). No dead code/TODOs. Leave servers RUNNING.
-For substantial/ambiguous work: Explore → Plan → confirm before building.
+Build in **phases, one at a time**; after each STOP, report, prove the gate (boots,
+feature checks, tests green, **zero tracebacks**), and **wait for "proceed."** Zero-
+errors rule is sacred (live demo). Strict layering (routers→services→repositories;
+SQL only in repositories). Comment the WHY (the student defends every line in Q&A);
+prefer hand-rolled explainable code over deps (HTML charts, hand-rolled `.ics`/TOTP,
+no chart/icalendar lib). Secrets via env; **never commit .env; never git commit/push
+— user does that** (push auto-deploys; do NOT run `vercel --prod`). Black + Prettier
+(run Prettier after bulk TSX edits). No dead code/TODOs. Leave servers RUNNING. For
+substantial/ambiguous work: Explore → Plan → confirm → build in gated phases.
 
 ## 9. Changelog (dated; newest last)
 
-- **BUILD_SPEC Phases 0–4** — skeleton; MVP (auth+lockout, search+map, reviews w/
-  transactional aggregates, dual-source favorites, race-proof deals, validation,
-  concierge); differentiators (ranker, Gemini concierge + fallback, glass-box);
-  owner side (forms + customizable report w/ CSV/print); polish (WCAG, motion,
-  error boundaries, timeouts, warmer, 4 docs).
-- **Expansion A–D** — schema v2 + 46-biz seed + photos + embeddings; cashier
-  verify-code, owner replies, views/funnel + FunnelChart, /owner/edit; trust
-  live, /profile, /recommendations, review summaries; vibe search, trip planner,
-  admin, stale-pool fix.
-- **Phase E** — dark mode; 33→34 Vitest; docs refresh; warmer; **ONLINE=false
-  reads stale cache**.
-- **Phase F** — smart photo cropping (Pillow focal points); vibe-filter fix
-  (excludes landmark POIs, takes FilterBar params); layout widening.
-- **2026-06-11 chain-filter rework** — SCRAPPED the 10-signal detector (deleted);
-  built registry + per-place cache + batched Gemini classifier + learning loop;
-  removed independent_only + vs-Google toggle; SignalBreakdown→VerdictBreakdown.
-- **2026-06-11 registry growth** — harvest.py (stalled on 20/day quota at city 2);
-  import_chains.py + user's 2,208-bullet markdown → **registry 2,383** (88 risky
-  single-word names flipped to exact-only). Design-look switcher explored then
-  removed → **Indigo · Playfair** base; rust-*→accent-* rename.
-- **2026-06-12 big-city breadth** — category exact-match → token-subset + Google-
-  type→chip mapping; search_text PAGINATED (deepen-before-widen to 60); SA
-  "restaurant"+filters 2→17.
-- **2026-06-12 category browsing** — chip browse now FETCHES the chip (`_CHIP_TO_
-  QUERY` + per-chip `_deepen_text`); expanded NEARBY_TYPES; SA every chip 0→11-21.
-- **2026-06-13 Glen Rock seed flood** — local rows capped at REQUESTED radius (no
-  NYC flood 28 km away); search_nearby `rankPreference: DISTANCE` (nearest local
-  independents). Glen Rock 40-seed-flood → 20 genuine @<1 km.
-- **2026-06-13 Discover homepage** — `/` = editorial landing, search results
-  moved to `/search`; CategoryIcon tiles; Featured/For-you; deals + Plan CTA.
-- **2026-06-13 trip planner rebuild** — interest-driven, per-category fetch,
-  MAX_PER_ROLE=2; Full day now 6 balanced stops, interests change the plan,
-  Grocery/Retail appear, no random florist.
-- **2026-06-13 trip planner — multiple options** — `plan()` returns 3 distinct
-  itineraries (Best overall / Top rated / Shortest walk), each made of different
-  businesses (NOVELTY_PENALTY) from ONE shared pool fetch; identical sets
-  collapsed; only the top option LLM-narrated (quota). `Plan.tsx` adds option
-  tabs. +5 backend tests (`test_trip_planner.py`); 48 backend / 34 Vitest green.
-- **2026-06-13 trip planner UI polish** — Plan page rebuilt as 3 guided steps
-  (duration / icon interest-chips / start-time + full-width CTA); option tabs
-  became selectable cards w/ plain-language taglines + ✓.
-- **2026-06-13 DEPLOYED to Vercel (v2 LIVE)** — all-on-serverless at
-  getlocallens.vercel.app (see §Deployment). ASGI mount-at-`/api`, no Mangum;
-  deps bumped for Python-3.14 wheels; warm cache shipped. Preview→prod gated;
-  public smoke test green (health, SPA, 19-result gemini search).
-- **2026-06-14 scroll bar + hover polish** — added a top ScrollProgress reading
-  bar + hover micro-interactions (card lift/zoom, category tiles, animated nav
-  underline) + a `shadow-lift` token, on the original design. Deployed to prod.
-- **2026-06-14 awwwards revamp built then PARKED** — a full editorial-bold
-  redesign (Space Grotesk + spark accent, OverlayMenu, full-bleed hero, SplitText/
-  Marquee, PageTransition, Footer, custom cursor, Loader) was implemented across
-  EVERY page (tsc + 34 Vitest green) then REVERTED per the user — now recoverable
-  in **`git stash@{0}`**. Only scroll bar + hovers were carried onto the original.
-- **2026-06-15 trip planner — describe-your-day** — free-text goals → Gemini
-  `interpret_trip_goals` + deterministic keyword fallback + a meal guard; sharpened
-  prompt (emphasis from quantity words, no phantom meal). Fixes "quick coffee long
-  shopping" → coffee+shopping, 0 food. Plan form redesigned (grouped "what you
-  want" vs settings, full-width CTA). +tests → **57 backend** / 34 Vitest.
-- **2026-06-15 vercel URL + commit/push** — v2 committed + pushed (HEAD `96c3a09`);
-  added the public PROJECT domain **getlocallens.vercel.app** (auto-follows prod;
-  fbla-2026-tan still live). **`FBLA_DECK_KIT.md`** authored = paste-ready 8-slide
-  FBLA deck + 4 separate SVG-diagram prompts for browser Claude (7-min: ~4 slides
-  + 3 demo), "white-with-flavor" design system. (Deck later → **9 slides** +
-  rendered to an editable PPTX.)
-- **2026-06-15 mobile-responsive overhaul** (`40b97d9`) — hamburger + full-screen
-  MobileMenu overlay (nav was unusable on phones); Search/Plan **List|Map toggle**
-  (map keyed by view → no grey reveal); ConciergeWidget/forms/dashboard/touch
-  targets made adaptive; verified 360–1280px via headless Chrome.
-- **2026-06-16 homepage mobile + nav breakpoint** (`300958a`) — Discover hero/
-  featured tuned for phones (2-line hero, 2-up featured); full nav returns at md
-  (tablets), @username chip hidden md–lg to fit.
-- **2026-06-16 zero horizontal overflow** (`92f8015`) — a puppeteer detector found
-  page-scroll on `/`, `/search`, `/owner/add-business` (CSS-grid items with
-  `min-width:auto`); fixed with `min-w-0` on the grid items + a global
-  `overflow-x:clip` backstop + `img/svg{max-width:100%}`; 0 elements past the
-  viewport at 360/390px.
-- **2026-06-16 driving distance** (`42de87a`) — search distance is now
-  `haversine × 1.4` circuity estimate (`ranker.driving_km`) on the "X km away"
-  label, sort, and best_match closeness; σ rescaled 2.0→2.8; radius caps stay
-  straight-line; the WALKING trip planner is untouched.
-- **2026-06-19 trip-planner realism** (`b391bd7`) — a 100-scenario audit found 8
-  unrealistic behaviours (9am lunches, 10am bars, 5km legs, midnight rollovers,
-  single-interest days truncated to 2 stops, …); fixed via walk-leg cap, per-role
-  caps from the plan + low meal/bar/dessert caps, time-of-day gating + 9pm cutoff
-  + active-time budget, slower pace. Time-of-day violations → **0**; +5 regression
-  tests; 64 green. Harness kept at `tests/realism_audit.py`.
-- **2026-06-19 the "L" logo** (`170d48b`) — blue "L" mark trimmed + placed left of
-  the wordmark (light/dark, mobile/desktop); first favicon/apple-touch/og-image/
-  theme-color, served from new `frontend/public/`.
-- **2026-06-19 single-business detail map** — `/business/:ref` now shows a Location
-  map of that one business (reuses MapView with new `zoom`/`ariaLabel` props + an
-  unlabeled single pin; responsive height; coord-guarded). **UNCOMMITTED.**
+(Pre-2026-06-19 history — MVP through the awwwards-revert, big-city breadth, Glen
+Rock seed-flood fix, Discover homepage, trip-planner rebuild + multi-option +
+describe-your-day, Vercel deploy, mobile-responsive, zero-overflow, driving-distance
+— condensed; see git log + prior doc revisions.)
 
-**REMAINING / suggested next:** **commit the single-business detail map** (the only
-uncommitted work); real-quota Gemini key (pre-competition #1 — prod runs
-ONLINE=true so live searches spend it); rotate the credentials in Vercel env +
-local `.env` before sharing the repo; remaining trip-planner ideas (per-BUSINESS
-hours awareness, a walking route line on the map, edit-a-stop, themed presets).
-**Deploy is DONE.** Re-deploy = `vercel --prod` from repo root (CLI authed);
-re-warm cache locally then redeploy to refresh demo data.
+- **2026-06-19 trip-planner realism** (`b391bd7`) — 100-scenario audit → walk-leg
+  cap, per-role caps, time-of-day windows + 9pm cutoff + active-time budget.
+- **2026-06-19 the "L" logo** (`170d48b`) — mark + favicon/apple-touch/og/theme-color.
+- **2026-06-20 Verified Visits** (`9ccea27`/`26f7bdf`) — proof-of-presence reviews:
+  GPS+dwell + rotating-QR check-in, two-tier rating toggle, passport, money-kept-
+  local, trust-weighted rating, materialize-on-write for any business. §12. (Later:
+  hid the public verification-strength number; moved the spend prompt into the review
+  composer.)
+- **2026-06-21 Google Sign-In** (`e5d617e`) — "Continue with Google" on Login/Register
+  via Google Identity Services → ID token verified server-side against Google's
+  `tokeninfo` (audience + email-verified), then find/link-by-email/create + our JWT.
+  Additive schema (nullable password_hash, auth_provider, oauth_sub). §13.
+- **2026-06-21 fonts + Trip Planner v2** (`66c94cf`) — (a) typography → **Space
+  Grotesk + IBM Plex Sans**; (b) Plan-a-day **separate Start/End/Stops** inputs
+  (replacing the duration preset); (c) parallelised per-category search (cold plan
+  ~26s→~5s); (d) the full **Trip Planner v2** feature set (§14): knobs
+  (audience/occasion/pace/budget + "kept local"), follow-described-order, open-on-
+  arrival badges, edit-in-place (swap/lock/remove/reorder/dwell via `/trips/retime`),
+  deals-on-route + favourites boost, public share link + `.ics` export; (e) the
+  Retail→clothing category fix. Built in 6 gated phases.
+- **2026-06-21 trip-planner bug fixes** (`1dcad82`) — capped unwalkable fallback legs
+  (no more 9.7 km "walkable" days), padding no longer adds a phantom 2nd meal, "read"
+  → Bookstore in the offline keyword reader.
+- **2026-06-21 budget-filter fix** (`abdc7bc`) — the ROOT cause of the 2-stops / 9.7 km
+  / chains-appearing reports: a price/budget filter was excluding every price-UNKNOWN
+  business, leaving only the far CHAINS that carry explicit prices. Now price-unknowns
+  are kept (only known-over-budget excluded). Fixes the planner AND the search $/$$
+  filters. +2 tests.
+- **2026-06-21 planner: fill the window + center the meal** (UNCOMMITTED) — reported
+  "I said till 4 PM but everything ends by 2." `end_time` was a CAP, never a TARGET, and
+  a lone meal sorted LAST. Added `_center_meal` (one meal → mid-day, any-time stops
+  before AND after → coffee→bookstore→lunch→shop) + `_spread_to_window` (nudge lunch to
+  ~12:30, stretch dwell to a per-role ceiling, then "free time to explore" gaps so the
+  last stop ends near end_time; gated by `MIN_FILL_SLACK_MIN`, capped at
+  `LATEST_ARRIVAL_MIN` 21:30 so evening windows don't schedule a 10 PM stop). Refactored
+  to ONE shared clock authority `_clock_stops` used by both the builder's spread AND
+  `retime` — so an edit re-clocks honouring the gaps (never collapses the spread) and a
+  removed stop pulls the day earlier. Frontend: `explore_after_min` renders as a "free
+  time to explore" row in Plan.tsx + SharedTrip.tsx. +10 tests (163 total); realism audit
+  net-improved (38→35 violating itineraries).
+- **2026-06-21 multi-city demos: San Antonio + San Francisco** (UNCOMMITTED) — added
+  ~22 real independents per city to `seed.sql` (mirroring the NYC blocks: businesses →
+  categories → reviews → deals; hours/views/aggregates/trust/verified-visits all run
+  over ALL businesses, so the new cities get full parity automatically). One DB,
+  radius-bounded search isolates each city; a **city picker** in LocationControl
+  (`DEMO_CITIES` in `lib/location.ts`) moves the map centre. `warm.py` warms SA + SF.
+  **Needs `migrate --reseed` to apply** (destructive prod-DB op — hand to the user). §3.
+
+**REMAINING / suggested next:** real-quota Gemini key (#1 pre-competition — prod runs
+ONLINE=true); **rotate credentials in Vercel env + local `.env` before sharing the
+repo**; chain-detection gap (some apparel chains — Aéropostale, Jos A. Bank — aren't
+in the registry, so they slip through in offline mode; add common retail chains);
+deferred planner ideas (per-stop durations from prose like "2 hour read"; FULL Google
+opening hours via an expanded Places field mask; drag-and-drop reorder; route
+optimization / walking path line; passport-history personalization).
 
 ## 10. Known caveats / honest footnotes
 
-- 6 businesses intentionally photo-less (name-guard mismatches → monogram tiles).
-- Pure-browse landing (no q, no chip) leans restaurant-heavy even with DISTANCE
-  ranking (Google still surfaces prominent food) — accepted; chips are the
-  refinement. User said don't worry about this.
-- Registry recall 0.849/FP 0 is measured on its OWN labeled set → present as
-  dev-set + CI floors; Gemini layer described, not quoted as a %.
-- `migrate --reseed/--fresh` wipes runtime activity (saved trips, marked codes,
-  live trust); admin IS in seed; CAFE1A2B already consumed; registry survives reseed.
-- Trip title uses window.prompt. Planner now respects time-of-day WINDOWS (meals
-  ≥11:00, bars ≥16:00, dessert ≥11:30) + a 9pm cutoff + per-shape active-time
-  budget, but NOT per-BUSINESS opening hours; open-now uses America/New_York for
-  seeded hours. Residual long walks happen only in genuinely scattered (non-dense)
-  areas — best-effort nearest-fallback, the demo NYC area is dense.
-- Search distance is a UNIFORM driving estimate (haversine × 1.4) — realistic to
-  display, but a uniform factor can't reorder results by a specific road detour
-  (a live Routes API would); sort order is unchanged vs straight-line. The trip
-  planner stays on WALKING distance/time.
-- Search.tsx is the largest component — works, refactor candidate.
-- Custom `.vercel.app` URL gotcha: a `vercel alias set` URL is auth-GATED (401);
-  use **`vercel domains add <name>.vercel.app`** (a PROJECT domain) for a public,
-  permanent, deploy-following URL. Only the project production domains are exempt
-  from Vercel deployment protection — preview/alias URLs return 401 to anon.
-- Bundle ~420KB (motion/react + maps lib) — fine for the demo.
-- auth.py manual `_parse_body` required wherever slowapi decorates a body route
-  (only auth; /search + /vibe are GET).
-- v1 (`legacy/`) still referenced by README link; Vercel still serves v1.
+- **Open-on-arrival is lightweight** (§14): real per-weekday hours exist only for
+  SEEDED businesses; live Google results only expose "open now", so Google stops show
+  "hours unknown". A FULL check needs an expanded Places field mask (higher billing
+  tier) — deferred.
+- **Trip distances in spread-out suburbs:** a walkable day caps legs at
+  `MAX_FALLBACK_LEG_KM=3.0`; truly-far candidates are DROPPED with a "spread out" note
+  rather than routed as a 5 km hike. With the budget-filter fix, close independents
+  are found again, so this rarely triggers in practice. The planner stays WALKING-only.
+- **Chains via the registry gap:** in offline mode (Gemini quota hit), only the brand
+  registry catches chains; a few apparel chains aren't in it and can show as "likely
+  local". Broader than the planner — a registry addition fixes it.
+- Search distance is a UNIFORM driving estimate (haversine × 1.4) — can't reorder by a
+  specific road detour; the planner stays on walking distance.
+- 6 businesses intentionally photo-less (monogram tiles). Registry recall 0.849/FP 0 is
+  a dev-set + CI floor, not a public %. `migrate --reseed/--fresh` wipes runtime
+  activity; registry survives reseed.
+- Verified-Visits caveats (§12): web `mock_location` always false; materialize trusts
+  the client snapshot; retention purge is a manual CLI; category badges only count
+  seeded businesses.
+- Search.tsx / Plan.tsx are the largest components — work, refactor candidates.
+- Custom `.vercel.app` URL gotcha: use `vercel domains add` (public) not `vercel alias
+  set` (401). Bundle ~500KB gz (motion/react + maps) — fine for the demo.
 
 ## 11. Verification recipes (copy-paste)
 
 ```bash
 cd backend
-./.venv/bin/python -m pytest tests/ -q              # 110 backend tests (incl. Verified Visits, §12)
+./.venv/bin/python -m pytest tests/ -q              # 154 backend tests
 PYTHONPATH=. ./.venv/bin/python tests/realism_audit.py  # 104-scenario trip-realism audit
-(cd ../frontend && npm test)                        # 40 Vitest
+(cd ../frontend && npm test)                        # Vitest
 (cd ../frontend && npm run build)                   # tsc -b + vite build
-./.venv/bin/python -m app.db.migrate                # idempotent; --reseed | --fresh; seeds Verified-Visits demo data
+./.venv/bin/python -m app.db.migrate                # idempotent; --reseed | --fresh; applies additive ALTERs
 ./.venv/bin/python -m app.db.purge_checkpoints      # privacy: purge raw checkpoints past retention (§12)
-./.venv/bin/python -m app.db.enrich                 # photos + embeddings + focal points
-./.venv/bin/python -m app.cache.warm                # NYC+SA demo cache (queries+categories+vibe+plan)
-./.venv/bin/python -m app.db.import_chains <file.md> # bulk-grow the chain registry, no API
 ONLINE=false ./.venv/bin/uvicorn app.main:app --port 8001   # offline rehearsal
-# search:   GET /businesses/search?lat=40.7308&lng=-73.9973            (pure browse)
-#           GET /businesses/search?q=coffee&lat=…&lng=…                (deepen-before-widen)
-#           GET /businesses/search?categories=Bookstore&lat=…&lng=…    (chip browse → fetches it)
-#           GET /businesses/search?q=starbucks → 0 (chains filtered)
-# vibe:     GET /businesses/vibe?q=old%20new%20york%20atmosphere
-# planner:  POST /trips/plan {"duration":"full","interests":["Coffee","Restaurant","Dessert"],"start_time":"10:00","lat":…,"lng":…}
-# cashier:  POST /deals/verify-code {"code":"CAFE5E6F"} as owner → valid → {"mark_used":true} → already_used; STRD7FAB → not_found
-# trust round-trip: login demo → favorite (+2) → refave (0) → unfave (−2) → review (+10) → delete (−10); GET /auth/me each step
+# planner v2:  POST /trips/plan {"lat":…,"lng":…,"interests":["Coffee","Bookstore","Restaurant","Retail"],
+#                "start_time":"10:00","end_time":"16:00","num_stops":4,
+#                "audience":"solo","occasion":"casual","pace":"relaxed","budget":2,"weekday":1}
+#   → {options[{stops,total_walk_km,estimated_spend,sequence_note,spread_note,…}], knobs, num_stops, end_time, start, interpretation}
+# retime:   POST /trips/retime {"start":{lat,lng,time},"end_time":"16:00","stops":[…],"dwell_overrides":{}}
+# share:    POST /trips/{id}/share (auth) → {share_token}; GET /trips/share/{token} (public); GET /trips/share/{token}.ics
+# sign-in:  POST /auth/google {"credential":"<google ID token>"} → 401 for a junk/expired token (real verify ran)
+# search:   GET /businesses/search?q=coffee&lat=…&lng=…  ;  ?q=starbucks → 0 (chains filtered)
+# verified: POST /visits/{initiate|{id}/checkpoint|{id}/qr}, GET /passport/me   (§12)
 # report:   GET /analytics/business/1?metrics=summary&from=1990-01-01&to=1990-12-31 → zeros
 ```
 
-Gate pattern: backend import OK → uvicorn boot → feature curls → pytest →
-frontend tsc/build/vitest → both servers 200 → `grep -ci traceback` logs == 0 →
-leave servers running → report → WAIT for "proceed".
+Gate pattern: backend import OK → uvicorn boot → feature curls → pytest → frontend
+tsc/build/vitest → both servers 200 → `grep -ci traceback` logs == 0 → leave servers
+running → report → WAIT for "proceed".
 
-## 12. Verified Visits (2026-06-20; **UNCOMMITTED** — built this session)
+## 12. Verified Visits (committed — `9ccea27`/`26f7bdf`)
 
 Proof-of-presence before a review counts — LocalLens's **primary bot-prevention**
-answer (a bot can't physically stand in a shop) + the trust primitive behind the
-passport / money-kept-local / trust-weighted rating. Full doc: **`VERIFIED_VISITS.md`**;
-build spec at `WondrLink-Chat/docs/versions/verified-visits-spec.md`. Built in
-phases 0–5 + a "review-anywhere" insert; all green (110 backend / 40 Vitest), all
-**uncommitted**.
+answer + the trust primitive behind passport / money-kept-local / trust-weighted
+rating. Full doc: **`VERIFIED_VISITS.md`**.
 
-**Schema** (additive in `db/schema.sql`): `visits` (state machine), `visit_checkpoints`
-(audit trail), `qr_redemptions` (single-use), `businesses` + `geofence_radius_m` /
-`qr_secret` (server-only) / `google_place_id` (unique), `reviews.visit_id`
-(+partial-unique → `IS NOT NULL` == verified). TEXT+CHECK enums. **Config** §15
-block in `config.py` (geofence radius 100m, dwell 2min, max accuracy 75m, travel
-900kmh, qr period 30s, daily cap 2, retention 30d — all env-overridable).
+**Schema** (additive): `visits` (state machine), `visit_checkpoints` (audit),
+`qr_redemptions` (single-use), `businesses` + `geofence_radius_m`/`qr_secret`/
+`google_place_id` (unique), `reviews.visit_id` (+partial-unique → verified). Config
+§15 block (fence 100m, dwell 2min, max accuracy 75m, travel 900kmh, qr period 30s,
+daily cap 2, retention 30d). **Backend** (router→service→repo): geofence.py /
+antiabuse.py / qr.py (HMAC-TOTP 8-char codes) / qr_service.py / visits_service.py
+(state machine: anti-abuse→geofence→dwell/code→finalize) / events.py / passport.py /
+review_trust.py (verified 1.0× vs unverified 0.4×) + repositories/visits.py.
+Methods/strength GPS_GEOFENCE 55 / GPS_GEOFENCE_DWELL 75 / QR_GEOFENCE 90 (the public
+strength NUMBER was later hidden — it silently powers the trust rating).
 
-**Backend** (router→service→repo): `services/geofence.py` (haversine + fence,
-pure), `antiabuse.py` (impossible-travel + strength, pure), `qr.py` (HMAC TOTP
-8-char codes, injectable clock, pure), `qr_service.py` (owner enable/kiosk),
-`visits_service.py` (the state machine: anti-abuse→geofence→dwell/code→finalize;
-REJECTED is generic + logged), `events.py` (`visit.verified` bus), `passport.py`,
-`review_trust.py` (glass-box weights: verified 1.0× vs unverified 0.4× + nudges);
-`repositories/visits.py` (all SQL) + additions to businesses/reviews repos.
-**Methods/strength:** GPS_GEOFENCE 55 / GPS_GEOFENCE_DWELL 75 (hero) / QR_GEOFENCE 90.
+**Review/check-in ANYWHERE:** Google businesses (`gp_<place_id>`) are **materialized**
+into a local row on first review/visit from the on-screen snapshot (no Places call),
+keyed by `google_place_id`, **excluded from search** (`fetch_active WHERE
+google_place_id IS NULL`). **Endpoints:** `POST /visits/{initiate|{id}/checkpoint|
+{id}/qr|{id}/spend}`, `GET /visits/{mine|{id}}`, `GET /passport/me`, `POST
+/businesses/{id}/qr/enable` + `GET /businesses/{id}/checkin-code`, ref-based reviews.
+**Frontend:** CheckInFlow (GPS+dwell hero modal; spend now asked in the review
+composer, not the modal) / VerifiedRating (the toggle: flagship 4.5→3.9) /
+TrustAdjustedRating / Passport / CheckinKiosk. **Privacy:** location only at check-in;
+raw checkpoints purged after 30d; unverified reviews always allowed.
 
-**Endpoints:** `POST /visits/{initiate|{id}/checkpoint|{id}/qr|{id}/spend}`, `GET
-/visits/{mine|{id}}`, `GET /passport/me`, `POST /businesses/{id}/qr/enable` +
-`GET /businesses/{id}/checkin-code` (owner kiosk), `POST/GET /businesses/{ref}/reviews`
-(now **ref-based**, materialize-on-write), detail adds `verified_rating` /
-`verified_reviews` / `verification_rate` / `trust` / `geofence_radius_m`.
+## 13. Google Sign-In (committed — `e5d617e`)
 
-**Review/check-in ANYWHERE** (2026-06-20 user ask): Google businesses
-(`gp_<place_id>`) are **materialized** into a local row on first review/visit from
-the on-screen snapshot (no Places call, offline-safe), keyed by `google_place_id`;
-**excluded from search** (`fetch_active` WHERE google_place_id IS NULL) so no dup
-cards. The resolver (`_resolve_business_id`) is inlined in reviews_service +
-visits_service (str(ref): digit→local, gp_→materialize). Once it has LocalLens
-reviews, our aggregate takes over the detail headline.
+"Continue with Google" on Login + Register, alongside email/password (which stays the
+offline-safe fallback). Full doc: **`GOOGLE_SIGNIN.md`**.
 
-**Frontend:** `CheckInFlow.tsx` (GPS+dwell hero modal: live geofence map +
-auto-confirming dwell + code-entry path + spend prompt; focus-trap, Esc, every
-failure offers "post unverified"), `VerifiedRating.tsx` (the **toggle**: flagship
-**4.5→3.9**), `TrustAdjustedRating.tsx` (glass-box "Why?"), `Passport.tsx`
-(`/passport`: impact $ + badges + streak; in nav for signed-in), owner
-`CheckinKiosk.tsx` (`/owner/checkin-code`: rotating QR via `qrcode` dep + code +
-countdown), MapView geofence ring + user pin, BusinessDetail shows reviews/check-in
-for ALL businesses + `?checkin=1&code=` deep-link auto-open. `visitApi` / `passportApi`
-/ `ownerApi.{enableQr,checkinCode}` + `reviewApi` by ref + `businessSnapshot()`.
+**Flow:** the button (Google Identity Services) returns a signed **ID token**; the
+backend verifies it via Google's official **`tokeninfo`** endpoint (Google checks its
+own signature + expiry over TLS — NO `cryptography` dep needed), then enforces the
+checks only WE can: **audience == our client id** (replay defense) + **email_verified**.
+Then `auth_service.google_login`: find by `oauth_sub` → else find by (verified) email
+and **link** → else create a password-less account → issue **our normal JWT** (identical
+session shape, so everything downstream is unchanged).
 
-**Demo data:** flagship **Caffè Reggio (id 1)** enriched to 21 reviews (7 verified
-avg 3.9 + 14 glowing unverified) → raw 4.48 / verified 3.86 / trust-adjusted 4.21;
-non-flagship even-id reviews verified (54 seeded visits total); seeded via
-idempotent `migrate._seed_flagship_reviews` + `_seed_verified_visits`. demo_user:
-4 verified visits, $86 kept local, 2 badges.
+**Files:** `services/google_oauth.py`, `auth_service.google_login`, `POST /auth/google`,
+`models/auth.GoogleLoginIn`, `config.google_oauth_client_id`; schema (nullable
+`password_hash` + `auth_provider` + `oauth_sub` + unique index); frontend
+`GoogleSignInButton.tsx`, `authApi.google`, `auth.loginWithGoogle`, Login/Register.
+**Setup gotcha:** the OAuth client's **Authorized JavaScript origins** must include
+every origin the button loads from (localhost:5173 + the two prod URLs); propagation
+takes minutes. Client id is PUBLIC (ships in the page); no client secret in this flow.
 
-**Privacy (§14):** location only at check-in (no tracking), raw checkpoints purged
-after 30d (`python -m app.db.purge_checkpoints`), no public coords, unverified
-reviews always allowed. In-app note on the Passport page.
+## 14. Trip Planner v2 (committed — `66c94cf` + `1dcad82` + `abdc7bc`)
 
-**Verify:** `pytest tests/ -q` (110); `npm test` (40) + `npm run build`; smokes at
-`/tmp/smoke_anybiz.py` (materialize), `/tmp/smoke_qr.py` (QR), `/tmp/smoke_passport.py`.
-Video recipe in `VERIFIED_VISITS.md §12` (DevTools→Sensors→Location to 40.7299,-74.0003).
+The "Plan a day" feature, overhauled from a one-shot generator into a controllable,
+personal, realistic planner. Core in `services/trip_planner.py`; the `plan()` response
+only ever GAINS fields (backward-compatible; anonymous output unchanged).
 
-**Caveats:** (a) web `mock_location` always false (native-only signal); server
-velocity/accuracy gates still apply. (b) materialize trusts the client snapshot
-(came from our own Places detail; a live place_id re-fetch would harden it — out of
-scope). (c) Google detail shows Google's rating until it has LocalLens reviews,
-then our aggregate takes over (first-review headline jump — accepted). (d) category
-badges only count seeded businesses (materialized Google rows carry no category
-links). (e) retention purge is a manual CLI (no live cron). (f) qrcode npm dep
-added (~12KB gz) for kiosk QR rendering — the token logic itself is hand-rolled.
+**Inputs (`PlanIn`):** `lat/lng`, `interests[]`, **`start_time` + `end_time` +
+`num_stops`** (separate — replaced the old quick/half/full `duration` preset; the day
+is bounded by the explicit window + count), `goals` (free text), and optional knobs
+**`audience` {solo,couple,family,group}** / **`occasion` {casual,date,celebrate}** /
+**`pace` {relaxed,normal,packed}** / **`budget` {1,2,3}=$/$$/$$$** / **`weekday`**
+(0=Sun..6=Sat) / **`locked_refs[]`**. `optional_user` → personalises for a signed-in
+user.
+
+**Engine:**
+- `_fetch_pools` runs the per-category searches **CONCURRENTLY** (`asyncio.gather`) —
+  cold 5-category plan ~26s→~5s. Budget passes `price_levels` to the search (which now
+  KEEPS price-unknown businesses, §5 — the fix for the 2-stops/chains bug).
+- Tuning tables (commented constants): `AUDIENCE_PROFILES` / `OCCASION_MODIFIERS`
+  (default day + dwell/sigma/prox_w multipliers, clamped), `PACE_DWELL_MULT`
+  {relaxed1.4/normal1.0/packed0.7}, `ROLE_SPEND_BASE` (per-role $ floors by
+  price_level → `_estimate_spend` "≈ $low–$high kept local"), `_BUDGET_PRICE_LEVELS`.
+- `_plan_chips(num_stops, interests, default_chips=, preferred_sequence=)`: pads ONLY
+  repeatable kinds (coffee/browse/shop/market) — **meals/desserts/bars are never
+  duplicated** (no phantom 2nd lunch); when the user described a `sequence`, orders by
+  `(sequence_index, time-of-day rank)` so the described order leads while realism
+  windows still apply.
+- `_build_stops(…, dwell_mult, weekday, hours_by_ref, locked_refs, favorite_refs,
+  diag)`: greedy walkable fill (MAX_LEG_KM 1.5; **fallback leg capped at
+  MAX_FALLBACK_LEG_KM=3.0 — beyond that the kind is DROPPED + `diag.spread_out`**, no
+  more 9.7 km hikes); ROLE_EARLIEST_MIN windows; a soft open-at-arrival penalty;
+  force-keeps `locked_refs`; a `FAVORITE_BONUS=1.25` on favourited refs; attaches a
+  per-stop **`bench`** (2–3 same-kind alternates for instant offline swap); adds
+  `arrive_min`. `_annotate_open` tags `open_at_arrival`/`hours_known`; `_attach_deals`
+  attaches active deals (local id, or `gp_`→`place_ids_to_local_ids`).
+- `retime(stops, …, dwell_overrides)`: pure, DB-free re-clock for an edited itinerary
+  (the single authority for walk/dwell/window math; powers the client edits).
+- `_sequence_note` / `_estimate_spend` / `_attach_deals`; offline keyword reader maps
+  **"read"→Bookstore**; the meal guard still strips a phantom restaurant.
+
+**New endpoints:** `POST /trips/retime`; `POST /trips/{id}/share` (auth → token),
+`GET /trips/share/{token}` (public read-only, no user_id), `GET /trips/share/{token}.ics`
+(`trip_export.to_ics`, hand-rolled VCALENDAR). `interpret_trip_goals` (llm.py) now also
+returns `sequence`.
+
+**Frontend (`Plan.tsx`, `SharedTrip.tsx`):** start/end time inputs + a Stops stepper +
+a collapsible **Fine-tune** panel (Who's it for / Occasion / Pace / Budget / Which day,
+all reuse the `Segmented` pill row); per-option **`estimated_spend`** + `sequence_note`
++ `spread_note`; an **editable** timeline (an `editedStops` copy; swap ♻ cycles the
+bench, lock 🔒 toggles `lockedRefs` and the re-plan keeps them, − stay + adjusts dwell,
+▲▼ reorder, ✕ remove, ＋ add — each calls `/trips/retime`); open-on-arrival + deal +
+favourite badges per stop; saved-trip cards get **Share** (copies a `/trip/shared/:token`
+link) + **Add to calendar** (`.ics`). `tripApi` gains `retime`/`share`/`sharedTrip`/
+`icsUrl`; the plan call uses a 45s client timeout.
+
+**Verify:** the §11 planner/retime/share curls; UI build clean; 154 pytest green
+(incl. knobs, sequence, open-on-arrival, edit/retime, deals/favourites, and the
+bug-fix regressions: far-leg drop, no-2nd-meal padding, read→bookstore, price-unknown
+kept).

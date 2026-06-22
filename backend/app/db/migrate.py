@@ -230,7 +230,7 @@ def main() -> int:
         # Seed only when empty so a normal migrate is safe to re-run.
         count = conn.execute("SELECT count(*) AS n FROM businesses").fetchone()["n"]
         if count == 0:
-            print("→ seeding demo data (NYC) …")
+            print("→ seeding demo data (NYC + San Antonio + San Francisco) …")
             _run_sql_file(conn, _SEED)
             seeded = conn.execute("SELECT count(*) AS n FROM businesses").fetchone()["n"]
             print(f"  seeded {seeded} businesses.")

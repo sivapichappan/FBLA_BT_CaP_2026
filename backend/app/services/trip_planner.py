@@ -82,6 +82,29 @@ ROLE_EARLIEST_MIN: dict[str, int] = {"eat": 11 * 60, "drinks": 16 * 60, "dessert
 # that stop is simply skipped (the combo doesn't fit the day).
 MAX_WAIT_MIN = 180
 
+# ── Filling the day to the window (use end_time as a TARGET, not just a cap) ──
+# A relaxed day with only a few stops can finish well before end_time — the old
+# behaviour packed stops as early as possible and left the rest of the window
+# unused (the reported "I said till 4 PM but everything ends by 2" bug). When the
+# user gave a window meaningfully longer than the day's content, we SPREAD the day
+# to use it: a single midday meal is nudged toward lunchtime, each stop is allowed
+# to linger a little longer (up to a realistic per-role ceiling), and any time
+# still left becomes short "free time to explore" gaps between stops — so the last
+# stop ends NEAR end_time. We only ever spend slack the user already gave; a stop
+# is never added or moved past end_time.
+MIN_FILL_SLACK_MIN = 15   # below ~15 min unused, the day is effectively full → leave it byte-identical (also makes the spread idempotent on re-time)
+MAX_EXPLORE_GAP_MIN = 45  # a single between-stops "explore the neighborhood" gap caps here — pleasant breathing room, not an abandoned afternoon
+LUNCH_TARGET_MIN = 12 * 60 + 30  # 12:30 — the clock a lone midday meal is nudged toward, so it sits mid-day with stops flowing before AND after it
+LATEST_ARRIVAL_MIN = 21 * 60 + 30  # 21:30 — never spread a day so a stop ARRIVES later than this (you don't start a new activity near 10 PM); an evening day just ends a bit before end_time
+# Per-role dwell CEILING when stretching to fill the window: a relaxed lunch can
+# grow to a leisurely ~2 h, but a coffee never becomes a 3-hour sit. NOTE: this
+# caps MINUTES; the separate ROLE_MAX (defined below) caps the COUNT of a role in
+# one day — different concepts, deliberately different names.
+ROLE_MAX_DWELL: dict[str, int] = {
+    "coffee": 75, "browse": 90, "shop": 90, "market": 60,
+    "eat": 120, "dessert": 45, "drinks": 90,
+}
+
 # The day "shapes" we offer. Each scores stops differently — ``prox_w`` is the
 # weight on walking-proximity (the rest goes to rating), ``sigma`` is the
 # Gaussian decay length for "walkable from here". "best" balances both; "rated"
@@ -320,6 +343,33 @@ def _mentions_food(goals: str) -> bool:
     return any(_kw_match(t, _GOAL_KEYWORDS["Restaurant"]) for t in _tokens(goals))
 
 
+# Untimed kinds (coffee/browse/shop/market) can happen at any time, so they flow
+# AROUND a meal; the timed kinds (the meal itself, dessert, drinks) anchor to their
+# windows. Used to center a lone midday meal instead of leaving it the last stop.
+_UNTIMED_ROLES = {"coffee", "browse", "shop", "market"}
+
+
+def _center_meal(chips: list[str]) -> list[str]:
+    """Put a single midday meal in the MIDDLE of the day, with the any-time stops
+    (coffee/browse/shop) flowing before AND after it — so a day reads "coffee,
+    bookstore, lunch, shopping" rather than ending on the meal (the reported
+    "everything ends at lunch" feel). Fires ONLY for a day with exactly one meal
+    AND at least one any-time stop; a meal-less day, a multi-meal day, or a
+    dessert/drinks-terminal evening keeps its time-of-day order untouched.
+    _build_stops still enforces ROLE_EARLIEST_MIN, so the meal can never land
+    before its window — this only decides ORDER, not the clock."""
+    eats = [c for c in chips if CHIP_SLOTS[c]["role"] == "eat"]
+    untimed = [c for c in chips if CHIP_SLOTS[c]["role"] in _UNTIMED_ROLES]
+    if len(eats) != 1 or not untimed:
+        return chips
+    # Split the any-time stops in half: the morning gets the extra one (ceil), so a
+    # 3-untimed day is 2 before lunch + 1 after. Dessert/drinks stay after, by rank.
+    half = (len(untimed) + 1) // 2
+    tail = [c for c in chips if CHIP_SLOTS[c]["role"] not in _UNTIMED_ROLES
+            and CHIP_SLOTS[c]["role"] != "eat"]
+    return untimed[:half] + eats + untimed[half:] + tail
+
+
 def _plan_chips(num_stops: int, interests: list[str], *,
                 default_chips: Optional[list[str]] = None,
                 preferred_sequence: Optional[list[str]] = None) -> list[str]:
@@ -374,9 +424,11 @@ def _plan_chips(num_stops: int, interests: list[str], *,
     if preferred_sequence:
         seq_idx = {c: i for i, c in enumerate(preferred_sequence)}
         chips.sort(key=lambda c: (seq_idx.get(c, len(preferred_sequence)), CHIP_SLOTS[c]["rank"]))
-    else:
-        chips.sort(key=lambda c: CHIP_SLOTS[c]["rank"])
-    return chips[:target]
+        return chips[:target]
+    # No described order: time-of-day rank, then center a lone meal so the day flows
+    # coffee → browse → lunch → shopping instead of ending on the meal.
+    chips.sort(key=lambda c: CHIP_SLOTS[c]["rank"])
+    return _center_meal(chips[:target])
 
 
 async def _fetch_pools(chips: list[str], lat: float, lng: float,
@@ -454,6 +506,129 @@ _BENCH_FIELDS = (
 
 def _trim_candidate(c: dict) -> dict:
     return {k: c.get(k) for k in _BENCH_FIELDS}
+
+
+def _clock_stops(stops: list[dict], start_lat: float, start_lng: float,
+                 start_min: int, end_min: int, *,
+                 dwell_overrides: Optional[dict[str, int]] = None) -> dict:
+    """Re-walk an ORDERED stop list and recompute every walk leg + arrival clock —
+    the SINGLE authority for a day's clock, shared by the builder's window-fill and
+    the client-edit ``retime`` so the two can never drift. Honours each stop's own
+    ``dwell_min`` and any ``explore_after_min`` (a "free time to explore" gap left
+    after the PREVIOUS stop), re-applies the meal/bar earliest-arrival windows, and
+    flags ``over_window`` when the day no longer fits. Pure: no DB / LLM / network."""
+    overrides = dwell_overrides or {}
+    clock = start_min
+    prev_lat, prev_lng = start_lat, start_lng
+    prev_gap = 0  # explore gap left after the previous stop (0 before the first stop)
+    out: list[dict] = []
+    over = False
+    for s in stops:
+        walk_km = round(ranker.haversine_km(prev_lat, prev_lng, s["lat"], s["lng"]), 2)
+        walk_min = round(walk_km * WALK_MIN_PER_KM)
+        arrive = clock + walk_min + prev_gap
+        earliest = ROLE_EARLIEST_MIN.get(s.get("slot"))
+        if earliest is not None and arrive < earliest:
+            arrive = earliest
+        dwell = int(overrides.get(s["ref"], s.get("dwell_min", 30)))
+        if arrive + dwell > end_min:
+            over = True
+        out.append({
+            **s,
+            "arrive": _fmt_clock(arrive),
+            "arrive_min": arrive,
+            "dwell_min": dwell,
+            "walk_from_prev_km": walk_km,
+            "walk_from_prev_min": walk_min,
+        })
+        clock = arrive + dwell
+        prev_lat, prev_lng = s["lat"], s["lng"]
+        prev_gap = int(s.get("explore_after_min", 0) or 0)
+    return {
+        "stops": out,
+        "total_walk_km": round(sum(o["walk_from_prev_km"] for o in out), 2),
+        "over_window": over,
+    }
+
+
+def _spread_to_window(stops: list[dict], start_lat: float, start_lng: float,
+                      start_min: int, end_min: int) -> list[dict]:
+    """Spread a finished day across the user's window so the last stop ends NEAR
+    end_time instead of two hours early (the window is a TARGET, not just a cap).
+    Three moves, in order: (1) nudge a lone midday meal toward lunchtime by letting
+    the stop before it linger, so the meal sits mid-day with stops before AND after;
+    (2) let every stop stay a little longer, up to a realistic per-role ceiling (a
+    relaxed lunch can reach ~2 h, coffee never a 3-hour sit); (3) sprinkle any time
+    still left as short "explore" gaps between stops. We only ever spend the slack
+    the user already gave (end_time minus when the day currently finishes), so the
+    day never runs past end_time and no stop is added or dropped. Returns the same
+    stops, re-clocked, with stretched ``dwell_min`` and additive ``explore_after_min``."""
+    if not stops:
+        return stops
+    content_end = stops[-1]["arrive_min"] + stops[-1]["dwell_min"]
+    # Fill toward end_time, but never push the last stop's ARRIVAL past the latest
+    # sensible start-of-activity — you don't begin a new stop near 10 PM. Capping the
+    # FILL target at LATEST_ARRIVAL + the last stop's stay keeps every arrival ≤ 21:30
+    # (a late-evening window just ends a little before end_time). Daytime windows sit
+    # far below this cap, so they still fill all the way to end_time.
+    fill_end = min(end_min, max(content_end, LATEST_ARRIVAL_MIN + stops[-1]["dwell_min"]))
+    remaining = fill_end - content_end
+    if remaining < MIN_FILL_SLACK_MIN:
+        return stops  # already effectively full → byte-identical (and idempotent)
+
+    # (1) Nudge a single midday meal toward lunchtime by lingering at the stop
+    #     before it (a pre-lunch wander), then re-clock so the meal + tail reflect it.
+    eat_idx = [i for i, s in enumerate(stops) if s.get("slot") == "eat"]
+    if len(eat_idx) == 1 and eat_idx[0] > 0:
+        i = eat_idx[0]
+        want = LUNCH_TARGET_MIN - stops[i]["arrive_min"]  # how much later we'd like lunch
+        if want > 0:
+            nudge = min(want, MAX_EXPLORE_GAP_MIN, remaining)
+            stops[i - 1]["explore_after_min"] = stops[i - 1].get("explore_after_min", 0) + nudge
+            stops = _clock_stops(stops, start_lat, start_lng, start_min, end_min)["stops"]
+
+    # Slack actually left after the nudge.
+    remaining = fill_end - (stops[-1]["arrive_min"] + stops[-1]["dwell_min"])
+
+    # (2) Let each stop linger longer, in proportion to its remaining headroom and
+    #     never above its per-role ceiling (so no 3-hour coffee).
+    if remaining > 0:
+        headroom = [max(0, ROLE_MAX_DWELL.get(s.get("slot", ""), s["dwell_min"]) - s["dwell_min"])
+                    for s in stops]
+        total_head = sum(headroom)
+        if total_head > 0:
+            grow = min(remaining, total_head)
+            added = [(grow * h) // total_head for h in headroom]
+            # Hand out the rounding remainder one minute at a time to stops that
+            # still have headroom — so the total added is EXACTLY ``grow`` (never
+            # overshooting the slack, never exceeding a ceiling).
+            leftover = grow - sum(added)
+            j = 0
+            while leftover > 0:
+                k = j % len(stops)
+                if added[k] < headroom[k]:
+                    added[k] += 1
+                    leftover -= 1
+                j += 1
+                if j > len(stops) * (max(headroom) + 1):
+                    break  # defensive: never loop forever
+            for s, a in zip(stops, added):
+                s["dwell_min"] += a
+            remaining -= sum(added)
+
+    # (3) Any time still unfilled → short explore gaps between stops (each capped),
+    #     so the tail reaches end_time; the earliest gaps fill first.
+    for idx in range(len(stops) - 1):
+        if remaining <= 0:
+            break
+        cur = stops[idx].get("explore_after_min", 0)
+        add = min(MAX_EXPLORE_GAP_MIN - cur, remaining)
+        if add > 0:
+            stops[idx]["explore_after_min"] = cur + add
+            remaining -= add
+
+    # Final re-clock so arrive/arrive_min reflect the stretched dwells + gaps.
+    return _clock_stops(stops, start_lat, start_lng, start_min, end_min)["stops"]
 
 
 def _build_stops(chips: list[str], pools: dict[str, list[dict]], start_lat: float,
@@ -609,56 +784,34 @@ def _build_stops(chips: list[str], pools: dict[str, list[dict]], start_lat: floa
         clock = arrive + dwell
         prev_lat, prev_lng = best["lat"], best["lng"]
 
-    return stops
+    # Use the window as a TARGET, not just a cap: spread a short day so it ends near
+    # end_time (longer leisurely stays + a little free time) instead of finishing
+    # early. A day that already fills its window is returned unchanged.
+    return _spread_to_window(stops, start_lat, start_lng, start_min, end_min)
 
 
 def retime(stops: list[dict], start_lat: float, start_lng: float,
            start_time: str, end_time: str, *,
            dwell_overrides: Optional[dict[str, int]] = None) -> dict:
-    """Recompute walk legs + arrival times for an arbitrary ORDERED stop list —
-    the single authority for the clock after a client edit (remove / reorder /
-    dwell change, idea 1). Pure + DB-free + LLM-free. Reuses the same haversine,
-    pace, and ROLE_EARLIEST rules as the builder, so an edited day stays honest.
-    Flags ``over_window`` when the day no longer fits (we warn, never block)."""
-    overrides = dwell_overrides or {}
+    """Recompute walk legs + arrival times for an arbitrary ORDERED stop list after
+    a client edit (remove / reorder / dwell change, idea 1). Delegates to the shared
+    ``_clock_stops`` authority, so an edited day obeys the SAME walk/dwell/window/
+    explore-gap rules as a freshly built one: a spread day fed straight back in
+    re-clocks byte-identically, and removing a stop simply pulls the tail earlier
+    (it does NOT re-stretch — the user's edit is respected). Flags ``over_window``
+    when the day no longer fits (we warn, never block)."""
     try:
         start = dt.time.fromisoformat(start_time)
     except ValueError:
         start = dt.time(10, 0)
     try:
-        end_min = dt.time.fromisoformat(end_time).hour * 60 + dt.time.fromisoformat(end_time).minute
+        parsed_end = dt.time.fromisoformat(end_time)
+        end_min = parsed_end.hour * 60 + parsed_end.minute
     except ValueError:
         end_min = 16 * 60
-
-    clock = start.hour * 60 + start.minute
-    prev_lat, prev_lng = start_lat, start_lng
-    out: list[dict] = []
-    over = False
-    for s in stops:
-        walk_km = round(ranker.haversine_km(prev_lat, prev_lng, s["lat"], s["lng"]), 2)
-        walk_min = round(walk_km * WALK_MIN_PER_KM)
-        arrive = clock + walk_min
-        earliest = ROLE_EARLIEST_MIN.get(s.get("slot"))
-        if earliest is not None and arrive < earliest:
-            arrive = earliest
-        dwell = int(overrides.get(s["ref"], s.get("dwell_min", 30)))
-        if arrive + dwell > end_min:
-            over = True
-        out.append({
-            **s,
-            "arrive": _fmt_clock(arrive),
-            "arrive_min": arrive,
-            "dwell_min": dwell,
-            "walk_from_prev_km": walk_km,
-            "walk_from_prev_min": walk_min,
-        })
-        clock = arrive + dwell
-        prev_lat, prev_lng = s["lat"], s["lng"]
-    return {
-        "stops": out,
-        "total_walk_km": round(sum(s["walk_from_prev_km"] for s in out), 2),
-        "over_window": over,
-    }
+    return _clock_stops(stops, start_lat, start_lng,
+                        start.hour * 60 + start.minute, end_min,
+                        dwell_overrides=dwell_overrides)
 
 
 def _templated_narrative(stops: list[dict]) -> str:

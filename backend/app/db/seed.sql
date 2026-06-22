@@ -1,10 +1,14 @@
 -- ============================================================================
--- LocalLens v2 — demo seed (New York City), depth edition
+-- LocalLens v2 — demo seed (New York City + San Antonio + San Francisco)
 --
--- ~45 real, well-known NYC *independent* businesses across food / retail /
--- services, concentrated downtown (Village, SoHo, LES, East Village) so the
--- map demos densely. Includes a month of BACKDATED activity — reviews, views,
--- favorites, redemptions — so trends, funnels, and analytics render instantly.
+-- ~46 NYC + ~22 San Antonio + ~22 San Francisco real, well-known *independent*
+-- businesses across food / retail / services, each city clustered in a walkable
+-- district so the map demos densely. All three coexist in one database; search
+-- is radius-bounded, so the city picker just moves the map centre and each city's
+-- own businesses surface. Includes a month of BACKDATED activity — reviews,
+-- views, favorites, redemptions — so trends, funnels, and analytics render
+-- instantly. (San Antonio is the competition host city; San Francisco adds
+-- variety. Only the NYC set has an owner account + cashier-mode demo data.)
 --
 -- Conventions:
 --   * Coordinates real-but-approximate; phones use the fictional 555-01xx range.
@@ -101,6 +105,70 @@ INSERT INTO businesses (name, lat, lng, address, phone, price_level, is_independ
   ('Mark Fisher Fitness',     40.7530, -73.9970, '450 W 37th St, New York, NY 10018',    '(212) 555-0121', 3, TRUE, 0.84, NULL),
   ('L''Olivier Floral Atelier', 40.7385, -73.9820, '213 E 4th St, New York, NY 10009',   '(212) 555-0122', 2, TRUE, 0.87, NULL);
 
+-- ── Businesses (San Antonio, TX) — competition-city demo ─────────────────────
+-- ~22 real, well-known SAN ANTONIO independents, clustered along the downtown ↔
+-- Southtown corridor with a Pearl District cluster to the north (a walkable demo
+-- like the NYC set). No owner (discovery-only); coords real-but-approximate; the
+-- fictional (210) 555-02xx phone range. The city picker centres the map here.
+INSERT INTO businesses (name, lat, lng, address, phone, price_level, is_independent, local_confidence, owner_id) VALUES
+  -- downtown / Riverwalk
+  ('The Esquire Tavern',           29.4253, -98.4889, '155 E Commerce St, San Antonio, TX 78205', '(210) 555-0201', 2, TRUE, 0.95, NULL),
+  ('Schilo''s Delicatessen',       29.4244, -98.4884, '424 E Commerce St, San Antonio, TX 78205', '(210) 555-0202', 2, TRUE, 0.94, NULL),
+  ('Boudro''s on the Riverwalk',   29.4242, -98.4878, '421 E Commerce St, San Antonio, TX 78205', '(210) 555-0203', 3, TRUE, 0.91, NULL),
+  ('Mi Tierra Café y Panadería',   29.4258, -98.4972, '218 Produce Row, San Antonio, TX 78207',   '(210) 555-0204', 2, TRUE, 0.94, NULL),
+  ('La Panadería',                 29.4259, -98.4901, '301 E Houston St, San Antonio, TX 78205',   '(210) 555-0205', 2, TRUE, 0.92, NULL),
+  ('Paris Hatters',                29.4267, -98.4889, '119 Broadway, San Antonio, TX 78205',       '(210) 555-0206', 2, TRUE, 0.95, NULL),
+  ('Rosella at the Rand',          29.4262, -98.4905, '110 E Travis St, San Antonio, TX 78205',    '(210) 555-0207', 2, TRUE, 0.93, NULL),
+  ('Estate Coffee Company',        29.4255, -98.4860, '1320 E Houston St, San Antonio, TX 78202',  '(210) 555-0208', 2, TRUE, 0.92, NULL),
+  ('Feliz Modern POP',             29.4258, -98.4915, '110 E Houston St, San Antonio, TX 78205',   '(210) 555-0214', 2, TRUE, 0.90, NULL),
+  -- Southtown / King William
+  ('Halcyon Southtown',            29.4118, -98.4905, '1414 S Alamo St, San Antonio, TX 78204',    '(210) 555-0209', 2, TRUE, 0.92, NULL),
+  ('Rosario''s Mexican Cafe',      29.4147, -98.4925, '722 S St Mary''s St, San Antonio, TX 78205','(210) 555-0210', 2, TRUE, 0.91, NULL),
+  ('The Friendly Spot Ice House',  29.4138, -98.4900, '943 S Alamo St, San Antonio, TX 78205',     '(210) 555-0211', 1, TRUE, 0.92, NULL),
+  ('Garcia Art Glass',             29.4150, -98.4918, '715 S Alamo St, San Antonio, TX 78205',     '(210) 555-0212', 2, TRUE, 0.93, NULL),
+  ('Tienda Guadalupe Folk Art',    29.4128, -98.4905, '1001 S Alamo St, San Antonio, TX 78210',    '(210) 555-0213', 2, TRUE, 0.92, NULL),
+  -- Pearl District (north cluster)
+  ('Bakery Lorraine',              29.4430, -98.4805, '306 Pearl Pkwy, San Antonio, TX 78215',     '(210) 555-0215', 2, TRUE, 0.91, NULL),
+  ('Lick Honest Ice Creams',       29.4428, -98.4808, '312 Pearl Pkwy, San Antonio, TX 78215',     '(210) 555-0216', 2, TRUE, 0.92, NULL),
+  ('The Twig Book Shop',           29.4432, -98.4802, '306 Pearl Pkwy, San Antonio, TX 78215',     '(210) 555-0217', 2, TRUE, 0.94, NULL),
+  ('Cured at Pearl',               29.4431, -98.4807, '306 Pearl Pkwy, San Antonio, TX 78215',     '(210) 555-0218', 3, TRUE, 0.91, NULL),
+  ('Southerleigh Fine Food & Brewery', 29.4435, -98.4800, '136 E Grayson St, San Antonio, TX 78215', '(210) 555-0219', 3, TRUE, 0.90, NULL),
+  ('Brown Coffee Co.',             29.4388, -98.4808, '300 E Grayson St, San Antonio, TX 78215',   '(210) 555-0220', 2, TRUE, 0.92, NULL),
+  ('Pearl Farmers Market',         29.4427, -98.4803, '303 Pearl Pkwy, San Antonio, TX 78215',     '(210) 555-0221', 1, TRUE, 0.93, NULL),
+  ('Nowhere Bookshops',            29.4585, -98.4865, '5154 Broadway, San Antonio, TX 78209',      '(210) 555-0222', 2, TRUE, 0.92, NULL);
+
+-- ── Businesses (San Francisco, CA) — variety demo ────────────────────────────
+-- ~22 real, well-known SAN FRANCISCO independents, clustered in the Mission /
+-- Valencia corridor (a dense, walkable demo) plus a couple of Hayes Valley spots
+-- and the iconic North Beach pair (a far outlier, like Levain on the NYC map).
+-- No owner; coords real-but-approximate; the fictional (415) 555-03xx range.
+INSERT INTO businesses (name, lat, lng, address, phone, price_level, is_independent, local_confidence, owner_id) VALUES
+  -- Mission / Valencia
+  ('Tartine Bakery',          37.7614, -122.4241, '600 Guerrero St, San Francisco, CA 94110', '(415) 555-0301', 2, TRUE, 0.95, NULL),
+  ('Bi-Rite Creamery',        37.7617, -122.4257, '3692 18th St, San Francisco, CA 94110',    '(415) 555-0302', 2, TRUE, 0.94, NULL),
+  ('Bi-Rite Market',          37.7616, -122.4255, '3639 18th St, San Francisco, CA 94110',    '(415) 555-0303', 2, TRUE, 0.94, NULL),
+  ('Ritual Coffee Roasters',  37.7563, -122.4211, '1026 Valencia St, San Francisco, CA 94110','(415) 555-0304', 2, TRUE, 0.94, NULL),
+  ('Four Barrel Coffee',      37.7669, -122.4220, '375 Valencia St, San Francisco, CA 94103', '(415) 555-0305', 2, TRUE, 0.93, NULL),
+  ('Dog Eared Books',         37.7591, -122.4214, '900 Valencia St, San Francisco, CA 94110', '(415) 555-0306', 1, TRUE, 0.94, NULL),
+  ('Alley Cat Books',         37.7526, -122.4172, '3036 24th St, San Francisco, CA 94110',    '(415) 555-0307', 1, TRUE, 0.93, NULL),
+  ('Paxton Gate',             37.7596, -122.4214, '824 Valencia St, San Francisco, CA 94110', '(415) 555-0308', 2, TRUE, 0.92, NULL),
+  ('Gravel & Gold',           37.7569, -122.4189, '3266 21st St, San Francisco, CA 94110',    '(415) 555-0309', 2, TRUE, 0.90, NULL),
+  ('Foreign Cinema',          37.7562, -122.4189, '2534 Mission St, San Francisco, CA 94110', '(415) 555-0310', 3, TRUE, 0.91, NULL),
+  ('La Taqueria',             37.7510, -122.4181, '2889 Mission St, San Francisco, CA 94110', '(415) 555-0311', 1, TRUE, 0.94, NULL),
+  ('Flour + Water',           37.7585, -122.4124, '2401 Harrison St, San Francisco, CA 94110','(415) 555-0312', 3, TRUE, 0.91, NULL),
+  ('Delfina',                 37.7616, -122.4253, '3621 18th St, San Francisco, CA 94110',    '(415) 555-0313', 3, TRUE, 0.91, NULL),
+  ('Craftsman and Wolves',    37.7601, -122.4214, '746 Valencia St, San Francisco, CA 94110', '(415) 555-0314', 2, TRUE, 0.92, NULL),
+  ('Humphry Slocombe',        37.7531, -122.4123, '2790A Harrison St, San Francisco, CA 94110','(415) 555-0315', 2, TRUE, 0.92, NULL),
+  ('Zeitgeist',               37.7699, -122.4221, '199 Valencia St, San Francisco, CA 94103', '(415) 555-0316', 1, TRUE, 0.92, NULL),
+  ('Trick Dog',               37.7591, -122.4108, '3010 20th St, San Francisco, CA 94110',    '(415) 555-0317', 2, TRUE, 0.91, NULL),
+  ('Stable Cafe',             37.7635, -122.4154, '2128 Folsom St, San Francisco, CA 94110',  '(415) 555-0318', 2, TRUE, 0.92, NULL),
+  -- Hayes Valley
+  ('Smitten Ice Cream',       37.7762, -122.4242, '432 Octavia St, San Francisco, CA 94102',  '(415) 555-0319', 2, TRUE, 0.92, NULL),
+  ('Zuni Café',               37.7727, -122.4216, '1658 Market St, San Francisco, CA 94102',  '(415) 555-0320', 3, TRUE, 0.92, NULL),
+  -- North Beach (iconic far outliers)
+  ('City Lights Booksellers', 37.7976, -122.4065, '261 Columbus Ave, San Francisco, CA 94133','(415) 555-0321', 2, TRUE, 0.96, NULL),
+  ('Molinari Delicatessen',   37.7980, -122.4078, '373 Columbus Ave, San Francisco, CA 94133','(415) 555-0322', 2, TRUE, 0.95, NULL);
+
 -- ── Business ↔ category links ────────────────────────────────────────────────
 INSERT INTO business_categories (business_id, category_id)
 SELECT b.id, c.id
@@ -151,6 +219,68 @@ FROM (VALUES
   ('Fellow Barber','Barber'), ('Fellow Barber','Services'),
   ('Mark Fisher Fitness','Fitness'), ('Mark Fisher Fitness','Services'),
   ('L''Olivier Floral Atelier','Florist'), ('L''Olivier Floral Atelier','Services')
+) AS v(bname, cname)
+JOIN businesses b ON b.name = v.bname
+JOIN categories c ON c.name = v.cname
+ON CONFLICT DO NOTHING;
+
+-- ── Business ↔ category links (San Antonio) ──────────────────────────────────
+INSERT INTO business_categories (business_id, category_id)
+SELECT b.id, c.id
+FROM (VALUES
+  ('The Esquire Tavern','Bar'), ('The Esquire Tavern','Restaurant'),
+  ('Schilo''s Delicatessen','Restaurant'), ('Schilo''s Delicatessen','Food'),
+  ('Boudro''s on the Riverwalk','Restaurant'),
+  ('Mi Tierra Café y Panadería','Restaurant'), ('Mi Tierra Café y Panadería','Bakery'), ('Mi Tierra Café y Panadería','Food'),
+  ('La Panadería','Bakery'), ('La Panadería','Cafe'), ('La Panadería','Food'),
+  ('Paris Hatters','Retail'),
+  ('Rosella at the Rand','Coffee'), ('Rosella at the Rand','Cafe'),
+  ('Estate Coffee Company','Coffee'), ('Estate Coffee Company','Cafe'),
+  ('Feliz Modern POP','Retail'),
+  ('Halcyon Southtown','Coffee'), ('Halcyon Southtown','Cafe'), ('Halcyon Southtown','Bar'),
+  ('Rosario''s Mexican Cafe','Restaurant'), ('Rosario''s Mexican Cafe','Food'),
+  ('The Friendly Spot Ice House','Bar'),
+  ('Garcia Art Glass','Retail'), ('Garcia Art Glass','Services'),
+  ('Tienda Guadalupe Folk Art','Retail'),
+  ('Bakery Lorraine','Bakery'), ('Bakery Lorraine','Dessert'), ('Bakery Lorraine','Cafe'),
+  ('Lick Honest Ice Creams','Dessert'),
+  ('The Twig Book Shop','Bookstore'), ('The Twig Book Shop','Retail'),
+  ('Cured at Pearl','Restaurant'), ('Cured at Pearl','Food'),
+  ('Southerleigh Fine Food & Brewery','Restaurant'), ('Southerleigh Fine Food & Brewery','Bar'),
+  ('Brown Coffee Co.','Coffee'), ('Brown Coffee Co.','Cafe'),
+  ('Pearl Farmers Market','Grocery'),
+  ('Nowhere Bookshops','Bookstore'), ('Nowhere Bookshops','Retail')
+) AS v(bname, cname)
+JOIN businesses b ON b.name = v.bname
+JOIN categories c ON c.name = v.cname
+ON CONFLICT DO NOTHING;
+
+-- ── Business ↔ category links (San Francisco) ────────────────────────────────
+INSERT INTO business_categories (business_id, category_id)
+SELECT b.id, c.id
+FROM (VALUES
+  ('Tartine Bakery','Bakery'), ('Tartine Bakery','Cafe'), ('Tartine Bakery','Dessert'),
+  ('Bi-Rite Creamery','Dessert'),
+  ('Bi-Rite Market','Grocery'), ('Bi-Rite Market','Food'),
+  ('Ritual Coffee Roasters','Coffee'), ('Ritual Coffee Roasters','Cafe'),
+  ('Four Barrel Coffee','Coffee'), ('Four Barrel Coffee','Cafe'),
+  ('Dog Eared Books','Bookstore'), ('Dog Eared Books','Retail'),
+  ('Alley Cat Books','Bookstore'), ('Alley Cat Books','Retail'),
+  ('Paxton Gate','Retail'),
+  ('Gravel & Gold','Retail'),
+  ('Foreign Cinema','Restaurant'),
+  ('La Taqueria','Restaurant'), ('La Taqueria','Food'),
+  ('Flour + Water','Restaurant'), ('Flour + Water','Food'),
+  ('Delfina','Restaurant'),
+  ('Craftsman and Wolves','Bakery'), ('Craftsman and Wolves','Dessert'), ('Craftsman and Wolves','Cafe'),
+  ('Humphry Slocombe','Dessert'),
+  ('Zeitgeist','Bar'),
+  ('Trick Dog','Bar'),
+  ('Stable Cafe','Coffee'), ('Stable Cafe','Cafe'),
+  ('Smitten Ice Cream','Dessert'),
+  ('Zuni Café','Restaurant'),
+  ('City Lights Booksellers','Bookstore'), ('City Lights Booksellers','Retail'),
+  ('Molinari Delicatessen','Grocery'), ('Molinari Delicatessen','Food')
 ) AS v(bname, cname)
 JOIN businesses b ON b.name = v.bname
 JOIN categories c ON c.name = v.cname
@@ -301,6 +431,112 @@ JOIN businesses b ON b.name = v.bname
 JOIN users u ON u.username = v.uname
 ON CONFLICT (business_id, user_id) DO NOTHING;
 
+-- ── Reviews (San Antonio) ────────────────────────────────────────────────────
+INSERT INTO reviews (business_id, user_id, rating, body)
+SELECT b.id, u.id, v.rating, v.body
+FROM (VALUES
+  ('The Esquire Tavern','maya_r',5,'The longest bar in Texas, right on the river. Order a mezcal and soak in the 1933 woodwork.'),
+  ('The Esquire Tavern','james_k',4,'Historic, moody, and the cocktails are serious. Gets packed on weekends.'),
+  ('Schilo''s Delicatessen','priya_s',4,'A 1917 German deli downtown — get the split pea soup and house root beer.'),
+  ('Schilo''s Delicatessen','leo_m',5,'Old San Antonio in a sandwich. The cashier still rings a bell. Love it.'),
+  ('Boudro''s on the Riverwalk','sofia_d',4,'Tableside guac and prickly pear margaritas right on the water. Touristy but good.'),
+  ('Boudro''s on the Riverwalk','noah_t',5,'The blackened catfish is excellent and the river seating can''t be beat.'),
+  ('Mi Tierra Café y Panadería','ana_v',5,'Open 24 hours since 1941, mariachis at midnight, and a panadería that glows. Iconic.'),
+  ('Mi Tierra Café y Panadería','derek_w',4,'Pure San Antonio. Grab pan dulce on the way out — the place is a wonderland.'),
+  ('La Panadería','mei_l',5,'Mexico City–style baking by two brothers. The concha and the guava roll are unreal.'),
+  ('La Panadería','sam_o',4,'Beautiful breads and great coffee. The chilaquiles hit on a slow morning.'),
+  ('Paris Hatters','tessa_b',5,'Outfitting heads since 1917 — they''ve hatted presidents and popes. Real craft.'),
+  ('Paris Hatters','ravi_p',4,'Get measured and steamed in person. A downtown institution you can''t replicate online.'),
+  ('Rosella at the Rand','demo_user',5,'Bright corner cafe in a historic building. The cortado and the scones are spot on.'),
+  ('Rosella at the Rand','maya_r',4,'Lovely spot to work for an hour. Local roast, friendly baristas.'),
+  ('Estate Coffee Company','james_k',4,'Sleek little roaster on the east side. The pour-overs are dialed in.'),
+  ('Estate Coffee Company','priya_s',5,'My favorite flat white in the city. Quiet, design-y, serious about beans.'),
+  ('Feliz Modern POP','leo_m',4,'Joyful downtown gift shop full of local art and Texas-made goods. Great browsing.'),
+  ('Feliz Modern POP','sofia_d',5,'I never leave empty-handed. Perfect for a fun, local souvenir.'),
+  ('Halcyon Southtown','noah_t',4,'Coffee by day, cocktails and s''mores by night. A Southtown living room.'),
+  ('Halcyon Southtown','ana_v',5,'Roast your own tabletop s''mores — so fun. Good espresso too.'),
+  ('Rosario''s Mexican Cafe','derek_w',5,'Southtown Tex-Mex landmark. The enchiladas and the margaritas are the move.'),
+  ('Rosario''s Mexican Cafe','mei_l',4,'Loud, colorful, and consistently good. Go for the puffy tacos.'),
+  ('The Friendly Spot Ice House','sam_o',5,'Outdoor icehouse with 300+ beers and a playground. The most San Antonio hang there is.'),
+  ('The Friendly Spot Ice House','tessa_b',4,'Micheladas under string lights with the whole neighborhood. Pure joy.'),
+  ('Garcia Art Glass','ravi_p',5,'Watch glassblowers work, then take home something one-of-a-kind. A Southtown gem.'),
+  ('Garcia Art Glass','demo_user',4,'Gorgeous hand-blown pieces and the artists are happy to chat. Great gift stop.'),
+  ('Tienda Guadalupe Folk Art','maya_r',5,'Bursting with Mexican folk art, Day of the Dead pieces, and color. A treasure.'),
+  ('Tienda Guadalupe Folk Art','james_k',4,'Authentic and reasonably priced. Found the perfect talavera here.'),
+  ('Bakery Lorraine','priya_s',5,'French macarons and pastries at the Pearl. The kouign-amann is dangerous.'),
+  ('Bakery Lorraine','leo_m',5,'Bright, modern, and the laminated stuff is flawless. A Pearl must-stop.'),
+  ('Lick Honest Ice Creams','sofia_d',5,'Local, seasonal, Texas-sourced scoops. The goat cheese–thyme–honey is a revelation.'),
+  ('Lick Honest Ice Creams','noah_t',4,'Inventive flavors that change with the season. Great after a Pearl stroll.'),
+  ('The Twig Book Shop','ana_v',5,'The best indie bookstore in town, right at the Pearl. Wonderful Texana section.'),
+  ('The Twig Book Shop','derek_w',5,'Lovely curation and a staff that actually reads. Could browse for hours.'),
+  ('Cured at Pearl','mei_l',5,'House charcuterie in a restored 1904 building. The board is a work of art.'),
+  ('Cured at Pearl','sam_o',4,'Inventive, local, and the cured meats are the real reason to come. Bit pricey.'),
+  ('Southerleigh Fine Food & Brewery','tessa_b',4,'Beer brewed on-site in the old Pearl brewhouse. The snapper and the saison sing.'),
+  ('Southerleigh Fine Food & Brewery','ravi_p',5,'Gulf seafood and great house beer in a stunning space. A Pearl highlight.'),
+  ('Brown Coffee Co.','demo_user',5,'Meticulous, small-batch roasting near the Pearl. The espresso is genuinely special.'),
+  ('Brown Coffee Co.','maya_r',4,'Quiet, serious coffee bar. The single-origin pour-over was excellent.'),
+  ('Pearl Farmers Market','james_k',4,'Weekend market with local growers and makers along the river. Great morning ritual.'),
+  ('Pearl Farmers Market','priya_s',5,'Producers-only and genuinely local. Tamales, honey, produce — I go every Saturday.'),
+  ('Nowhere Bookshops','leo_m',5,'Jenny Lawson''s shop — quirky, warm, and full of personality. Worth the trip up Broadway.'),
+  ('Nowhere Bookshops','sofia_d',4,'Delightful indie with great staff recs and fun events. A little gem.')
+) AS v(bname, uname, rating, body)
+JOIN businesses b ON b.name = v.bname
+JOIN users u ON u.username = v.uname
+ON CONFLICT (business_id, user_id) DO NOTHING;
+
+-- ── Reviews (San Francisco) ──────────────────────────────────────────────────
+INSERT INTO reviews (business_id, user_id, rating, body)
+SELECT b.id, u.id, v.rating, v.body
+FROM (VALUES
+  ('Tartine Bakery','maya_r',5,'The morning bun and the country bread are worth every minute of the line. A Mission institution.'),
+  ('Tartine Bakery','james_k',5,'Still the gold standard for pastry in this city. Get there early or wait — either way, worth it.'),
+  ('Bi-Rite Creamery','priya_s',5,'Salted caramel in a house-made cone, then a walk to Dolores Park. Peak San Francisco.'),
+  ('Bi-Rite Creamery','leo_m',4,'The honey lavender is unreal. The line wraps the block on a sunny day — totally worth it.'),
+  ('Bi-Rite Market','sofia_d',5,'The platonic ideal of a neighborhood grocer — local produce, killer deli, staff who care.'),
+  ('Bi-Rite Market','noah_t',4,'Small but mighty. Their prepared foods and cheese counter are a cut above.'),
+  ('Ritual Coffee Roasters','ana_v',4,'A Valencia St pioneer of third-wave coffee. The cortado is dialed and the vibe is classic SF.'),
+  ('Ritual Coffee Roasters','derek_w',5,'Bright, fruit-forward roasts and friendly baristas. My go-to before browsing Valencia.'),
+  ('Four Barrel Coffee','mei_l',4,'Beautiful airy space, no wifi by design, seriously good single-origin pours.'),
+  ('Four Barrel Coffee','sam_o',5,'The Gibraltar here is perfect. Watch them roast in the back while you sip.'),
+  ('Dog Eared Books','tessa_b',5,'The best kind of cluttered indie — new, used, and remainders. I never leave without something.'),
+  ('Dog Eared Books','ravi_p',4,'Great staff picks and a window display that always makes me stop. A Valencia treasure.'),
+  ('Alley Cat Books','demo_user',5,'Used books, a back gallery, and bilingual titles. The kind of shop that anchors a block.'),
+  ('Alley Cat Books','maya_r',4,'Cozy, community-minded, and the poetry section is deep. Love the events here.'),
+  ('Paxton Gate','james_k',5,'Taxidermy, succulents, and curiosities — an experience as much as a shop. Unforgettable browsing.'),
+  ('Paxton Gate','priya_s',4,'Where else can you buy a terrarium next to a beetle specimen? Wonderfully strange.'),
+  ('Gravel & Gold','leo_m',4,'Joyful, hand-made goods and textiles from independent makers. Always find a great gift here.'),
+  ('Gravel & Gold','sofia_d',5,'Warm, colorful, and proudly local. Their prints and ceramics are the best.'),
+  ('Foreign Cinema','noah_t',5,'Brunch in a courtyard with films projected on the wall. The fried chicken is superb.'),
+  ('Foreign Cinema','ana_v',4,'A Mission classic. The oysters and the atmosphere make any occasion feel special.'),
+  ('La Taqueria','derek_w',5,'The platonic Mission burrito — no rice, dorado tortilla, perfect carnitas. A pilgrimage.'),
+  ('La Taqueria','mei_l',5,'Worth the wait every single time. Get it dorado. Cash only and proud of it.'),
+  ('Flour + Water','sam_o',5,'House-made pasta that ruins you for everywhere else. The tasting menu is a treat.'),
+  ('Flour + Water','tessa_b',4,'Book ahead — the pici and the pizza are exceptional. A Mission favorite for a reason.'),
+  ('Delfina','ravi_p',5,'Cal-Italian done right for two decades. The spaghetti is deceptively simple and perfect.'),
+  ('Delfina','demo_user',4,'Consistent, warm, and the seasonal plates always deliver. A reliable special-occasion spot.'),
+  ('Craftsman and Wolves','maya_r',5,'The Rebel Within — a sausage-and-egg muffin with a soft-cooked egg inside — is genius.'),
+  ('Craftsman and Wolves','james_k',4,'Pastry as modern art. The matcha and the cube cakes are beautiful and delicious.'),
+  ('Humphry Slocombe','priya_s',5,'Secret Breakfast (bourbon + cornflakes) is a San Francisco original. Wonderfully weird flavors.'),
+  ('Humphry Slocombe','leo_m',5,'Irreverent, inventive ice cream. The Harvey Milk & Honey Graham is a must.'),
+  ('Zeitgeist','sofia_d',4,'Huge beer garden, cash only, and the most San Francisco crowd there is. Tamale guy if you''re lucky.'),
+  ('Zeitgeist','noah_t',4,'Bloody Marys and a sunny back patio. Gritty, friendly, perfect for an afternoon.'),
+  ('Trick Dog','ana_v',5,'World-class cocktails with menus that change on a theme. Inventive and genuinely fun.'),
+  ('Trick Dog','derek_w',4,'The drinks are creative and the space is a blast. Get there early to grab a seat.'),
+  ('Stable Cafe','mei_l',4,'A sunlit courtyard tucked off Folsom — great espresso and a calm place to work.'),
+  ('Stable Cafe','sam_o',5,'Lovely patio, strong coffee, good pastries. A hidden Mission gem.'),
+  ('Smitten Ice Cream','tessa_b',5,'Made-to-order with liquid nitrogen, right in front of you. The TCHO chocolate is rich and perfect.'),
+  ('Smitten Ice Cream','ravi_p',4,'Fun to watch and genuinely delicious. The Hayes Valley patio is a nice bonus.'),
+  ('Zuni Café','demo_user',5,'The roast chicken for two with bread salad is a San Francisco rite of passage. Timeless.'),
+  ('Zuni Café','maya_r',5,'A Market St institution since 1979. Oysters, a Caesar, and that chicken — perfection.'),
+  ('City Lights Booksellers','james_k',5,'A literary landmark since 1953 — the Beat poetry room upstairs gives me chills every visit.'),
+  ('City Lights Booksellers','priya_s',5,'Independent, fearless, and essential. You feel the history in every aisle. A must in North Beach.'),
+  ('Molinari Delicatessen','leo_m',5,'A 1896 North Beach deli — house-cured salumi and a sandwich that could feed two. Iconic.'),
+  ('Molinari Delicatessen','sofia_d',4,'The smell alone is worth the visit. Get the Renzo and a hunk of parmigiano.')
+) AS v(bname, uname, rating, body)
+JOIN businesses b ON b.name = v.bname
+JOIN users u ON u.username = v.uname
+ON CONFLICT (business_id, user_id) DO NOTHING;
+
 -- ── Deals (10; one already expired to show lifecycle) ────────────────────────
 INSERT INTO deals (business_id, title, discount_pct, per_user_limit, total_limit, starts_at, ends_at)
 SELECT b.id, v.title, v.pct, 1, v.total, now() - INTERVAL '20 days', now() + (v.days_left || ' days')::interval
@@ -315,6 +551,28 @@ FROM (VALUES
   ('The Strand Book Store',  '15% off any used book',                         15, NULL, '35'),
   ('Economy Candy',          '10% off a pound of pick-and-mix',               10, 250, '28'),
   ('Scarr''s Pizza',         'Slice + soda combo, 12% off',                   12, 200, '18')
+) AS v(bname, title, pct, total, days_left)
+JOIN businesses b ON b.name = v.bname;
+
+-- Active deals (San Antonio)
+INSERT INTO deals (business_id, title, discount_pct, per_user_limit, total_limit, starts_at, ends_at)
+SELECT b.id, v.title, v.pct, 1, v.total, now() - INTERVAL '15 days', now() + (v.days_left || ' days')::interval
+FROM (VALUES
+  ('La Panadería',                 '10% off any pan dulce',              10, 200, '30'),
+  ('The Friendly Spot Ice House',  'Happy hour, 15% off a round',       15, 300, '21'),
+  ('Bakery Lorraine',             '10% off a box of macarons',          10, 150, '28'),
+  ('The Twig Book Shop',          '15% off any Texana title',           15, NULL, '40')
+) AS v(bname, title, pct, total, days_left)
+JOIN businesses b ON b.name = v.bname;
+
+-- Active deals (San Francisco)
+INSERT INTO deals (business_id, title, discount_pct, per_user_limit, total_limit, starts_at, ends_at)
+SELECT b.id, v.title, v.pct, 1, v.total, now() - INTERVAL '15 days', now() + (v.days_left || ' days')::interval
+FROM (VALUES
+  ('Bi-Rite Creamery',        'Free waffle cone upgrade with any scoop', 15, 250, '30'),
+  ('Ritual Coffee Roasters',  '10% off a bag of whole-bean coffee',      10, 200, '30'),
+  ('Dog Eared Books',         '15% off any used book',                   15, NULL, '40'),
+  ('Humphry Slocombe',        '10% off a pint to go',                    10, 200, '21')
 ) AS v(bname, title, pct, total, days_left)
 JOIN businesses b ON b.name = v.bname;
 

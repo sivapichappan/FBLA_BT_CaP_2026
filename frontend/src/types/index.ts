@@ -91,6 +91,9 @@ export interface TripStop extends Business {
   // Deals on route + personalization (idea 10a/b).
   deals?: { id: number; title: string; discount_pct: number }[];
   is_favorite?: boolean;
+  // Free time AFTER this stop (before the next) when a short day is spread to fill
+  // the window — rendered as a "time to explore" gap so the clock jump reads right.
+  explore_after_min?: number;
 }
 
 /** Re-timed itinerary after a client edit (idea 1). */

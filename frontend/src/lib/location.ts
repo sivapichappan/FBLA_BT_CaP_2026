@@ -11,6 +11,21 @@ import { useEffect, useState } from "react";
 
 /** Greenwich Village — matches the backend's DEMO_LAT/DEMO_LNG defaults. */
 export const DEMO_CENTER = { lat: 40.7308, lng: -73.9973 };
+
+/** The seeded demo cities the picker offers. Each has its own cluster of local
+ *  businesses in the database, so all three work fully offline like NYC. NYC is
+ *  the backend default; the others are manual picks centred on their cluster
+ *  (downtown/Southtown San Antonio · the Mission, San Francisco). */
+export const DEMO_CITIES = [
+  {
+    key: "nyc",
+    label: "New York, NY",
+    lat: DEMO_CENTER.lat,
+    lng: DEMO_CENTER.lng,
+  },
+  { key: "sat", label: "San Antonio, TX", lat: 29.4246, lng: -98.491 },
+  { key: "sfo", label: "San Francisco, CA", lat: 37.76, lng: -122.421 },
+] as const;
 const STORAGE_KEY = "locallens_location";
 const EVENT = "locallens-location-changed";
 

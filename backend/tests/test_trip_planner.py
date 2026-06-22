@@ -721,3 +721,113 @@ def test_keyword_interpret_maps_read_to_bookstore():
     out = trip_planner._keyword_interpret(
         "coffee then a 2 hour read", list(trip_planner.CHIP_SLOTS.keys()))
     assert "Bookstore" in out["interests"]
+
+
+# ── Use the window as a TARGET + center the meal (reported "ends by 2 PM") ───
+
+
+def test_center_meal_puts_lunch_mid_day():
+    """The reported order: coffee + bookstore + retail + restaurant should flow
+    coffee → bookstore → lunch → shopping, NOT coffee → bookstore → shop → lunch.
+    The meal is no longer the terminal stop."""
+    chips = trip_planner._plan_chips(
+        4, ["Coffee", "Bookstore", "Retail", "Restaurant"])
+    assert chips == ["Coffee", "Bookstore", "Restaurant", "Retail"]
+
+
+def test_center_meal_noop_without_a_meal():
+    """A meal-less day keeps plain time-of-day order (nothing to center around)."""
+    chips = trip_planner._plan_chips(3, ["Coffee", "Bookstore", "Retail"])
+    assert chips == ["Coffee", "Bookstore", "Retail"]
+
+
+def test_center_meal_noop_with_one_untimed_kind():
+    """The default 3-stop day [Coffee, Restaurant, Dessert] is UNCHANGED — only one
+    any-time kind, so the meal stays put (backward-compat for the common day)."""
+    chips = trip_planner._plan_chips(3, ["Coffee", "Restaurant", "Dessert"])
+    assert chips == ["Coffee", "Restaurant", "Dessert"]
+
+
+def test_window_fill_spreads_relaxed_day_to_end_time(monkeypatch):
+    """The headline bug: a relaxed 4-stop day in a 9 AM–4 PM window used to finish
+    ~2 PM, wasting the afternoon. It now spreads so the last stop ends near 4 PM."""
+    _wire(monkeypatch, _DENSE, narrative=None)
+    out = asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0,
+        interests=["Coffee", "Bookstore", "Retail", "Restaurant"],
+        start_time="09:00", end_time="16:00", num_stops=4, pace="relaxed"))
+    for opt in out["options"]:
+        if len(opt["stops"]) < 4:
+            continue
+        last = opt["stops"][-1]
+        end_of_day = last["arrive_min"] + last["dwell_min"]
+        # Ends within ~20 min of 4 PM, and never past it.
+        assert 16 * 60 - 20 <= end_of_day <= 16 * 60
+
+
+def test_window_fill_meal_is_centered_not_terminal(monkeypatch):
+    """In the spread day the meal sits mid-day with an any-time stop after it."""
+    _wire(monkeypatch, _DENSE, narrative=None)
+    out = asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0,
+        interests=["Coffee", "Bookstore", "Retail", "Restaurant"],
+        start_time="09:00", end_time="16:00", num_stops=4, pace="relaxed"))
+    for opt in out["options"]:
+        slots = [s["slot"] for s in opt["stops"]]
+        if "eat" in slots and len(slots) == 4:
+            ei = slots.index("eat")
+            assert ei != len(slots) - 1, "the meal must not be the last stop"
+            assert any(sl in ("shop", "browse", "coffee") for sl in slots[ei + 1:])
+
+
+def test_window_fill_never_overruns_end_time(monkeypatch):
+    """No stretched stop ever arrives — or is still mid-visit — after end_time."""
+    _wire(monkeypatch, _DENSE, narrative=None)
+    out = asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0,
+        interests=["Coffee", "Bookstore", "Retail", "Restaurant"],
+        start_time="09:00", end_time="16:00", num_stops=4, pace="relaxed"))
+    for opt in out["options"]:
+        for s in opt["stops"]:
+            assert s["arrive_min"] + s["dwell_min"] <= 16 * 60
+
+
+def test_window_fill_caps_dwell_no_three_hour_coffee(monkeypatch):
+    """Filling the window stretches dwell only up to a realistic per-role ceiling —
+    a huge window can't turn a coffee into a 3-hour sit."""
+    _wire(monkeypatch, _DENSE, narrative=None)
+    out = asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0, interests=["Coffee", "Bookstore"],
+        start_time="09:00", end_time="18:00", num_stops=2, pace="relaxed"))
+    for opt in out["options"]:
+        for s in opt["stops"]:
+            assert s["dwell_min"] <= trip_planner.ROLE_MAX_DWELL[s["slot"]]
+
+
+def test_spread_to_window_noop_when_no_slack():
+    """A day that already fills its window is returned unchanged (no explore gap,
+    no stretched dwell) — the backward-compat / idempotency gate."""
+    stops = [{"ref": "a", "lat": 40.0, "lng": -74.0, "slot": "coffee",
+              "arrive_min": 600, "dwell_min": 60,
+              "walk_from_prev_km": 0.0, "walk_from_prev_min": 0}]
+    out = trip_planner._spread_to_window(
+        [dict(s) for s in stops], 40.0, -74.0, 600, 660)  # 10:00–11:00, slack 0
+    assert "explore_after_min" not in out[0]
+    assert out[0]["dwell_min"] == 60
+
+
+def test_retime_round_trips_a_spread_day(monkeypatch):
+    """A spread day fed back into retime() re-clocks BYTE-IDENTICALLY — the shared
+    clock authority honours the explore gaps + stretched dwell (no collapse, the
+    failure mode the design review flagged)."""
+    _wire(monkeypatch, _DENSE, narrative=None)
+    out = asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0,
+        interests=["Coffee", "Bookstore", "Retail", "Restaurant"],
+        start_time="09:00", end_time="16:00", num_stops=4, pace="relaxed"))
+    opt = out["options"][0]
+    rt = trip_planner.retime(opt["stops"], 40.0, -74.0, "09:00", "16:00")
+    for a, b in zip(opt["stops"], rt["stops"]):
+        assert a["arrive_min"] == b["arrive_min"]
+        assert a["dwell_min"] == b["dwell_min"]
+        assert a.get("explore_after_min", 0) == b.get("explore_after_min", 0)

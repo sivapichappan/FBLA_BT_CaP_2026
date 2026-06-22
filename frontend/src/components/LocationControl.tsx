@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { businessApi } from "../lib/api";
 import {
+  DEMO_CITIES,
   resetToDemo,
   setManualLocation,
   useDeviceLocation,
@@ -97,7 +98,41 @@ export function LocationControl() {
               {error}
             </p>
           )}
-          <div className="mt-2 flex gap-2">
+          {/* Seeded demo cities — each has its own local businesses, so the demo
+              works offline in any of them. NYC is the backend default. */}
+          <div className="mt-3 border-t border-border pt-2">
+            <p className="font-mono text-[10px] uppercase tracking-wide text-ink-soft">
+              Demo cities
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {DEMO_CITIES.map((c) => {
+                const active =
+                  c.key === "nyc"
+                    ? !coords.manual && !coords.fromDevice
+                    : coords.label === c.label;
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => {
+                      if (c.key === "nyc") resetToDemo();
+                      else setManualLocation(c.lat, c.lng, c.label);
+                      setOpen(false);
+                    }}
+                    className={`rounded-full border px-2.5 py-1 font-serif text-xs transition-colors ${
+                      active
+                        ? "border-accent-700 bg-accent-700 text-cream"
+                        : "border-border text-ink-soft hover:border-accent-600 hover:text-ink"
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="mt-2">
             <button
               type="button"
               onClick={useDevice}
@@ -105,16 +140,6 @@ export function LocationControl() {
               className="rounded-md border border-border px-2.5 py-1 font-serif text-xs text-ink hover:border-accent-600 disabled:opacity-50"
             >
               ⌖ Use my location
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                resetToDemo();
-                setOpen(false);
-              }}
-              className="rounded-md border border-border px-2.5 py-1 font-serif text-xs text-ink-soft hover:border-accent-600"
-            >
-              NYC demo
             </button>
           </div>
         </div>

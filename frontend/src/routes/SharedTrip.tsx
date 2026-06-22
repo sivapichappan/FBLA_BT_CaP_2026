@@ -4,7 +4,7 @@
  * plan their own. Reuses the planner's stop-card look without the edit controls.
  */
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { MapView } from "../components/MapView";
 import {
@@ -82,53 +82,58 @@ export function SharedTrip() {
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_1fr]">
         <ol className="space-y-3">
           {stops.map((s, i) => (
-            <li
-              key={s.ref}
-              className="flex gap-3 rounded-lg border border-border bg-surface p-3"
-            >
-              <div className="flex w-16 shrink-0 flex-col items-center">
-                <span className="font-mono text-xs font-bold text-accent-700">
-                  {s.arrive}
-                </span>
-                <span className="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-accent-700 font-mono text-sm font-bold text-cream">
-                  {i + 1}
-                </span>
-                {s.walk_from_prev_min > 0 && (
-                  <span className="mt-1 text-center font-mono text-[10px] text-ink-soft">
-                    {s.walk_from_prev_min} min walk
+            <Fragment key={s.ref}>
+              <li className="flex gap-3 rounded-lg border border-border bg-surface p-3">
+                <div className="flex w-16 shrink-0 flex-col items-center">
+                  <span className="font-mono text-xs font-bold text-accent-700">
+                    {s.arrive}
                   </span>
-                )}
-              </div>
-              <BizImage
-                photoUrl={s.photo_url}
-                name={s.name}
-                className="h-20 w-24 shrink-0 rounded-md border border-border"
-                focusX={s.photo_focus_x}
-                focusY={s.photo_focus_y}
-              />
-              <div className="min-w-0">
-                <Link
-                  to={`/business/${encodeURIComponent(s.ref)}`}
-                  className="truncate font-display text-lg font-semibold text-ink hover:text-accent-700"
-                >
-                  {s.name}
-                </Link>
-                <p className="font-mono text-[10px] uppercase tracking-wide text-ink-soft">
-                  {s.slot} · stay ~{s.dwell_min} min
-                </p>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  {s.review_count > 0 && (
-                    <span className="flex items-center gap-1">
-                      <StarRating rating={s.average_rating} size={12} />
-                      <span className="font-serif text-xs text-ink-soft">
-                        {s.average_rating.toFixed(1)}
-                      </span>
+                  <span className="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-accent-700 font-mono text-sm font-bold text-cream">
+                    {i + 1}
+                  </span>
+                  {s.walk_from_prev_min > 0 && (
+                    <span className="mt-1 text-center font-mono text-[10px] text-ink-soft">
+                      {s.walk_from_prev_min} min walk
                     </span>
                   )}
-                  <LocalBadge badge={s.local_badge} />
                 </div>
-              </div>
-            </li>
+                <BizImage
+                  photoUrl={s.photo_url}
+                  name={s.name}
+                  className="h-20 w-24 shrink-0 rounded-md border border-border"
+                  focusX={s.photo_focus_x}
+                  focusY={s.photo_focus_y}
+                />
+                <div className="min-w-0">
+                  <Link
+                    to={`/business/${encodeURIComponent(s.ref)}`}
+                    className="truncate font-display text-lg font-semibold text-ink hover:text-accent-700"
+                  >
+                    {s.name}
+                  </Link>
+                  <p className="font-mono text-[10px] uppercase tracking-wide text-ink-soft">
+                    {s.slot} · stay ~{s.dwell_min} min
+                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    {s.review_count > 0 && (
+                      <span className="flex items-center gap-1">
+                        <StarRating rating={s.average_rating} size={12} />
+                        <span className="font-serif text-xs text-ink-soft">
+                          {s.average_rating.toFixed(1)}
+                        </span>
+                      </span>
+                    )}
+                    <LocalBadge badge={s.local_badge} />
+                  </div>
+                </div>
+              </li>
+              {(s.explore_after_min ?? 0) > 0 && i < stops.length - 1 && (
+                <li className="flex items-center gap-2 pl-[4.5rem] font-mono text-[10px] text-ink-soft">
+                  <span aria-hidden>↓</span>≈ {s.explore_after_min} min free
+                  time to explore nearby
+                </li>
+              )}
+            </Fragment>
           ))}
         </ol>
         <section
