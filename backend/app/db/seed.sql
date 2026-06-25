@@ -545,7 +545,8 @@ JOIN businesses b ON b.name = v.bname
 JOIN users u ON u.username = v.uname
 ON CONFLICT (business_id, user_id) DO NOTHING;
 
--- ── Deals (10; one already expired to show lifecycle) ────────────────────────
+-- ── Deals (active across NYC + San Antonio + San Francisco; one NYC deal
+--    is already expired to show the lifecycle) ──────────────────────────────
 INSERT INTO deals (business_id, title, discount_pct, per_user_limit, total_limit, starts_at, ends_at)
 SELECT b.id, v.title, v.pct, 1, v.total, now() - INTERVAL '20 days', now() + (v.days_left || ' days')::interval
 FROM (VALUES
@@ -558,7 +559,14 @@ FROM (VALUES
   ('McNally Jackson Books',  '10% off staff picks',                           10, NULL, '40'),
   ('The Strand Book Store',  '15% off any used book',                         15, NULL, '35'),
   ('Economy Candy',          '10% off a pound of pick-and-mix',               10, 250, '28'),
-  ('Scarr''s Pizza',         'Slice + soda combo, 12% off',                   12, 200, '18')
+  ('Scarr''s Pizza',         'Slice + soda combo, 12% off',                   12, 200, '18'),
+  -- Broader NYC coverage beyond the demo-owner cluster.
+  ('Katz''s Delicatessen',            'Hand-cut pastrami on rye, 15% off',           15,  200, '21'),
+  ('Russ & Daughters',                'Lox & cream cheese on a bagel, 20% off',      20,  150, '30'),
+  ('Veselka',                         'Half-dozen pierogi + borscht, 18% off',       18,  250, '26'),
+  ('Levain Bakery',                   'Buy 3 giant cookies, get 25% off',            25,  300, '14'),
+  ('Three Lives & Company',           'Booksellers'' picks, 15% off a paperback',    15, NULL, '45'),
+  ('Old Town Bar',                    'Burger + draft pint, 20% off',                20,  180, '18')
 ) AS v(bname, title, pct, total, days_left)
 JOIN businesses b ON b.name = v.bname;
 
@@ -569,7 +577,20 @@ FROM (VALUES
   ('La Panadería',                 '10% off any pan dulce',              10, 200, '30'),
   ('The Friendly Spot Ice House',  'Happy hour, 15% off a round',       15, 300, '21'),
   ('Bakery Lorraine',             '10% off a box of macarons',          10, 150, '28'),
-  ('The Twig Book Shop',          '15% off any Texana title',           15, NULL, '40')
+  ('The Twig Book Shop',          '15% off any Texana title',           15, NULL, '40'),
+  -- Competition-city coverage: deals across downtown, Southtown, and the Pearl.
+  ('The Esquire Tavern',              'Bartender''s choice cocktail, 20% off',       20,  200, '28'),
+  ('Schilo''s Delicatessen',          'House root beer float with any reuben',       15,  150, '21'),
+  ('Boudro''s on the Riverwalk',      '20% off tableside guacamole for two',         20,  100, '18'),
+  ('Mi Tierra Café y Panadería',      '25% off a dozen pan dulce, 24 hours',         25,  300, '35'),
+  ('Paris Hatters',                   '15% off any felt hat reshape & clean',        15,  120, '40'),
+  ('Rosella at the Rand',             'Buy a latte, get a second 50% off',           25,  200, '16'),
+  ('Estate Coffee Company',           '18% off any pour-over flight',                18,  150, '24'),
+  ('Feliz Modern POP',                '20% off any San Antonio-made gift',           20,  250, '30'),
+  ('Rosario''s Mexican Cafe',         'House margarita with any fajita plate',       20,  300, '27'),
+  ('Garcia Art Glass',                '12% off a hand-blown glass piece',            12,   80, '45'),
+  ('Lick Honest Ice Creams',          '20% off a hand-packed pint to go',            20,  200, '14'),
+  ('Southerleigh Fine Food & Brewery', '15% off a house brewery flight',              15,  250, '38')
 ) AS v(bname, title, pct, total, days_left)
 JOIN businesses b ON b.name = v.bname;
 
@@ -579,8 +600,23 @@ SELECT b.id, v.title, v.pct, 1, v.total, now() - INTERVAL '15 days', now() + (v.
 FROM (VALUES
   ('Bi-Rite Creamery',        'Free waffle cone upgrade with any scoop', 15, 250, '30'),
   ('Ritual Coffee Roasters',  '10% off a bag of whole-bean coffee',      10, 200, '30'),
-  ('Dog Eared Books',         '15% off any used book',                   15, NULL, '40'),
-  ('Humphry Slocombe',        '10% off a pint to go',                    10, 200, '21')
+  -- Title made unique: the Strand (NYC) already uses "15% off any used book",
+  -- and redemptions join deals BY TITLE, so a shared title would cross-attach.
+  ('Dog Eared Books',         '15% off any pre-loved paperback',         15, NULL, '40'),
+  ('Humphry Slocombe',        '10% off a pint to go',                    10, 200, '21'),
+  -- Variety-city coverage: Mission/Valencia, Hayes Valley, and North Beach.
+  ('Tartine Bakery',                  'Morning bun + drip coffee, 18% off',          18,  200, '21'),
+  ('La Taqueria',                     'Carne asada burrito, dorado-style, 15% off',  15,  300, '30'),
+  ('Four Barrel Coffee',              '20% off a bag of single-origin beans',        20,  150, '26'),
+  ('Craftsman and Wolves',            'The Rebel Within muffin, 15% off',            15,  120, '18'),
+  ('Smitten Ice Cream',               'Liquid-nitrogen scoop + topping, 20% off',    20,  200, '24'),
+  ('City Lights Booksellers',         '25% off any poetry title',                    25, NULL, '40'),
+  ('Molinari Delicatessen',           'Renzo Special sandwich, 15% off',             15,  250, '28'),
+  ('Zuni Café',                       'Wood-fired roast chicken for two, 20% off',   20,  100, '35'),
+  ('Flour + Water',                   'House tasting pasta flight, 15% off',         15,  150, '33'),
+  ('Trick Dog',                       'Happy hour, 20% off house cocktails',         20,  200, '16'),
+  ('Paxton Gate',                     '20% off any oddity or curiosity',             20, NULL, '45'),
+  ('Gravel & Gold',                   '22% off handmade textiles',                   22,  100, '38')
 ) AS v(bname, title, pct, total, days_left)
 JOIN businesses b ON b.name = v.bname;
 
