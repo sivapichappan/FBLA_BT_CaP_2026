@@ -40,6 +40,7 @@ function filtersFromUrl(sp: URLSearchParams): SearchFilters {
         .map(Number)
         .filter((n) => n >= 1 && n <= 4) ?? [],
     open_now: sp.get("open") === "1",
+    wheelchairAccessible: sp.get("wca") === "1",
     sort: (["best_match", "distance", "rating", "reviews"].includes(
       sp.get("sort") ?? "",
     )
@@ -55,6 +56,7 @@ function urlFromFilters(f: SearchFilters): URLSearchParams {
   if (f.min_rating) sp.set("min_rating", String(f.min_rating));
   if (f.price_levels.length) sp.set("price", f.price_levels.join(","));
   if (f.open_now) sp.set("open", "1");
+  if (f.wheelchairAccessible) sp.set("wca", "1");
   if (f.sort !== "best_match") sp.set("sort", f.sort);
   return sp;
 }
@@ -131,6 +133,7 @@ export function Search() {
             min_rating: f.min_rating || undefined,
             price_levels: f.price_levels.join(",") || undefined,
             open_now: f.open_now,
+            wheelchair_accessible: f.wheelchairAccessible,
           });
           if (vibe.available) {
             setResults(vibe.results);
@@ -148,6 +151,7 @@ export function Search() {
           min_rating: f.min_rating || undefined,
           price_levels: f.price_levels.join(",") || undefined,
           open_now: f.open_now,
+          wheelchair_accessible: f.wheelchairAccessible,
           sort: f.sort,
         });
         setResults(res.results);

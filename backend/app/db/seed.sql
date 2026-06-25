@@ -314,6 +314,14 @@ FROM businesses b
 CROSS JOIN (VALUES (0),(1),(2),(3),(4),(5),(6)) AS d(dow)
 ON CONFLICT (business_id, day_of_week) DO NOTHING;
 
+-- ── Wheelchair accessibility for every seeded business ───────────────────────
+-- Seeded independents are marked fully accessible so the badge / filter /
+-- planner-knob demo works offline. (Real Google data fills `gp_` results live;
+-- owners can self-report their own listing's true state.)
+INSERT INTO business_accessibility (business_id, entrance, parking, restroom, seating)
+SELECT b.id, TRUE, TRUE, TRUE, TRUE FROM businesses b
+ON CONFLICT (business_id) DO NOTHING;
+
 -- ── Reviews ──────────────────────────────────────────────────────────────────
 INSERT INTO reviews (business_id, user_id, rating, body)
 SELECT b.id, u.id, v.rating, v.body

@@ -121,14 +121,18 @@ export function Verify() {
           role="status"
           className="mt-5 rounded-lg border border-border bg-surface p-6"
         >
-          <p className={`font-display text-2xl font-semibold ${STATUS_DISPLAY[result.status].tone}`}>
+          <p
+            className={`font-display text-2xl font-semibold ${STATUS_DISPLAY[result.status].tone}`}
+          >
             {STATUS_DISPLAY[result.status].label}
           </p>
           {result.status !== "not_found" && (
             <dl className="mt-3 space-y-1 font-serif text-ink">
               <div className="flex justify-between gap-4">
                 <dt className="text-ink-soft">Deal</dt>
-                <dd>{result.deal_title} (−{result.discount_pct}%)</dd>
+                <dd>
+                  {result.deal_title} (−{result.discount_pct}%)
+                </dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-ink-soft">Business</dt>
@@ -140,7 +144,10 @@ export function Verify() {
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-ink-soft">Redeemed</dt>
-                <dd>{result.redeemed_at && new Date(result.redeemed_at).toLocaleString()}</dd>
+                <dd>
+                  {result.redeemed_at &&
+                    new Date(result.redeemed_at).toLocaleString()}
+                </dd>
               </div>
               {result.verified_at && (
                 <div className="flex justify-between gap-4">

@@ -93,7 +93,8 @@ export function Profile() {
           </div>
           <div className="sm:col-span-2">
             <p className="font-mono text-[11px] uppercase tracking-wide text-ink-soft">
-              Level {level} · {LEVEL_SIZE - intoLevel} points to level {level + 1}
+              Level {level} · {LEVEL_SIZE - intoLevel} points to level{" "}
+              {level + 1}
             </p>
             <div
               className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-cream"
@@ -109,8 +110,8 @@ export function Profile() {
               />
             </div>
             <p className="mt-2 font-serif text-xs text-ink-soft">
-              Earn points by contributing: +10 per review · +5 per deal
-              redeemed · +2 per favorite.
+              Earn points by contributing: +10 per review · +5 per deal redeemed
+              · +2 per favorite.
             </p>
           </div>
         </div>
@@ -220,7 +221,10 @@ export function Profile() {
                     <span className="min-w-0 truncate font-serif text-sm text-ink">
                       {c.title}
                       {c.business_name && (
-                        <span className="text-ink-soft"> · {c.business_name}</span>
+                        <span className="text-ink-soft">
+                          {" "}
+                          · {c.business_name}
+                        </span>
                       )}
                     </span>
                     <code className="ml-3 shrink-0 rounded bg-cream px-2 py-1 font-mono text-sm font-bold text-accent-700">

@@ -9,9 +9,22 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 SortMode = Literal["best_match", "distance", "rating", "reviews"]
+
+
+class Accessibility(BaseModel):
+    """Wheelchair accessibility, tri-state per facet: True = accessible,
+    False = known not accessible, None = not reported. Matches Google Places'
+    accessibilityOptions and the owner self-report form. `extra="forbid"` makes
+    an owner payload with an unknown key a clean 422."""
+
+    model_config = ConfigDict(extra="forbid")
+    entrance: Optional[bool] = None
+    parking: Optional[bool] = None
+    restroom: Optional[bool] = None
+    seating: Optional[bool] = None
 
 
 class BusinessOut(BaseModel):
@@ -43,6 +56,9 @@ class BusinessOut(BaseModel):
     photo_focus_x: Optional[int] = None
     photo_focus_y: Optional[int] = None
     editorial_summary: Optional[str] = None
+    # Wheelchair accessibility (Google Places + owner self-report); None when
+    # the business has no reported data at all.
+    accessibility: Optional[Accessibility] = None
 
 
 class BusinessSnapshot(BaseModel):
@@ -71,6 +87,8 @@ class SearchParams(BaseModel):
     min_rating: Annotated[float, Field(ge=0, le=5)] = 0.0
     price_levels: list[int] = Field(default_factory=list)   # subset of 1..4
     open_now: bool = False
+    # Keep-unknowns filter (mirrors price): hides only KNOWN-inaccessible spots.
+    wheelchair_accessible: bool = False
     sort: SortMode = "best_match"
 
 
@@ -115,6 +133,7 @@ class BusinessIn(BaseModel):
     photo_url: Optional[str] = Field(default=None, max_length=400)
     category_ids: list[int] = Field(default_factory=list, max_length=5)
     hours: list[HoursIn] = Field(default_factory=list, max_length=7)
+    accessibility: Optional[Accessibility] = None
 
 
 class BusinessUpdateIn(BaseModel):
@@ -124,3 +143,4 @@ class BusinessUpdateIn(BaseModel):
     website: Optional[str] = Field(default=None, max_length=200)
     price_level: Optional[Annotated[int, Field(ge=1, le=4)]] = None
     photo_url: Optional[str] = Field(default=None, max_length=400)
+    accessibility: Optional[Accessibility] = None

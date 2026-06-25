@@ -6,7 +6,14 @@
 
 import { Link } from "react-router-dom";
 import type { Business } from "../types";
-import { BizImage, LocalBadge, OpenBadge, PriceLevel, StarRating } from "./ui";
+import {
+  AccessibilityBadge,
+  BizImage,
+  LocalBadge,
+  OpenBadge,
+  PriceLevel,
+  StarRating,
+} from "./ui";
 
 interface Props {
   business: Business;
@@ -69,7 +76,10 @@ export function BusinessCard({
               <OpenBadge open={b.is_open_now} />
             </div>
           </div>
-          <LocalBadge badge={b.local_badge} />
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <LocalBadge badge={b.local_badge} />
+            <AccessibilityBadge accessibility={b.accessibility} />
+          </div>
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-serif text-sm text-ink-soft">

@@ -6,10 +6,16 @@
 
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { EmptyState, Skeleton } from "../../components/ui";
+import {
+  AccessibilityFields,
+  BLANK_ACCESSIBILITY,
+  EmptyState,
+  Skeleton,
+} from "../../components/ui";
 import { ApiError, businessApi, ownerApi } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { usePageTitle } from "../../lib/usePageTitle";
+import type { Accessibility } from "../../types";
 
 export function EditBusiness() {
   usePageTitle("Edit listing");
@@ -24,6 +30,11 @@ export function EditBusiness() {
   const [website, setWebsite] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
   const [priceLevel, setPriceLevel] = useState<number | null>(null);
+  const [accessibility, setAccessibility] =
+    useState<Accessibility>(BLANK_ACCESSIBILITY);
+  // Only send accessibility when the owner actually edits it, so an untouched
+  // save never clobbers existing data (the backend leaves it alone if absent).
+  const [accessTouched, setAccessTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -40,8 +51,11 @@ export function EditBusiness() {
         setAddress(b.address ?? "");
         setPhone(b.phone ?? "");
         setWebsite(b.website ?? "");
-        setPhotoUrl(b.photo_url && !b.photo_url.startsWith("/") ? b.photo_url : "");
+        setPhotoUrl(
+          b.photo_url && !b.photo_url.startsWith("/") ? b.photo_url : "",
+        );
         setPriceLevel(b.price_level);
+        setAccessibility(b.accessibility ?? BLANK_ACCESSIBILITY);
       })
       .catch(() => setNotMine(true))
       .finally(() => setLoading(false));
@@ -59,10 +73,13 @@ export function EditBusiness() {
         website: website || null,
         photo_url: photoUrl || null,
         price_level: priceLevel,
+        ...(accessTouched ? { accessibility } : {}),
       });
       navigate(`/business/${id}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not save changes.");
+      setError(
+        err instanceof ApiError ? err.message : "Could not save changes.",
+      );
     } finally {
       setBusy(false);
     }
@@ -194,6 +211,14 @@ export function EditBusiness() {
             ))}
           </div>
         </fieldset>
+
+        <AccessibilityFields
+          value={accessibility}
+          onChange={(next) => {
+            setAccessibility(next);
+            setAccessTouched(true);
+          }}
+        />
 
         <button
           type="submit"

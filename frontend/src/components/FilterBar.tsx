@@ -94,7 +94,10 @@ export function FilterBar({ filters, categories, onChange }: Props) {
     filters.price_levels.length +
     (filters.min_rating > 0 ? 1 : 0);
 
-  const activeCount = panelCount + (filters.open_now ? 1 : 0);
+  const activeCount =
+    panelCount +
+    (filters.open_now ? 1 : 0) +
+    (filters.wheelchairAccessible ? 1 : 0);
 
   return (
     <section aria-label="Search filters" className="space-y-2">
@@ -123,6 +126,16 @@ export function FilterBar({ filters, categories, onChange }: Props) {
           onClick={() => set({ open_now: !filters.open_now })}
         >
           Open now
+        </Toggle>
+
+        <Toggle
+          active={!!filters.wheelchairAccessible}
+          onClick={() =>
+            set({ wheelchairAccessible: !filters.wheelchairAccessible })
+          }
+          label="Wheelchair accessible only"
+        >
+          ♿ Accessible
         </Toggle>
 
         <button
@@ -165,6 +178,7 @@ export function FilterBar({ filters, categories, onChange }: Props) {
                 price_levels: [],
                 min_rating: 0,
                 open_now: false,
+                wheelchairAccessible: false,
               })
             }
             className="font-serif text-sm text-accent-700 underline-offset-2 hover:underline"

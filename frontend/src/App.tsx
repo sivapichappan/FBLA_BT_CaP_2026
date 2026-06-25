@@ -8,7 +8,8 @@
  */
 
 import { MotionConfig } from "motion/react";
-import { Link, Route, Routes } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { Link, Route, Routes, useLocation } from "react-router-dom";
 import { ConciergeWidget } from "./components/ConciergeWidget";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header } from "./components/Header";
@@ -33,6 +34,23 @@ import { Profile } from "./routes/Profile";
 import { Register } from "./routes/Register";
 import { Search } from "./routes/Search";
 
+/** Move keyboard/screen-reader focus to the main content on navigation, so the
+ *  next page's content is announced instead of focus being stranded on a button
+ *  that's now gone. Skips the initial mount (the skip link stays the natural
+ *  first stop on first load). WCAG 2.4.3 / SPA focus management. */
+function RouteFocus() {
+  const { pathname } = useLocation();
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    document.getElementById("main")?.focus({ preventScroll: true });
+  }, [pathname]);
+  return null;
+}
+
 function NotFound() {
   return (
     <main className="container-page py-16">
@@ -52,6 +70,7 @@ export default function App() {
     <AuthProvider>
       <MotionConfig reducedMotion="user">
         <ScrollProgress />
+        <RouteFocus />
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-accent-700 focus:px-4 focus:py-2 focus:font-serif focus:text-cream"
@@ -63,8 +82,10 @@ export default function App() {
             and the intentional inner overflow-x-auto regions still scroll. */}
         <div className="min-h-screen overflow-x-clip">
           <Header />
-          {/* id="main" is the skip-link target; each page renders its own <main>. */}
-          <div id="main">
+          {/* id="main" is the skip-link target + the route-change focus target;
+              tabIndex=-1 makes it programmatically focusable, outline-none keeps
+              that from drawing a ring around the whole page. */}
+          <div id="main" tabIndex={-1} className="outline-none">
             <ErrorBoundary>
               <Routes>
                 <Route path="/" element={<Discover />} />

@@ -437,6 +437,28 @@ def test_budget_passes_price_levels_to_search(monkeypatch):
     assert seen["levels"] == [1, 2]
 
 
+def test_accessible_only_passes_filter_to_search(monkeypatch):
+    """accessible_only=True reaches the candidate search as wheelchair_accessible
+    so the day is built only from accessible (or not-reported) stops."""
+    _wire(monkeypatch, _RICH_POOLS, narrative=None)
+    seen: dict = {}
+
+    async def capture(params):
+        seen["wca"] = params.wheelchair_accessible
+        return _FakeResult(_RICH_POOLS.get(params.categories[0], []))
+
+    monkeypatch.setattr(trip_planner.search_service, "search", capture)
+    asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0, interests=["Coffee"],
+        start_time="10:00", end_time="16:00", num_stops=2, accessible_only=True))
+    assert seen["wca"] is True
+    # default off
+    asyncio.run(trip_planner.plan(
+        lat=40.0, lng=-74.0, interests=["Coffee"],
+        start_time="10:00", end_time="16:00", num_stops=2))
+    assert seen["wca"] is False
+
+
 def test_estimate_spend_sums_role_base():
     """The kept-local estimate sums per-role price floors and counts price-unknowns."""
     stops = [
@@ -468,7 +490,8 @@ def test_knobs_none_is_backward_compatible(monkeypatch):
     out = asyncio.run(trip_planner.plan(
         lat=40.0, lng=-74.0, interests=["Coffee", "Restaurant", "Dessert"],
         start_time="10:00", end_time="22:00", num_stops=3))
-    assert out["knobs"] == {"audience": None, "occasion": None, "pace": None, "budget": None}
+    assert out["knobs"] == {"audience": None, "occasion": None, "pace": None,
+                            "budget": None, "accessible_only": False}
     assert all("estimated_spend" in o for o in out["options"])
 
 

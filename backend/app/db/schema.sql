@@ -111,6 +111,18 @@ CREATE TABLE IF NOT EXISTS business_hours (
   UNIQUE (business_id, day_of_week)
 );
 
+-- ── Wheelchair accessibility (one row per business; each flag is tri-state:
+--    TRUE = accessible, FALSE = known not accessible, NULL = not reported).
+--    Mirrors the Google Places `accessibilityOptions` shape; owners can self-
+--    report, and the live Google layer fills it in where available. ───────────
+CREATE TABLE IF NOT EXISTS business_accessibility (
+  business_id BIGINT PRIMARY KEY REFERENCES businesses(id) ON DELETE CASCADE,
+  entrance    BOOLEAN,
+  parking     BOOLEAN,
+  restroom    BOOLEAN,
+  seating     BOOLEAN
+);
+
 -- ── Reviews (one per user per business; aggregates re-computed in a txn) ─────
 CREATE TABLE IF NOT EXISTS reviews (
   id            BIGSERIAL PRIMARY KEY,

@@ -14,6 +14,7 @@ import { TrustAdjustedRating } from "../components/TrustAdjustedRating";
 import { VerdictBreakdown } from "../components/VerdictBreakdown";
 import { VerifiedRating } from "../components/VerifiedRating";
 import {
+  AccessibilitySection,
   BizImage,
   EmptyState,
   LocalBadge,
@@ -406,6 +407,11 @@ export function BusinessDetail() {
           </section>
         )}
       </div>
+
+      <AccessibilitySection
+        accessibility={biz.accessibility}
+        phone={biz.phone}
+      />
 
       {/* Location — one pin for this business. Not wrapped in <Reveal> on
           purpose: a transform ancestor can mis-size a Google map. Guarded by

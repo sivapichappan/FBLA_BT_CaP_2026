@@ -433,7 +433,8 @@ def _plan_chips(num_stops: int, interests: list[str], *,
 
 async def _fetch_pools(chips: list[str], lat: float, lng: float,
                        radius_m: int = TRIP_RADIUS_M,
-                       price_levels: Optional[list[int]] = None) -> dict[str, list[dict]]:
+                       price_levels: Optional[list[int]] = None,
+                       accessible_only: bool = False) -> dict[str, list[dict]]:
     """One category-driven search per distinct kind → real candidates of that
     kind near the start. Fetching per kind is what guarantees a slot is never
     empty for lack of, say, an independent coffee shop in the generic pool.
@@ -449,6 +450,7 @@ async def _fetch_pools(chips: list[str], lat: float, lng: float,
         result = await search_service.search(SearchParams(
             lat=lat, lng=lng, radius_m=radius_m, categories=CHIP_SLOTS[chip]["cats"],
             price_levels=price_levels or [],  # budget caps the pool ([] = no cap)
+            wheelchair_accessible=accessible_only,  # accessible-only day → filter the pool
         ))
         return chip, [b.model_dump() for b in result.results]
 
@@ -831,7 +833,7 @@ async def plan(*, lat: Optional[float], lng: Optional[float],
                num_stops: int, goals: Optional[str] = None,
                audience: Optional[str] = None, occasion: Optional[str] = None,
                pace: Optional[str] = None, budget: Optional[int] = None,
-               weekday: Optional[int] = None,
+               weekday: Optional[int] = None, accessible_only: bool = False,
                locked_refs: Optional[list[str]] = None,
                user_id: Optional[int] = None) -> dict:
     """Build SEVERAL itineraries (the user picks). Returns ``options`` — each a
@@ -900,7 +902,8 @@ async def plan(*, lat: Optional[float], lng: Optional[float],
     chips = _plan_chips(num_stops, effective_interests,
                         default_chips=profile["default_chips"],
                         preferred_sequence=preferred_sequence)
-    pools = await _fetch_pools(chips, start_lat, start_lng, radius_m, price_levels)  # fetched once
+    pools = await _fetch_pools(chips, start_lat, start_lng, radius_m, price_levels,
+                               accessible_only=accessible_only)  # fetched once
 
     # Opening-hours data (idea 3): only when the user picked a day, and only for
     # LOCAL candidates (which carry structured hours). Guarded so an offline/no-DB
@@ -1006,7 +1009,8 @@ async def plan(*, lat: Optional[float], lng: Optional[float],
         "end_time": end_time,
         "start": {"lat": start_lat, "lng": start_lng, "time": start_time},
         # The personalisation knobs in effect, echoed back for the UI + saved-trip params.
-        "knobs": {"audience": audience, "occasion": occasion, "pace": pace, "budget": budget},
+        "knobs": {"audience": audience, "occasion": occasion, "pace": pace,
+                  "budget": budget, "accessible_only": accessible_only},
         # What Gemini understood from the free-text goals (null when none/failed),
         # so the UI can show the user their day was read correctly.
         "interpretation": interpretation,

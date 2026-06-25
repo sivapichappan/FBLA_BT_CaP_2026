@@ -31,6 +31,7 @@ _SEARCH_MASK = ",".join(
         "userRatingCount", "priceLevel", "primaryType", "types",
         "currentOpeningHours.openNow", "photos", "nationalPhoneNumber",
         "websiteUri", "editorialSummary", "businessStatus",
+        "accessibilityOptions",
     ]
 )
 # Detail mask adds reviews + human-readable opening hours.
@@ -39,7 +40,7 @@ _DETAIL_MASK = ",".join([
     "userRatingCount", "priceLevel", "primaryType", "types",
     "currentOpeningHours.openNow", "regularOpeningHours.weekdayDescriptions",
     "photos", "nationalPhoneNumber", "websiteUri", "editorialSummary",
-    "businessStatus", "reviews",
+    "businessStatus", "reviews", "accessibilityOptions",
 ])
 
 # Google's New-API price enum → our 1–4 scale.
@@ -174,6 +175,20 @@ def _photo_proxy_url(photos: Optional[list[dict]], max_width: int = 480) -> Opti
     return f"/businesses/photo?name={name}&maxwidth={max_width}" if name else None
 
 
+def _accessibility(place: dict[str, Any]) -> dict[str, Any]:
+    """Google ``accessibilityOptions`` → our canonical wheelchair dict
+    {entrance, parking, restroom, seating}. A missing flag stays None ("not
+    reported") — never False — so the UI/filter never imply "inaccessible" from
+    absent data."""
+    opts = place.get("accessibilityOptions") or {}
+    return {
+        "entrance": opts.get("wheelchairAccessibleEntrance"),
+        "parking": opts.get("wheelchairAccessibleParking"),
+        "restroom": opts.get("wheelchairAccessibleRestroom"),
+        "seating": opts.get("wheelchairAccessibleSeating"),
+    }
+
+
 def format_place(place: dict[str, Any]) -> dict[str, Any]:
     """Normalize a Google place object into our canonical business dict."""
     loc = place.get("location") or {}
@@ -214,6 +229,7 @@ def format_place(place: dict[str, Any]) -> dict[str, Any]:
         "editorial_summary": (place.get("editorialSummary") or {}).get("text"),
         "business_status": place.get("businessStatus"),
         "weekday_text": (place.get("regularOpeningHours") or {}).get("weekdayDescriptions"),
+        "accessibility": _accessibility(place),
         "google_reviews": place.get("reviews") or [],
     }
 

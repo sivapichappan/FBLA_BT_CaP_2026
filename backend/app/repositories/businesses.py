@@ -26,7 +26,11 @@ _SELECT_BUSINESS = """
                        'dow', h.day_of_week, 'open', h.open_time,
                        'close', h.close_time, 'closed', h.is_closed)
                     ORDER BY h.day_of_week)
-            FROM business_hours h WHERE h.business_id = b.id) AS hours
+            FROM business_hours h WHERE h.business_id = b.id) AS hours,
+           (SELECT json_build_object(
+                       'entrance', a.entrance, 'parking', a.parking,
+                       'restroom', a.restroom, 'seating', a.seating)
+            FROM business_accessibility a WHERE a.business_id = b.id) AS accessibility
     FROM businesses b
     LEFT JOIN business_categories bc ON bc.business_id = b.id
     LEFT JOIN categories c ON c.id = bc.category_id
@@ -165,6 +169,11 @@ def create(owner_id: int, data: dict[str, Any]) -> int:
                  None if h.get("closed") else h.get("close"),
                  bool(h.get("closed"))],
             )
+
+        # Owner-declared accessibility (optional) — same transaction so the
+        # listing is all-or-nothing.
+        if data.get("accessibility"):
+            _upsert_accessibility(conn, business_id, data["accessibility"])
     return business_id
 
 
@@ -182,6 +191,10 @@ def update(business_id: int, data: dict[str, Any]) -> None:
                WHERE id = %(id)s""",
             {"photo_url": None, **data, "id": business_id},
         )
+        # Accessibility lives in its own table; replace it only when the owner
+        # actually submitted it (a dict). Omitted (None) ⇒ leave unchanged.
+        if data.get("accessibility") is not None:
+            _upsert_accessibility(conn, business_id, data["accessibility"])
 
 
 def enable_qr(business_id: int, secret: bytes) -> None:
@@ -220,6 +233,32 @@ def set_photo(business_id: int, photo_url: str) -> None:
     """Used by the enrichment CLI to backfill listing photos."""
     with transaction() as conn:
         conn.execute("UPDATE businesses SET photo_url = %s WHERE id = %s", [photo_url, business_id])
+
+
+# One-row-per-business wheelchair accessibility (tri-state per key). The upsert
+# REPLACES the row — the owner declares the full {entrance,parking,restroom,
+# seating} set, so we never COALESCE individual flags (a missing flag is an
+# intentional "not reported", not "leave the old value").
+_ACCESSIBILITY_UPSERT = """
+    INSERT INTO business_accessibility (business_id, entrance, parking, restroom, seating)
+    VALUES (%s, %s, %s, %s, %s)
+    ON CONFLICT (business_id) DO UPDATE
+       SET entrance = EXCLUDED.entrance, parking = EXCLUDED.parking,
+           restroom = EXCLUDED.restroom, seating = EXCLUDED.seating
+"""
+
+
+def _upsert_accessibility(conn: Any, business_id: int, acc: dict[str, Any]) -> None:
+    conn.execute(_ACCESSIBILITY_UPSERT, [
+        business_id, acc.get("entrance"), acc.get("parking"),
+        acc.get("restroom"), acc.get("seating"),
+    ])
+
+
+def set_accessibility(business_id: int, acc: dict[str, Any]) -> None:
+    """Owner-declared wheelchair accessibility — replaces the row wholesale."""
+    with transaction() as conn:
+        _upsert_accessibility(conn, business_id, acc)
 
 
 def set_photo_focus(business_id: int, x_pct: int, y_pct: int) -> None:
@@ -269,6 +308,7 @@ def vibe_search(query_vector_literal: str, limit: int = 10) -> list[dict[str, An
                   b.photo_focus_x, b.photo_focus_y,
                   COALESCE(array_agg(DISTINCT c.name) FILTER (WHERE c.name IS NOT NULL), '{}') AS categories,
                   NULL::json AS hours,
+                  NULL::json AS accessibility,
                   1 - (b.embedding <=> %s::vector) AS similarity
            FROM businesses b
            LEFT JOIN business_categories bc ON bc.business_id = b.id

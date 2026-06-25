@@ -54,6 +54,7 @@ async def search(
     min_rating: float = 0.0,
     price_levels: Optional[str] = None,     # comma-separated 1..4
     open_now: bool = False,
+    wheelchair_accessible: bool = False,
     sort: str = "best_match",
 ) -> SearchResponse:
     # Default to the demo city center when the client hasn't shared a location.
@@ -68,6 +69,7 @@ async def search(
         min_rating=min_rating,
         price_levels=_csv_ints(price_levels),
         open_now=open_now,
+        wheelchair_accessible=wheelchair_accessible,
         sort=sort if sort in ("best_match", "distance", "rating", "reviews") else "best_match",
     )
     return await search_service.search(params)
@@ -89,6 +91,7 @@ async def vibe(
     min_rating: float = 0.0,
     price_levels: Optional[str] = None,
     open_now: bool = False,
+    wheelchair_accessible: bool = False,
 ) -> dict:
     """Semantic search by feel: 'cozy rainy-day reading spot' → bookstores.
 
@@ -105,6 +108,7 @@ async def vibe(
         min_rating=min_rating,
         price_levels=_csv_ints(price_levels),
         open_now=open_now,
+        wheelchair_accessible=wheelchair_accessible,
     )
     return await search_service.vibe_search(q, user_lat, user_lng, filters=filters)
 

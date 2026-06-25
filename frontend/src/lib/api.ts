@@ -226,6 +226,7 @@ export const tripApi = {
     pace?: "relaxed" | "normal" | "packed";
     budget?: number; // 1=$ 2=$$ 3=$$$
     weekday?: number; // 0=Sun..6=Sat (open-on-arrival)
+    accessible_only?: boolean; // build the day only from accessible stops
     locked_refs?: string[]; // stops kept when re-planning (idea 1)
     // Planning runs several live category searches; at a fresh location that's
     // legitimately slower than a normal call, so it gets a longer client budget.

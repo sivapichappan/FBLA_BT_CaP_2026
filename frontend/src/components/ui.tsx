@@ -5,6 +5,7 @@
 
 import { useState, type ReactNode } from "react";
 import { photoSrc } from "../lib/api";
+import type { Accessibility } from "../types";
 
 /**
  * Business photo with a graceful fallback: when there's no photo (or it fails
@@ -128,6 +129,170 @@ export function OpenBadge({ open }: { open: boolean | null | undefined }) {
     >
       {open ? "Open now" : "Closed"}
     </span>
+  );
+}
+
+/** Wheelchair-accessibility badge — shows ONLY when at least one facet is
+ *  reported accessible. Never inferred from missing/false data (the detail page
+ *  carries the full ✓/✗/— truth); this is purely a positive at-a-glance signal. */
+export function AccessibilityBadge({
+  accessibility,
+}: {
+  accessibility?: Accessibility | null;
+}) {
+  if (!accessibility) return null;
+  const anyAccessible = [
+    accessibility.entrance,
+    accessibility.parking,
+    accessibility.restroom,
+    accessibility.seating,
+  ].some((v) => v === true);
+  if (!anyAccessible) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full border border-verified px-2 py-1 font-mono text-[11px] uppercase tracking-wide text-verified"
+      aria-label="Wheelchair accessible"
+      title="Wheelchair accessible"
+    >
+      <span aria-hidden>♿</span> Accessible
+    </span>
+  );
+}
+
+/** The detail-page accessibility panel: tri-state rows (✓ Accessible /
+ *  ✗ Not accessible / — Not reported) + an honest "call to confirm" line, since
+ *  Google's accessibility data is often incomplete. Renders nothing when the
+ *  business reports no accessibility object at all. */
+export function AccessibilitySection({
+  accessibility,
+  phone,
+}: {
+  accessibility?: Accessibility | null;
+  phone?: string | null;
+}) {
+  if (!accessibility) return null;
+  const rows: [string, boolean | null][] = [
+    ["Entrance", accessibility.entrance],
+    ["Parking", accessibility.parking],
+    ["Restroom", accessibility.restroom],
+    ["Seating", accessibility.seating],
+  ];
+  const anyKnown = rows.some(([, v]) => v !== null);
+  return (
+    <section
+      aria-label="Accessibility"
+      className="mt-6 rounded-lg border border-border bg-surface p-5"
+    >
+      <h2 className="font-display text-lg font-semibold text-ink">
+        Accessibility
+      </h2>
+      {anyKnown ? (
+        <ul className="mt-2 space-y-1 font-serif text-sm">
+          {rows.map(([label, v]) => (
+            <li key={label} className="flex items-center justify-between gap-3">
+              <span className="text-ink-soft">{label}</span>
+              <span
+                className={
+                  v === true
+                    ? "text-verified"
+                    : v === false
+                      ? "text-accent-700"
+                      : "text-ink-soft"
+                }
+              >
+                {v === true
+                  ? "✓ Accessible"
+                  : v === false
+                    ? "✗ Not accessible"
+                    : "— Not reported"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 font-serif text-sm text-ink-soft">
+          No accessibility info reported yet.
+        </p>
+      )}
+      {phone && (
+        <p className="mt-3 font-serif text-xs text-ink-soft">
+          Accessibility data can be incomplete —{" "}
+          <a href={`tel:${phone}`} className="text-accent-700">
+            call to confirm
+          </a>
+          .
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** A fully-unreported accessibility set (the default for the owner form). */
+export const BLANK_ACCESSIBILITY: Accessibility = {
+  entrance: null,
+  parking: null,
+  restroom: null,
+  seating: null,
+};
+
+/** Owner self-report control: a Yes / No / Unknown 3-segment toggle per
+ *  accessibility facet. Tri-state on purpose — "Unknown" (null = not reported)
+ *  is distinct from "No" (known not accessible), so the form never lies. */
+export function AccessibilityFields({
+  value,
+  onChange,
+}: {
+  value: Accessibility;
+  onChange: (next: Accessibility) => void;
+}) {
+  const facets: [keyof Accessibility, string][] = [
+    ["entrance", "Entrance"],
+    ["parking", "Parking"],
+    ["restroom", "Restroom"],
+    ["seating", "Seating"],
+  ];
+  const options: [string, boolean | null][] = [
+    ["Yes", true],
+    ["No", false],
+    ["Unknown", null],
+  ];
+  return (
+    <fieldset>
+      <legend className="font-serif text-sm text-ink-soft">
+        Wheelchair accessibility
+      </legend>
+      <div className="mt-2 space-y-2">
+        {facets.map(([key, label]) => (
+          <div key={key} className="flex flex-wrap items-center gap-2">
+            <span className="w-20 font-serif text-sm text-ink">{label}</span>
+            <div
+              role="group"
+              aria-label={`${label} accessibility`}
+              className="flex gap-1.5"
+            >
+              {options.map(([optLabel, optVal]) => {
+                const on = value[key] === optVal;
+                return (
+                  <button
+                    key={optLabel}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => onChange({ ...value, [key]: optVal })}
+                    className={`rounded-full border px-3 py-1 font-mono text-xs ${
+                      on
+                        ? "border-accent-700 bg-accent-700 text-cream"
+                        : "border-border text-ink-soft hover:border-accent-600 hover:text-ink"
+                    }`}
+                  >
+                    {optLabel}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 

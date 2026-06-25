@@ -34,7 +34,8 @@ _SEED_TABLES = [
     "review_replies", "deal_redemptions", "deals",
     "visit_checkpoints", "qr_redemptions", "reviews", "visits",
     "business_views",
-    "trips", "business_categories", "business_hours", "favorites",
+    "trips", "business_categories", "business_hours", "business_accessibility",
+    "favorites",
     "chat_messages", "chat_sessions", "businesses", "categories", "users",
 ]
 

@@ -90,7 +90,6 @@ export function CheckInFlow({
   // Always-fresh re-check fn so the dwell interval never calls a stale closure.
   const recheckRef = useRef<() => void>(() => {});
 
-
   function stopDwell() {
     if (dwellTimer.current) {
       window.clearInterval(dwellTimer.current);

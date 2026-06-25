@@ -61,6 +61,18 @@ export interface Business {
   geofence_radius_m?: number | null;
   /** Glass-box trust-weighted rating (detail page only). */
   trust?: TrustRating;
+  /** Wheelchair accessibility (Google Places + owner self-report); null when the
+   *  business reports nothing. Each facet is tri-state: true = accessible,
+   *  false = known not accessible, null = not reported. */
+  accessibility?: Accessibility | null;
+}
+
+/** Wheelchair-accessibility facets (tri-state each). */
+export interface Accessibility {
+  entrance: boolean | null;
+  parking: boolean | null;
+  restroom: boolean | null;
+  seating: boolean | null;
 }
 
 /** The glass-box trust-weighted rating: the raw average re-weighted so verified
@@ -119,6 +131,7 @@ export interface TripKnobs {
   occasion: "casual" | "date" | "celebrate" | null;
   pace: "relaxed" | "normal" | "packed" | null;
   budget: number | null; // 1=$ 2=$$ 3=$$$
+  accessible_only?: boolean;
 }
 
 export interface TripOption {
@@ -420,5 +433,6 @@ export interface SearchFilters {
   min_rating: number;
   price_levels: number[];
   open_now: boolean;
+  wheelchairAccessible?: boolean;
   sort: "best_match" | "distance" | "rating" | "reviews";
 }

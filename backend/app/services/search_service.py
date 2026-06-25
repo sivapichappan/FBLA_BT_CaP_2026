@@ -116,6 +116,7 @@ def _local_to_canonical(row: dict[str, Any], user_lat: float, user_lng: float) -
         "photo_focus_x": row.get("photo_focus_x"),
         "photo_focus_y": row.get("photo_focus_y"),
         "editorial_summary": None,
+        "accessibility": row.get("accessibility"),
     }
 
 
@@ -168,6 +169,15 @@ def _passes_filters(b: dict[str, Any], p: SearchParams, effective_radius_m: int)
             return False
     if p.open_now and b.get("is_open_now") is not True:
         return False
+    if p.wheelchair_accessible:
+        # Keep-unknowns, like the price filter: hide a business ONLY when its
+        # entrance is KNOWN-inaccessible. `entrance is True` and `entrance is
+        # None` (not reported) are both kept — most independents have no Google
+        # accessibility data, and hiding unknowns would imply "no data =
+        # inaccessible" and surface only the chains that report it. (Flip to a
+        # strict "known-accessible only" filter by requiring `is not True`.)
+        if (b.get("accessibility") or {}).get("entrance") is False:
+            return False
     # Not a user filter — the product rule. Chains never display, period.
     if b.get("is_independent") is False:
         return False

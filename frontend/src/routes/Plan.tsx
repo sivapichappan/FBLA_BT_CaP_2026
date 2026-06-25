@@ -13,7 +13,13 @@ import { CategoryIcon } from "../components/CategoryIcon";
 import { LocationControl } from "../components/LocationControl";
 import { MapView } from "../components/MapView";
 import { MapListToggle } from "../components/MapListToggle";
-import { BizImage, LocalBadge, Skeleton, StarRating } from "../components/ui";
+import {
+  AccessibilityBadge,
+  BizImage,
+  LocalBadge,
+  Skeleton,
+  StarRating,
+} from "../components/ui";
 import { ApiError, dealApi, tripApi } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useLocation } from "../lib/location";
@@ -143,6 +149,7 @@ function RatingAndBadges({ s }: { s: TripStop }) {
         </span>
       )}
       <LocalBadge badge={s.local_badge} />
+      <AccessibilityBadge accessibility={s.accessibility} />
       {s.hours_known && s.open_at_arrival === true && (
         <span className="rounded-full border border-verified px-2 py-0.5 font-mono text-[10px] text-verified">
           ✓ Open when you arrive
@@ -425,6 +432,8 @@ export function Plan() {
   // Which day the outing is for (open-on-arrival, idea 3). 0=Sun..6=Sat, like
   // JS getDay() and our backend — defaults to today.
   const [weekday, setWeekday] = useState<number | null>(new Date().getDay());
+  // Build the day only from wheelchair-accessible stops (idea: accessibility).
+  const [accessibleOnly, setAccessibleOnly] = useState(false);
   const [showTune, setShowTune] = useState(false);
   const [plan, setPlan] = useState<TripPlan | null>(null);
   const [optionIdx, setOptionIdx] = useState(0);
@@ -590,6 +599,7 @@ export function Plan() {
           pace: pace ?? undefined,
           budget: budget ?? undefined,
           weekday: weekday ?? undefined,
+          accessible_only: accessibleOnly || undefined,
           locked_refs: lockedRefs.size ? Array.from(lockedRefs) : undefined,
         }),
       );
@@ -905,6 +915,16 @@ export function Plan() {
                   ]}
                 />
               </div>
+              <div className="sm:col-span-2">
+                <Segmented
+                  label="Accessibility"
+                  value={accessibleOnly ? "yes" : null}
+                  onChange={(v) => setAccessibleOnly(v === "yes")}
+                  options={[
+                    { value: "yes", label: "♿ Wheelchair accessible only" },
+                  ]}
+                />
+              </div>
             </div>
           )}
         </div>
@@ -929,6 +949,15 @@ export function Plan() {
           {message}
         </p>
       )}
+      {/* Screen-reader announcement of planning progress + when plans land
+          (persistent live region so the change is announced). */}
+      <p className="sr-only" role="status" aria-live="polite">
+        {busy
+          ? "Planning your day…"
+          : plan
+            ? `${plan.options.length} ${plan.options.length === 1 ? "plan" : "plans"} ready, each with ${plan.num_stops} stops.`
+            : ""}
+      </p>
       {busy && (
         <div className="mt-5">
           <Skeleton count={3} height="6rem" />

@@ -122,76 +122,115 @@ export function MapView({
   }
 
   return (
-    <APIProvider apiKey={MAPS_KEY}>
-      <Map
-        // DEMO_MAP_ID enables AdvancedMarker (custom DOM pins) without a styled map id.
-        mapId="DEMO_MAP_ID"
-        // colorScheme only applies at map creation, so key the element by
-        // theme: toggling dark mode remounts the map in the matching scheme.
-        key={theme}
-        colorScheme={theme === "dark" ? ColorScheme.DARK : ColorScheme.LIGHT}
-        defaultCenter={center}
-        defaultZoom={zoom}
-        gestureHandling="greedy"
-        disableDefaultUI={false}
-        mapTypeControl={false}
-        streetViewControl={false}
-        fullscreenControl={false}
-        className={`h-full ${minHeightClass} w-full rounded-lg border border-border`}
-        aria-label={ariaLabel}
-      >
-        <PanToCenter center={center} />
-        {geofence && (
-          <GeofenceCircle
-            center={{ lat: geofence.lat, lng: geofence.lng }}
-            radiusM={geofence.radiusM}
-          />
-        )}
-        {userPosition && (
-          <AdvancedMarker
-            position={userPosition}
-            title="You are here"
-            zIndex={2000}
-          >
-            <div
-              className="rounded-full border-2 border-cream bg-accent-600 shadow-warm"
-              style={{ width: 18, height: 18 }}
-              aria-hidden="true"
+    <>
+      <APIProvider apiKey={MAPS_KEY}>
+        <Map
+          // DEMO_MAP_ID enables AdvancedMarker (custom DOM pins) without a styled map id.
+          mapId="DEMO_MAP_ID"
+          // colorScheme only applies at map creation, so key the element by
+          // theme: toggling dark mode remounts the map in the matching scheme.
+          key={theme}
+          colorScheme={theme === "dark" ? ColorScheme.DARK : ColorScheme.LIGHT}
+          defaultCenter={center}
+          defaultZoom={zoom}
+          gestureHandling="greedy"
+          disableDefaultUI={false}
+          mapTypeControl={false}
+          streetViewControl={false}
+          fullscreenControl={false}
+          className={`h-full ${minHeightClass} w-full rounded-lg border border-border`}
+          aria-label={ariaLabel}
+        >
+          <PanToCenter center={center} />
+          {geofence && (
+            <GeofenceCircle
+              center={{ lat: geofence.lat, lng: geofence.lng }}
+              radiusM={geofence.radiusM}
             />
-          </AdvancedMarker>
-        )}
-        {businesses.map((b, i) => {
-          const hovered = hoveredRef === b.ref;
-          return (
+          )}
+          {userPosition && (
             <AdvancedMarker
-              key={b.ref}
-              position={{ lat: b.lat, lng: b.lng }}
-              zIndex={hovered ? 1000 : i}
-              title={b.name}
-              onClick={() => onSelect(b.ref)}
-              onMouseEnter={() => onHover(b.ref)}
-              onMouseLeave={() => onHover(null)}
+              position={userPosition}
+              title="You are here"
+              zIndex={2000}
             >
-              {/* Custom numbered pin; scales up when its card is hovered. */}
               <div
-                className="flex items-center justify-center rounded-full font-mono font-bold text-cream shadow-warm transition-transform duration-150"
-                style={{
-                  width: hovered ? 34 : 26,
-                  height: hovered ? 34 : 26,
-                  fontSize: hovered ? 14 : 12,
-                  backgroundColor: pinColor(b),
-                  border: "2px solid var(--surface)",
-                  transform: hovered ? "translateY(-2px)" : undefined,
-                }}
-              >
-                {/* Numbered in a list of results; an unlabeled location pin
-                    when it's a single business (the detail-page map). */}
-                {businesses.length > 1 ? i + 1 : null}
-              </div>
+                className="rounded-full border-2 border-cream bg-accent-600 shadow-warm"
+                style={{ width: 18, height: 18 }}
+                aria-hidden="true"
+              />
             </AdvancedMarker>
-          );
-        })}
-      </Map>
-    </APIProvider>
+          )}
+          {businesses.map((b, i) => {
+            const hovered = hoveredRef === b.ref;
+            return (
+              <AdvancedMarker
+                key={b.ref}
+                position={{ lat: b.lat, lng: b.lng }}
+                zIndex={hovered ? 1000 : i}
+                title={b.name}
+                onClick={() => onSelect(b.ref)}
+                onMouseEnter={() => onHover(b.ref)}
+                onMouseLeave={() => onHover(null)}
+              >
+                {/* Custom numbered pin; scales up when its card is hovered. */}
+                <div
+                  className="flex items-center justify-center rounded-full font-mono font-bold text-cream shadow-warm transition-transform duration-150"
+                  style={{
+                    width: hovered ? 34 : 26,
+                    height: hovered ? 34 : 26,
+                    fontSize: hovered ? 14 : 12,
+                    backgroundColor: pinColor(b),
+                    border: "2px solid var(--surface)",
+                    transform: hovered ? "translateY(-2px)" : undefined,
+                  }}
+                >
+                  {/* Numbered in a list of results; an unlabeled location pin
+                    when it's a single business (the detail-page map). */}
+                  {businesses.length > 1 ? i + 1 : null}
+                </div>
+              </AdvancedMarker>
+            );
+          })}
+        </Map>
+      </APIProvider>
+      {/* Keyboard/screen-reader path to the map's pins — the Google markers
+          aren't reliably focusable, so this sr-only list mirrors them (Tab to a
+          place, Enter to select; focus syncs the matching pin). */}
+      {businesses.length > 0 && (
+        <ul
+          className="sr-only"
+          aria-label="Places on the map — activate one to select it"
+        >
+          {businesses.map((b, i) => {
+            const accessible =
+              !!b.accessibility &&
+              [
+                b.accessibility.entrance,
+                b.accessibility.parking,
+                b.accessibility.restroom,
+                b.accessibility.seating,
+              ].some((v) => v === true);
+            return (
+              <li key={b.ref}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(b.ref)}
+                  onFocus={() => onHover(b.ref)}
+                  onBlur={() => onHover(null)}
+                >
+                  {businesses.length > 1 ? `${i + 1}. ` : ""}
+                  {b.name}
+                  {b.average_rating
+                    ? `, rated ${b.average_rating.toFixed(1)} of 5`
+                    : ""}
+                  {accessible ? ", wheelchair accessible" : ""}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </>
   );
 }

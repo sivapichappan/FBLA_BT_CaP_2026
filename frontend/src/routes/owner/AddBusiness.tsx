@@ -7,10 +7,14 @@
 
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { EmptyState } from "../../components/ui";
+import {
+  AccessibilityFields,
+  BLANK_ACCESSIBILITY,
+  EmptyState,
+} from "../../components/ui";
 import { ApiError, businessApi, ownerApi } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import type { Category } from "../../types";
+import type { Accessibility, Category } from "../../types";
 import { usePageTitle } from "../../lib/usePageTitle";
 
 const DAYS = [
@@ -46,6 +50,9 @@ export function AddBusiness() {
   const [website, setWebsite] = useState("");
   const [photoUrl, setPhotoUrl] = useState("");
   const [priceLevel, setPriceLevel] = useState<number | null>(null);
+  const [accessibility, setAccessibility] =
+    useState<Accessibility>(BLANK_ACCESSIBILITY);
+  const [accessTouched, setAccessTouched] = useState(false);
   const [selectedCats, setSelectedCats] = useState<number[]>([]);
   const [hours, setHours] = useState<DayHours[]>(
     DAYS.map((_, dow) => ({
@@ -131,6 +138,7 @@ export function AddBusiness() {
           close: h.close,
           closed: h.closed,
         })),
+        ...(accessTouched ? { accessibility } : {}),
       });
       navigate(`/business/${created.id}`);
     } catch (err) {
@@ -334,6 +342,14 @@ export function AddBusiness() {
             ))}
           </div>
         </fieldset>
+
+        <AccessibilityFields
+          value={accessibility}
+          onChange={(next) => {
+            setAccessibility(next);
+            setAccessTouched(true);
+          }}
+        />
 
         <fieldset>
           <legend className="font-serif text-sm text-ink-soft">Hours</legend>

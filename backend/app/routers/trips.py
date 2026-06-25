@@ -35,6 +35,8 @@ class PlanIn(BaseModel):
     pace: Optional[Literal["relaxed", "normal", "packed"]] = None
     budget: Optional[Annotated[int, Field(ge=1, le=3)]] = None  # $ / $$ / $$$
     weekday: Optional[Annotated[int, Field(ge=0, le=6)]] = None  # 0=Sun..6=Sat (open-on-arrival)
+    # Build the day only from wheelchair-accessible stops (keep-unknowns, like search).
+    accessible_only: bool = False
     # Stops the user locked, kept exactly when re-planning around them (idea 1).
     locked_refs: list[str] = Field(default_factory=list, max_length=8)
 
@@ -84,6 +86,7 @@ async def plan_trip(body: PlanIn, user: Optional[dict] = Depends(optional_user))
         num_stops=body.num_stops, goals=body.goals,
         audience=body.audience, occasion=body.occasion,
         pace=body.pace, budget=body.budget, weekday=body.weekday,
+        accessible_only=body.accessible_only,
         locked_refs=body.locked_refs,
         user_id=user["id"] if user else None,
     )

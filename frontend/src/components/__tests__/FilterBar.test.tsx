@@ -51,6 +51,17 @@ describe("FilterBar", () => {
     });
   });
 
+  it("patches wheelchairAccessible without touching other filters", () => {
+    const onChange = renderBar();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Wheelchair accessible only" }),
+    );
+    expectOnlyCall(onChange, {
+      ...EMPTY,
+      wheelchairAccessible: true,
+    });
+  });
+
   it("announces toggle state via aria-pressed", () => {
     renderBar({ ...EMPTY, open_now: true });
     expect(
@@ -110,6 +121,7 @@ describe("FilterBar", () => {
       price_levels: [],
       min_rating: 0,
       open_now: false,
+      wheelchairAccessible: false,
     });
   });
 });
