@@ -16,6 +16,14 @@ import { KpiCard, NarrativeCard, Segmented } from "../../components/report";
 import { EmptyState, Skeleton } from "../../components/ui";
 import { ownerApi } from "../../lib/api";
 import { downloadJson, dollars } from "../../lib/export";
+import {
+  barList,
+  dataTable,
+  kpiGrid,
+  narrativeBlock,
+  printReport,
+  sectionBlock,
+} from "../../lib/printDoc";
 import { useAuth } from "../../lib/auth";
 import type { Business, Granularity, MetricKey, Report } from "../../types";
 import { usePageTitle } from "../../lib/usePageTitle";
@@ -204,6 +212,166 @@ export function OwnerDashboard() {
     a.download = `locallens-report-${report.business_id}-${from}-to-${to}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  /** Build a clean, document-style report and open the print dialog (Save as PDF). */
+  function printPdf() {
+    if (!report) return;
+    const fmt = (s: string) =>
+      new Date(s).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    const bizName =
+      businesses.find((b) => (b as unknown as { id: number }).id === businessId)
+        ?.name ?? "Your business";
+    const gran = report.granularity ?? "day";
+    const parts: string[] = [];
+    if (report.narrative?.length) parts.push(narrativeBlock(report.narrative));
+
+    const s = report.summary;
+    if (s) {
+      parts.push(
+        sectionBlock(
+          "Summary",
+          kpiGrid([
+            {
+              label: "Kept local",
+              value: dollars(s.local_spend_cents),
+              change: s.change?.local_spend_cents,
+            },
+            { label: "Views", value: String(s.views), change: s.change?.views },
+            {
+              label: "Reviews",
+              value: String(s.review_count),
+              change: s.change?.review_count,
+            },
+            {
+              label: "Favorites",
+              value: String(s.favorites),
+              change: s.change?.favorites,
+            },
+            {
+              label: "Redemptions",
+              value: String(s.deal_redemptions),
+              change: s.change?.deal_redemptions,
+            },
+            {
+              label: "Avg rating",
+              value: s.average_rating.toFixed(2),
+              change: s.change?.average_rating,
+            },
+          ]),
+        ),
+      );
+    }
+    if (report.funnel)
+      parts.push(
+        sectionBlock(
+          "Conversion funnel",
+          dataTable(
+            [
+              { label: "Step" },
+              { label: "Count", num: true },
+              { label: "Conv. from prev", num: true },
+            ],
+            [
+              ["Views", report.funnel.views, "—"],
+              [
+                "Favorites",
+                report.funnel.favorites,
+                `${report.funnel.view_to_favorite_pct}%`,
+              ],
+              [
+                "Redemptions",
+                report.funnel.redemptions,
+                `${report.funnel.favorite_to_redemption_pct}%`,
+              ],
+            ],
+          ),
+        ),
+      );
+    if (report.rating_distribution?.length)
+      parts.push(
+        sectionBlock(
+          "Rating distribution",
+          barList(
+            report.rating_distribution.map((r) => ({
+              label: `${r.rating}★`,
+              value: r.count,
+              display: String(r.count),
+            })),
+          ),
+        ),
+      );
+    if (report.views_trend?.length)
+      parts.push(
+        sectionBlock(
+          `Views per ${gran}`,
+          dataTable(
+            [{ label: "Period" }, { label: "Views", num: true }],
+            report.views_trend.map((t) => [t.day, t.count]),
+          ),
+        ),
+      );
+    if (report.reviews_trend?.length)
+      parts.push(
+        sectionBlock(
+          `Reviews per ${gran}`,
+          dataTable(
+            [
+              { label: "Period" },
+              { label: "Reviews", num: true },
+              { label: "Avg rating", num: true },
+            ],
+            report.reviews_trend.map((t) => [
+              t.day,
+              t.count,
+              t.avg_rating.toFixed(1),
+            ]),
+          ),
+        ),
+      );
+    if (report.redemptions_trend?.length)
+      parts.push(
+        sectionBlock(
+          `Redemptions per ${gran}`,
+          dataTable(
+            [{ label: "Period" }, { label: "Redemptions", num: true }],
+            report.redemptions_trend.map((t) => [t.day, t.count]),
+          ),
+        ),
+      );
+    if (report.deals?.length)
+      parts.push(
+        sectionBlock(
+          "Deal performance",
+          dataTable(
+            [
+              { label: "Deal" },
+              { label: "Off", num: true },
+              { label: "In range", num: true },
+              { label: "Total", num: true },
+            ],
+            report.deals.map((d) => [
+              d.title,
+              `${d.discount_pct}%`,
+              d.redemptions_in_range,
+              d.total_limit !== null
+                ? `${d.redemption_count} / ${d.total_limit}`
+                : d.redemption_count,
+            ]),
+          ),
+        ),
+      );
+
+    printReport({
+      title: "Owner Report",
+      subtitle: bizName,
+      period: `${fmt(from)} – ${fmt(to)}`,
+      body: parts.join(""),
+    });
   }
 
   if (authLoading)
@@ -400,7 +568,7 @@ export function OwnerDashboard() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={printPdf}
                   disabled={!report}
                   className="rounded-md border border-border px-3 py-1.5 font-serif text-sm text-ink hover:border-accent-600 disabled:opacity-50"
                 >

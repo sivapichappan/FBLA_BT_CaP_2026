@@ -16,6 +16,14 @@ import { EmptyState, Skeleton } from "../components/ui";
 import { reportApi } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { downloadCsv, downloadJson, dollars } from "../lib/export";
+import {
+  barList,
+  dataTable,
+  kpiGrid,
+  narrativeBlock,
+  printReport,
+  sectionBlock,
+} from "../lib/printDoc";
 import { usePageTitle } from "../lib/usePageTitle";
 import type { Granularity, UserReport, UserSection } from "../types";
 
@@ -156,6 +164,170 @@ export function MyReport() {
     );
   }
 
+  /** Build a clean, document-style report and open the print dialog (Save as PDF). */
+  function printPdf() {
+    if (!report) return;
+    const fmt = (s: string) =>
+      new Date(s).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    const parts: string[] = [];
+    if (report.narrative?.length) parts.push(narrativeBlock(report.narrative));
+
+    const s = report.summary;
+    if (s) {
+      parts.push(
+        sectionBlock(
+          "Summary",
+          kpiGrid([
+            {
+              label: "Kept local",
+              value: dollars(s.money_local_cents),
+              change: s.change.money_local_cents,
+            },
+            {
+              label: "Verified visits",
+              value: String(s.verified_visits),
+              change: s.change.verified_visits,
+            },
+            {
+              label: "Businesses supported",
+              value: String(s.distinct_businesses),
+              change: s.change.distinct_businesses,
+            },
+            {
+              label: "Reviews written",
+              value: String(s.reviews_written),
+              change: s.change.reviews_written,
+            },
+            {
+              label: "Avg rating given",
+              value: `${s.avg_rating_given.toFixed(1)}★`,
+              change: s.change.avg_rating_given,
+            },
+            {
+              label: "Deals redeemed",
+              value: String(s.deals_redeemed),
+              change: s.change.deals_redeemed,
+            },
+            {
+              label: "Favorites added",
+              value: String(s.favorites_added),
+              change: s.change.favorites_added,
+            },
+            { label: "Member for", value: `${s.tenure_days} days` },
+          ]),
+        ),
+      );
+    }
+    if (report.spend_by_category?.length)
+      parts.push(
+        sectionBlock(
+          "Spend by category",
+          barList(
+            report.spend_by_category.map((c) => ({
+              label: c.category,
+              value: c.spend_cents,
+              display: `${dollars(c.spend_cents)} · ${c.visits}×`,
+            })),
+          ),
+        ),
+      );
+    if (report.spend_by_city?.length)
+      parts.push(
+        sectionBlock(
+          "Spend by city",
+          barList(
+            report.spend_by_city.map((c) => ({
+              label: c.city,
+              value: c.spend_cents,
+              display: `${dollars(c.spend_cents)} · ${c.visits}×`,
+            })),
+          ),
+        ),
+      );
+    if (report.visits_trend?.length)
+      parts.push(
+        sectionBlock(
+          "Visits over time",
+          dataTable(
+            [
+              { label: "Period" },
+              { label: "Visits", num: true },
+              { label: "Spend", num: true },
+            ],
+            report.visits_trend.map((t) => [
+              t.period,
+              t.visits,
+              dollars(t.spend_cents),
+            ]),
+          ),
+        ),
+      );
+    if (report.reviews_trend?.length)
+      parts.push(
+        sectionBlock(
+          "Reviews over time",
+          dataTable(
+            [
+              { label: "Period" },
+              { label: "Reviews", num: true },
+              { label: "Avg rating", num: true },
+            ],
+            report.reviews_trend.map((t) => [
+              t.period,
+              t.count,
+              t.avg_rating.toFixed(1),
+            ]),
+          ),
+        ),
+      );
+    if (report.top_businesses?.length)
+      parts.push(
+        sectionBlock(
+          "Top businesses you supported",
+          dataTable(
+            [
+              { label: "Business" },
+              { label: "Visits", num: true },
+              { label: "Spend", num: true },
+            ],
+            report.top_businesses.map((b) => [
+              b.name,
+              b.visits,
+              dollars(b.spend_cents),
+            ]),
+          ),
+        ),
+      );
+    if (report.trust_breakdown)
+      parts.push(
+        sectionBlock(
+          `Trust breakdown — ${report.trust_breakdown.total} pts`,
+          dataTable(
+            [
+              { label: "Source" },
+              { label: "Count", num: true },
+              { label: "Points", num: true },
+            ],
+            report.trust_breakdown.components.map((c) => [
+              c.source,
+              c.count,
+              c.points,
+            ]),
+          ),
+        ),
+      );
+
+    printReport({
+      title: "My Local Impact",
+      period: `${fmt(report.from)} – ${fmt(report.to)}`,
+      body: parts.join(""),
+    });
+  }
+
   if (authLoading)
     return (
       <main className="container-page py-8">
@@ -217,7 +389,7 @@ export function MyReport() {
           </button>
           <button
             type="button"
-            onClick={() => window.print()}
+            onClick={printPdf}
             disabled={!report}
             className="rounded-md border border-border px-3 py-2 font-serif text-sm text-ink hover:border-accent-600 disabled:opacity-50"
           >
