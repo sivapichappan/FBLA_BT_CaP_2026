@@ -158,6 +158,10 @@ def build_report(user_id: int, created_at: Any, start: dt.datetime, end: dt.date
         cur["tenure_days"] = _tenure_days(created_at, end)
         cur["previous"] = prev
         cur["change"] = _changes(cur, prev)
+        # An average rating has no meaningful baseline when no reviews were
+        # written in the prior period — drop its comparison (don't badge "new").
+        if not prev["reviews_written"]:
+            cur["change"].pop("avg_rating_given", None)
         report["summary"] = cur
     if "spend_by_category" in sections:
         report["spend_by_category"] = reports_repo.spend_by_category(user_id, start, end)

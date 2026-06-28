@@ -15,7 +15,12 @@ import { BarChart, FunnelChart, TrendChart } from "../../components/charts";
 import { KpiCard, NarrativeCard, Segmented } from "../../components/report";
 import { EmptyState, Skeleton } from "../../components/ui";
 import { ownerApi } from "../../lib/api";
-import { downloadJson, dollars } from "../../lib/export";
+import {
+  downloadCsv,
+  downloadJson,
+  dollars,
+  formatDay,
+} from "../../lib/export";
 import {
   barList,
   dataTable,
@@ -200,29 +205,17 @@ export function OwnerDashboard() {
       lines.push(["HIGHLIGHTS"]);
       for (const line of report.narrative) lines.push([line]);
     }
-    // Quote every cell (commas in deal titles are likely).
-    const csv = lines
-      .map((row) =>
-        row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","),
-      )
-      .join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `locallens-report-${report.business_id}-${from}-to-${to}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // downloadCsv handles RFC-4180 quoting + a UTF-8 BOM (so Excel renders
+    // accented names correctly).
+    downloadCsv(
+      `locallens-report-${report.business_id}-${from}-to-${to}.csv`,
+      lines,
+    );
   }
 
   /** Build a clean, document-style report and open the print dialog (Save as PDF). */
   function printPdf() {
     if (!report) return;
-    const fmt = (s: string) =>
-      new Date(s).toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
     const bizName =
       businesses.find((b) => (b as unknown as { id: number }).id === businessId)
         ?.name ?? "Your business";
@@ -369,7 +362,7 @@ export function OwnerDashboard() {
     printReport({
       title: "Owner Report",
       subtitle: bizName,
-      period: `${fmt(from)} – ${fmt(to)}`,
+      period: `${formatDay(from)} – ${formatDay(to)}`,
       body: parts.join(""),
     });
   }

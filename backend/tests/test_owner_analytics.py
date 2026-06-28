@@ -61,6 +61,34 @@ def test_build_report_attaches_comparison_to_summary(monkeypatch):
     assert r["granularity"] == "day"
 
 
+def test_narrative_pluralizes_singular_counts():
+    report = {
+        "summary": {
+            "views": 1, "favorites": 0, "deal_redemptions": 1, "review_count": 1,
+            "average_rating": 5.0, "local_spend_cents": 0, "previous": {"views": 0},
+            "change": {},
+        },
+    }
+    text = " ".join(analytics._narrative(report))
+    assert "1 view," in text                     # not "1 views,"
+    assert "1 deal redemption." in text          # not "1 deal redemptions."
+    assert "across 1 review." in text            # not "1 reviews."
+
+
+def test_avg_rating_comparison_dropped_when_no_prior_reviews(monkeypatch):
+    def fake_summary(bid, start, end):
+        if start == S:
+            return {"average_rating": 4.5, "review_count": 3, "favorites": 1,
+                    "deal_redemptions": 0, "views": 10, "local_spend_cents": 100}
+        return {"average_rating": 0, "review_count": 0, "favorites": 0,
+                "deal_redemptions": 0, "views": 0, "local_spend_cents": 0}
+
+    monkeypatch.setattr(analytics, "_summary", fake_summary)
+    r = analytics.build_report(1, S, E, {"summary"})
+    assert "average_rating" not in r["summary"]["change"]  # no baseline → no badge
+    assert "views" in r["summary"]["change"]               # counts still compared
+
+
 def test_build_report_assembles_only_requested_metrics(monkeypatch):
     monkeypatch.setattr(analytics, "_summary", lambda bid, s, e: {
         "average_rating": 0, "review_count": 0, "favorites": 0,

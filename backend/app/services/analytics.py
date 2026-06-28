@@ -168,28 +168,38 @@ def _changes(cur: dict[str, Any], prev: dict[str, Any]) -> dict[str, Any]:
     return {k: _change(float(cur[k]), float(prev[k])) for k in _COMPARED}
 
 
+def _plural(n: int, word: str) -> str:
+    """Count + word with a regular -s plural (every noun in the narrative is
+    regular: view(s), favorite(s), redemption(s), review(s))."""
+    return f"{n:,} {word}{'' if n == 1 else 's'}"
+
+
 def _narrative(report: dict[str, Any]) -> list[str]:
     """Plain-English highlights for the owner, derived only from the numbers."""
     s = report.get("summary")
     if not s:
         return []
     lines = [
-        f"In this period your listing drew {s['views']:,} views, "
-        f"{s['favorites']:,} new favorites, and {s['deal_redemptions']:,} deal redemptions."
+        f"In this period your listing drew {_plural(s['views'], 'view')}, "
+        f"{_plural(s['favorites'], 'new favorite')}, and "
+        f"{_plural(s['deal_redemptions'], 'deal redemption')}."
     ]
     vchg = s.get("change", {}).get("views", {})
     if vchg.get("pct") is not None and s["previous"]["views"]:
         direction = "up" if vchg["pct"] >= 0 else "down"
         lines.append(f"Views are {direction} {abs(vchg['pct']):.0f}% versus the previous period.")
     if s["review_count"]:
-        lines.append(f"Your average rating was {s['average_rating']:.1f}★ across {s['review_count']:,} reviews.")
+        lines.append(
+            f"Your average rating was {s['average_rating']:.1f}★ across "
+            f"{_plural(s['review_count'], 'review')}."
+        )
     if s["local_spend_cents"]:
         lines.append(f"${s['local_spend_cents'] / 100:,.0f} was kept local through verified visits.")
     # Busiest day, if the views trend was requested.
     trend = report.get("views_trend") or []
     if trend:
         peak = max(trend, key=lambda r: r["count"])
-        lines.append(f"Your busiest bucket was {peak['day']} with {peak['count']:,} views.")
+        lines.append(f"Your busiest bucket was {peak['day']} with {_plural(peak['count'], 'view')}.")
     return lines
 
 
@@ -213,6 +223,10 @@ def build_report(business_id: int, start: dt.datetime, end: dt.datetime,
         prev_start, prev_end = _previous_window(start, end)
         cur["previous"] = _summary(business_id, prev_start, prev_end)
         cur["change"] = _changes(cur, cur["previous"])
+        # An average has no meaningful baseline when the prior period had no
+        # reviews — drop its comparison so the UI never badges a rating "new".
+        if not cur["previous"]["review_count"]:
+            cur["change"].pop("average_rating", None)
         report["summary"] = cur
     if "rating_distribution" in metrics:
         report["rating_distribution"] = _rating_distribution(business_id, start, end)

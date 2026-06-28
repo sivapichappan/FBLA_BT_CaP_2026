@@ -15,7 +15,7 @@ import { KpiCard, NarrativeCard, Segmented } from "../components/report";
 import { EmptyState, Skeleton } from "../components/ui";
 import { reportApi } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { downloadCsv, downloadJson, dollars } from "../lib/export";
+import { downloadCsv, downloadJson, dollars, formatDay } from "../lib/export";
 import {
   barList,
   dataTable,
@@ -167,12 +167,6 @@ export function MyReport() {
   /** Build a clean, document-style report and open the print dialog (Save as PDF). */
   function printPdf() {
     if (!report) return;
-    const fmt = (s: string) =>
-      new Date(s).toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
     const parts: string[] = [];
     if (report.narrative?.length) parts.push(narrativeBlock(report.narrative));
 
@@ -323,7 +317,7 @@ export function MyReport() {
 
     printReport({
       title: "My Local Impact",
-      period: `${fmt(report.from)} – ${fmt(report.to)}`,
+      period: `${formatDay(report.from)} – ${formatDay(report.to)}`,
       body: parts.join(""),
     });
   }

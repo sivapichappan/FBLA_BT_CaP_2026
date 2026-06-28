@@ -27,20 +27,41 @@ export function toCsv(rows: (string | number)[][]): string {
     .join("\n");
 }
 
-/** Download `rows` as a .csv file. */
+/** Download `rows` as a .csv file. A leading UTF-8 BOM (﻿) makes Excel and
+ *  other editors detect UTF-8, so accented names ("entrée") and ★ render
+ *  correctly instead of as mojibake ("entrÃ©e"). */
 export function downloadCsv(
   filename: string,
   rows: (string | number)[][],
 ): void {
-  download(filename, toCsv(rows), "text/csv;charset=utf-8");
+  download(filename, "﻿" + toCsv(rows), "text/csv;charset=utf-8");
 }
 
-/** Download any serializable value as pretty-printed .json. */
+/** Download any serializable value as pretty-printed .json (UTF-8). */
 export function downloadJson(filename: string, data: unknown): void {
-  download(filename, JSON.stringify(data, null, 2), "application/json");
+  download(
+    filename,
+    JSON.stringify(data, null, 2),
+    "application/json;charset=utf-8",
+  );
 }
 
 /** Cents → "$1,234" (whole dollars; reports never show partial cents). */
 export function dollars(cents: number): string {
   return `$${Math.round(cents / 100).toLocaleString()}`;
+}
+
+/**
+ * Format a YYYY-MM-DD (or longer ISO) string as a local calendar date — WITHOUT
+ * a timezone shift. `new Date("2026-05-29")` parses as UTC midnight, which then
+ * renders as the PREVIOUS day in timezones behind UTC; building the date from
+ * its parts keeps it on the intended calendar day everywhere.
+ */
+export function formatDay(value: string): string {
+  const [y, m, d] = value.slice(0, 10).split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }

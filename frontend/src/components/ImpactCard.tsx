@@ -8,7 +8,7 @@
  */
 
 import { useRef, useState } from "react";
-import { dollars } from "../lib/export";
+import { dollars, formatDay } from "../lib/export";
 import type { UserReportSummary } from "../types";
 
 // Light-palette hexes mirrored from tokens.css (an SVG can't read CSS vars).
@@ -24,13 +24,7 @@ const C = {
 };
 
 function periodLabel(from: string, to: string): string {
-  const fmt = (s: string) =>
-    new Date(s).toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  return `${fmt(from)} – ${fmt(to)}`;
+  return `${formatDay(from)} – ${formatDay(to)}`;
 }
 
 export function ImpactCard({
