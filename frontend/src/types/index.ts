@@ -233,12 +233,7 @@ export type VisitMethod =
   | "MANUAL_CODE";
 
 export type VisitStatus =
-  | "PENDING"
-  | "AWAITING_DWELL"
-  | "VERIFIED"
-  | "FAILED"
-  | "REJECTED"
-  | "EXPIRED";
+  "PENDING" | "AWAITING_DWELL" | "VERIFIED" | "FAILED" | "REJECTED" | "EXPIRED";
 
 /** The result of initiating a visit or submitting a checkpoint. */
 export interface VisitResult {
@@ -387,12 +382,28 @@ export type MetricKey =
   | "views_trend"
   | "funnel";
 
-export interface ReportSummary {
+/** Trend roll-up granularity, shared by both reports. */
+export type Granularity = "day" | "week" | "month";
+
+/** One period-over-period delta. `pct` is null when there's no prior base. */
+export interface Change {
+  abs: number;
+  pct: number | null;
+}
+
+/** The owner summary's bare numbers (also the shape of `previous`). */
+export interface SummaryStats {
   average_rating: number;
   review_count: number;
   favorites: number;
   deal_redemptions: number;
   views: number;
+  local_spend_cents: number;
+}
+
+export interface ReportSummary extends SummaryStats {
+  previous?: SummaryStats;
+  change?: Record<string, Change>;
 }
 
 export interface Funnel {
@@ -408,6 +419,7 @@ export interface Report {
   business_id: number;
   from: string;
   to: string;
+  granularity?: Granularity;
   metrics: MetricKey[];
   summary?: ReportSummary;
   rating_distribution?: { rating: number; count: number }[];
@@ -423,6 +435,65 @@ export interface Report {
   redemptions_trend?: { day: string; count: number }[];
   views_trend?: { day: string; count: number }[];
   funnel?: Funnel;
+  narrative?: string[];
+}
+
+/* ── User "My Local Impact" report (§11/§17) — the consumer mirror ───────── */
+
+export type UserSection =
+  | "summary"
+  | "spend_by_category"
+  | "spend_by_city"
+  | "visits_trend"
+  | "reviews_trend"
+  | "top_businesses"
+  | "trust_breakdown";
+
+/** The user summary's bare numbers (also the shape of `previous`). */
+export interface UserSummaryStats {
+  verified_visits: number;
+  distinct_businesses: number;
+  money_local_cents: number;
+  reviews_written: number;
+  avg_rating_given: number;
+  deals_redeemed: number;
+  favorites_added: number;
+}
+
+export interface UserReportSummary extends UserSummaryStats {
+  tenure_days: number;
+  previous: UserSummaryStats;
+  change: Record<string, Change>;
+}
+
+export interface TrustComponent {
+  source: string;
+  count: number;
+  points: number;
+}
+
+export interface UserReport {
+  from: string;
+  to: string;
+  granularity: Granularity;
+  sections: UserSection[];
+  summary?: UserReportSummary;
+  spend_by_category?: {
+    category: string;
+    visits: number;
+    spend_cents: number;
+  }[];
+  spend_by_city?: { city: string; visits: number; spend_cents: number }[];
+  visits_trend?: { period: string; visits: number; spend_cents: number }[];
+  reviews_trend?: { period: string; count: number; avg_rating: number }[];
+  top_businesses?: {
+    business_id: number;
+    name: string;
+    visits: number;
+    spend_cents: number;
+  }[];
+  trust_breakdown?: { total: number; components: TrustComponent[] };
+  narrative: string[];
 }
 
 /** Search filter state, kept in one object so it can sync with the URL.

@@ -693,6 +693,49 @@ FROM businesses b
 CROSS JOIN LATERAL generate_series(1, 8 + (b.id % 13)) AS gs
 WHERE b.owner_id IS NULL;
 
+-- ── Verified visits (§17) — the trust + "money kept local" backbone ──────────
+-- VERIFIED check-ins with self-reported spend, spread across ~80 days and all
+-- three cities, so the Passport AND the new "My Local Impact" report render
+-- richly offline. demo_user gets a multi-city spread; personas check in at the
+-- owner's five listings so the OWNER report's money-kept-local has real numbers.
+-- initiated/verified/expires are derived inline (no randomness) from days_ago.
+INSERT INTO visits (user_id, business_id, method, status,
+                    initiated_at, verified_at, expires_at,
+                    verification_strength, spend_cents)
+SELECT u.id, b.id, v.method, 'VERIFIED',
+       now() - (v.days_ago * INTERVAL '1 day') - ((u.id % 5) * INTERVAL '90 minutes'),
+       now() - (v.days_ago * INTERVAL '1 day') - ((u.id % 5) * INTERVAL '90 minutes') + INTERVAL '11 minutes',
+       now() - (v.days_ago * INTERVAL '1 day') + INTERVAL '1 day',
+       v.strength, v.spend
+FROM (VALUES
+  -- demo_user: a year-in-review-worthy spread (NYC → San Antonio → San Francisco)
+  ('demo_user','Caffè Reggio',               'GPS_GEOFENCE_DWELL',  3, 96,  700),
+  ('demo_user','Joe''s Pizza',               'GPS_GEOFENCE_DWELL',  9, 92, 1200),
+  ('demo_user','Abraço',                     'QR_GEOFENCE',        16, 88,  650),
+  ('demo_user','The Strand Book Store',      'GPS_GEOFENCE_DWELL', 22, 90, 2400),
+  ('demo_user','La Panadería',               'GPS_GEOFENCE_DWELL', 30, 94,  900),
+  ('demo_user','The Friendly Spot Ice House','QR_GEOFENCE',        37, 86, 1800),
+  ('demo_user','Bakery Lorraine',            'GPS_GEOFENCE_DWELL', 44, 91, 1400),
+  ('demo_user','Estate Coffee Company',      'GPS_GEOFENCE_DWELL', 51, 89,  550),
+  ('demo_user','Bi-Rite Creamery',           'QR_GEOFENCE',        58, 87,  800),
+  ('demo_user','Tartine Bakery',             'GPS_GEOFENCE_DWELL', 65, 93, 1100),
+  ('demo_user','Four Barrel Coffee',         'GPS_GEOFENCE_DWELL', 72, 90,  900),
+  ('demo_user','City Lights Booksellers',    'GPS_GEOFENCE_DWELL', 80, 95, 2000),
+  -- personas at the owner's five NYC listings → owner "money kept local"
+  ('maya_r','Caffè Reggio',          'GPS_GEOFENCE_DWELL',  5, 95,  800),
+  ('ana_v','Caffè Reggio',           'QR_GEOFENCE',        12, 88,  700),
+  ('james_k','Joe''s Pizza',         'GPS_GEOFENCE_DWELL',  8, 93, 1500),
+  ('leo_m','Joe''s Pizza',           'GPS_GEOFENCE_DWELL', 14, 90, 1300),
+  ('sofia_d','Buvette',              'GPS_GEOFENCE_DWELL', 18, 92, 2200),
+  ('priya_s','Buvette',              'QR_GEOFENCE',        28, 86, 1900),
+  ('derek_w','Murray''s Cheese',     'GPS_GEOFENCE_DWELL', 20, 91, 1600),
+  ('noah_t','Murray''s Cheese',      'GPS_GEOFENCE_DWELL', 33, 89, 1400),
+  ('mei_l','McNally Jackson Books',  'QR_GEOFENCE',        25, 90, 1200),
+  ('ravi_p','McNally Jackson Books', 'GPS_GEOFENCE_DWELL', 40, 88,  900)
+) AS v(uname, bname, method, days_ago, strength, spend)
+JOIN users u ON u.username = v.uname
+JOIN businesses b ON b.name = v.bname;
+
 -- ── Backdate activity so trends/funnels have a month of history ─────────────
 -- Deterministic (id % N) offsets: varied, reproducible, no randomness.
 UPDATE reviews          SET created_at  = now() - ((id % 28) * INTERVAL '1 day') - ((id % 11) * INTERVAL '2 hours');
@@ -711,8 +754,10 @@ UPDATE deals SET redemption_count =
   (SELECT COUNT(*) FROM deal_redemptions WHERE deal_id = deals.id);
 
 -- Trust scores from the same rules the app applies at runtime:
--- review +10 · redemption +5 · favorite +2.
+-- review +10 · verified visit +5 · redemption +5 · favorite +2. (Verified visits
+-- are included so the score matches the report's trust breakdown exactly.)
 UPDATE users SET trust_score =
   (SELECT COUNT(*) FROM reviews          WHERE user_id = users.id) * 10 +
+  (SELECT COUNT(*) FROM visits           WHERE user_id = users.id AND status = 'VERIFIED') * 5 +
   (SELECT COUNT(*) FROM deal_redemptions WHERE user_id = users.id) * 5 +
   (SELECT COUNT(*) FROM favorites        WHERE user_id = users.id) * 2;

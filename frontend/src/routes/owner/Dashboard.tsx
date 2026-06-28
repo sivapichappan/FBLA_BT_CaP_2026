@@ -12,10 +12,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { BarChart, FunnelChart, TrendChart } from "../../components/charts";
+import { KpiCard, NarrativeCard, Segmented } from "../../components/report";
 import { EmptyState, Skeleton } from "../../components/ui";
 import { ownerApi } from "../../lib/api";
+import { downloadJson, dollars } from "../../lib/export";
 import { useAuth } from "../../lib/auth";
-import type { Business, MetricKey, Report } from "../../types";
+import type { Business, Granularity, MetricKey, Report } from "../../types";
 import { usePageTitle } from "../../lib/usePageTitle";
 
 const METRIC_OPTIONS: { key: MetricKey; label: string }[] = [
@@ -32,6 +34,12 @@ const PRESETS = [
   { label: "7 days", days: 7 },
   { label: "30 days", days: 30 },
   { label: "90 days", days: 90 },
+];
+
+const GRANULARITIES: { label: string; value: Granularity }[] = [
+  { label: "Day", value: "day" },
+  { label: "Week", value: "week" },
+  { label: "Month", value: "month" },
 ];
 
 function isoDaysAgo(days: number): string {
@@ -52,6 +60,7 @@ export function OwnerDashboard() {
   const [metrics, setMetrics] = useState<MetricKey[]>(
     METRIC_OPTIONS.map((m) => m.key),
   );
+  const [granularity, setGranularity] = useState<Granularity>("day");
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,11 +87,11 @@ export function OwnerDashboard() {
     setLoading(true);
     setError(null);
     ownerApi
-      .report(businessId, { from, to, metrics: metrics.join(",") })
+      .report(businessId, { from, to, metrics: metrics.join(","), granularity })
       .then(setReport)
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [businessId, from, to, metrics]);
+  }, [businessId, from, to, metrics, granularity]);
 
   useEffect(fetchReport, [fetchReport]);
 
@@ -103,9 +112,21 @@ export function OwnerDashboard() {
       [],
     ];
     if (report.summary) {
-      lines.push(["SUMMARY"], ["metric", "value"]);
-      for (const [k, v] of Object.entries(report.summary))
-        lines.push([k, String(v)]);
+      const s = report.summary;
+      lines.push(["SUMMARY"], ["metric", "value", "change_abs", "change_pct"]);
+      const line = (k: string, val: number) =>
+        lines.push([
+          k,
+          String(val),
+          String(s.change?.[k]?.abs ?? ""),
+          String(s.change?.[k]?.pct ?? ""),
+        ]);
+      line("local_spend_cents", s.local_spend_cents);
+      line("views", s.views);
+      line("review_count", s.review_count);
+      line("average_rating", s.average_rating);
+      line("favorites", s.favorites);
+      line("deal_redemptions", s.deal_redemptions);
       lines.push([]);
     }
     if (report.rating_distribution) {
@@ -165,6 +186,11 @@ export function OwnerDashboard() {
         String(report.funnel.redemptions),
         String(report.funnel.favorite_to_redemption_pct),
       ]);
+      lines.push([]);
+    }
+    if (report.narrative?.length) {
+      lines.push(["HIGHLIGHTS"]);
+      for (const line of report.narrative) lines.push([line]);
     }
     // Quote every cell (commas in deal titles are likely).
     const csv = lines
@@ -360,13 +386,39 @@ export function OwnerDashboard() {
                 </button>
                 <button
                   type="button"
+                  onClick={() =>
+                    report &&
+                    downloadJson(
+                      `locallens-report-${report.business_id}-${from}.json`,
+                      report,
+                    )
+                  }
+                  disabled={!report}
+                  className="rounded-md border border-border px-3 py-1.5 font-serif text-sm text-ink hover:border-accent-600 disabled:opacity-50"
+                >
+                  Export JSON
+                </button>
+                <button
+                  type="button"
                   onClick={() => window.print()}
                   disabled={!report}
                   className="rounded-md border border-border px-3 py-1.5 font-serif text-sm text-ink hover:border-accent-600 disabled:opacity-50"
                 >
-                  Print
+                  Print / PDF
                 </button>
               </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+              <span className="font-mono text-xs uppercase tracking-wide text-ink-soft">
+                Group trends by
+              </span>
+              <Segmented
+                ariaLabel="Trend granularity"
+                options={GRANULARITIES}
+                value={granularity}
+                onChange={setGranularity}
+              />
             </div>
 
             <div
@@ -409,35 +461,43 @@ export function OwnerDashboard() {
 
           {!loading && report && (
             <div className="mt-5 space-y-5">
+              <NarrativeCard lines={report.narrative} />
+
               {report.summary && (
                 <section
                   aria-label="Summary"
-                  className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5"
+                  className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6"
                 >
-                  {(
-                    [
-                      [
-                        "Avg rating (range)",
-                        report.summary.average_rating.toFixed(2),
-                      ],
-                      ["Views", report.summary.views],
-                      ["Reviews", report.summary.review_count],
-                      ["Favorites", report.summary.favorites],
-                      ["Deal redemptions", report.summary.deal_redemptions],
-                    ] as const
-                  ).map(([label, value]) => (
-                    <div
-                      key={label}
-                      className="rounded-lg border border-border bg-surface p-4"
-                    >
-                      <p className="font-mono text-[11px] uppercase tracking-wide text-ink-soft">
-                        {label}
-                      </p>
-                      <p className="mt-1 font-display text-3xl font-semibold text-ink">
-                        {value}
-                      </p>
-                    </div>
-                  ))}
+                  <KpiCard
+                    label="Kept local"
+                    value={dollars(report.summary.local_spend_cents)}
+                    change={report.summary.change?.local_spend_cents}
+                  />
+                  <KpiCard
+                    label="Views"
+                    value={report.summary.views}
+                    change={report.summary.change?.views}
+                  />
+                  <KpiCard
+                    label="Reviews"
+                    value={report.summary.review_count}
+                    change={report.summary.change?.review_count}
+                  />
+                  <KpiCard
+                    label="Favorites"
+                    value={report.summary.favorites}
+                    change={report.summary.change?.favorites}
+                  />
+                  <KpiCard
+                    label="Redemptions"
+                    value={report.summary.deal_redemptions}
+                    change={report.summary.change?.deal_redemptions}
+                  />
+                  <KpiCard
+                    label="Avg rating"
+                    value={report.summary.average_rating.toFixed(2)}
+                    change={report.summary.change?.average_rating}
+                  />
                 </section>
               )}
 
@@ -476,7 +536,7 @@ export function OwnerDashboard() {
                 {report.views_trend && (
                   <section className="rounded-lg border border-border bg-surface p-4">
                     <h2 className="font-display text-lg font-semibold text-ink">
-                      Views per day
+                      Views per {granularity}
                     </h2>
                     <TrendChart
                       data={report.views_trend}
@@ -500,7 +560,7 @@ export function OwnerDashboard() {
                 {report.reviews_trend && (
                   <section className="rounded-lg border border-border bg-surface p-4">
                     <h2 className="font-display text-lg font-semibold text-ink">
-                      Reviews per day
+                      Reviews per {granularity}
                     </h2>
                     <TrendChart data={report.reviews_trend} />
                   </section>
@@ -508,7 +568,7 @@ export function OwnerDashboard() {
                 {report.redemptions_trend && (
                   <section className="rounded-lg border border-border bg-surface p-4">
                     <h2 className="font-display text-lg font-semibold text-ink">
-                      Redemptions per day
+                      Redemptions per {granularity}
                     </h2>
                     <TrendChart
                       data={report.redemptions_trend}

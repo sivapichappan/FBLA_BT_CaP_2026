@@ -37,6 +37,7 @@ from app.routers import (
     favorites,
     passport,
     recommendations,
+    reports,
     reviews,
     trips,
     visits,
@@ -121,6 +122,7 @@ def create_app() -> FastAPI:
     app.include_router(trips.router)
     app.include_router(visits.router)
     app.include_router(passport.router)
+    app.include_router(reports.router)
 
     return app
 

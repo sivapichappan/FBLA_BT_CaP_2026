@@ -30,6 +30,7 @@ import type {
   BusinessSnapshot,
   CheckinCode,
   Passport,
+  UserReport,
 } from "../types";
 
 /** Build the materialize-on-write snapshot for a live Google business (so it
@@ -384,16 +385,40 @@ export const ownerApi = {
   /** The current kiosk code to display (polled each period). */
   checkinCode: (businessId: number) =>
     get<CheckinCode>(`/businesses/${businessId}/checkin-code`),
-  /** The customizable report (§11): date range + metric selection. */
+  /** The customizable report (§11): date range + metric selection + granularity. */
   report: (
     businessId: number,
-    params: { from?: string; to?: string; metrics?: string },
+    params: {
+      from?: string;
+      to?: string;
+      metrics?: string;
+      granularity?: string;
+    },
   ) => {
     const qs = new URLSearchParams();
     if (params.from) qs.set("from", params.from);
     if (params.to) qs.set("to", params.to);
     if (params.metrics) qs.set("metrics", params.metrics);
+    if (params.granularity) qs.set("granularity", params.granularity);
     return get<Report>(`/analytics/business/${businessId}?${qs}`);
+  },
+};
+
+/** The consumer's "My Local Impact" report (§11/§17) — same knobs as the owner
+ *  report, scoped to the signed-in user (the id comes from the auth token). */
+export const reportApi = {
+  me: (params: {
+    from?: string;
+    to?: string;
+    sections?: string;
+    granularity?: string;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params.from) qs.set("from", params.from);
+    if (params.to) qs.set("to", params.to);
+    if (params.sections) qs.set("sections", params.sections);
+    if (params.granularity) qs.set("granularity", params.granularity);
+    return get<UserReport>(`/reports/me?${qs}`);
   },
 };
 

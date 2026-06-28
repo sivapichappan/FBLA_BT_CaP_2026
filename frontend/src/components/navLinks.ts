@@ -14,9 +14,14 @@ export const PRIMARY_LINKS: NavItem[] = [
   { to: "/favorites", label: "Favorites" },
 ];
 
-/** Signed-in-only links (the verified-visit passport). */
+/** Signed-in-only links (the verified-visit passport + impact report). */
 export function userLinks(signedIn: boolean): NavItem[] {
-  return signedIn ? [{ to: "/passport", label: "Passport" }] : [];
+  return signedIn
+    ? [
+        { to: "/passport", label: "Passport" },
+        { to: "/impact", label: "Impact" },
+      ]
+    : [];
 }
 
 /** The Owner link, or null when the user can't see it. */

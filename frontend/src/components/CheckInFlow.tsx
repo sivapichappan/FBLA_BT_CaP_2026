@@ -22,12 +22,7 @@ import type { Business, VisitResult } from "../types";
 import { MapView } from "./MapView";
 
 type Phase =
-  | "intro"
-  | "locating"
-  | "checking"
-  | "dwell"
-  | "verified"
-  | "failed";
+  "intro" | "locating" | "checking" | "dwell" | "verified" | "failed";
 
 /** One high-accuracy position read. Rejects with a user-safe message. */
 function getPrecisePosition(): Promise<{

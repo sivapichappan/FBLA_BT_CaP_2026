@@ -27,6 +27,7 @@ import { OwnerDashboard } from "./routes/owner/Dashboard";
 import { EditBusiness } from "./routes/owner/EditBusiness";
 import { PostDeal } from "./routes/owner/PostDeal";
 import { Verify } from "./routes/owner/Verify";
+import { MyReport } from "./routes/MyReport";
 import { Passport } from "./routes/Passport";
 import { Plan } from "./routes/Plan";
 import { SharedTrip } from "./routes/SharedTrip";
@@ -94,6 +95,7 @@ export default function App() {
                 <Route path="/favorites" element={<Favorites />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/passport" element={<Passport />} />
+                <Route path="/impact" element={<MyReport />} />
                 <Route path="/deals" element={<Deals />} />
                 <Route path="/plan" element={<Plan />} />
                 <Route path="/trip/shared/:token" element={<SharedTrip />} />

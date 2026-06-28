@@ -44,6 +44,7 @@ async def business_report(
     business_id: int,
     user: dict = Depends(current_user),
     metrics: Optional[str] = None,                              # comma-separated; default = all
+    granularity: str = "day",                                  # day | week | month
     date_from: Optional[str] = Query(default=None, alias="from"),
     date_to: Optional[str] = Query(default=None, alias="to"),
 ) -> dict:
@@ -57,6 +58,13 @@ async def business_report(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                             "The end date must be on or after the start date.")
 
+    if granularity not in analytics.GRANULARITIES:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Unknown granularity '{granularity}'. "
+            f"Valid: {', '.join(sorted(analytics.GRANULARITIES))}.",
+        )
+
     selected = (
         {m.strip() for m in metrics.split(",") if m.strip()} if metrics else set(analytics.ALL_METRICS)
     )
@@ -68,4 +76,4 @@ async def business_report(
             f"Valid: {', '.join(sorted(analytics.ALL_METRICS))}.",
         )
 
-    return analytics.build_report(business_id, start, end, selected)
+    return analytics.build_report(business_id, start, end, selected, granularity)

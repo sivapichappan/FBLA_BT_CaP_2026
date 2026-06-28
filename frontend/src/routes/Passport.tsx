@@ -129,7 +129,13 @@ export function Passport() {
       </h1>
       <p className="mt-1 font-serif text-ink-soft">
         Every stamp here is a <span className="text-verified">verified</span>{" "}
-        visit — proof you actually showed up and supported a local business.
+        visit — proof you actually showed up and supported a local business.{" "}
+        <Link
+          to="/impact"
+          className="text-accent-700 underline-offset-2 hover:underline"
+        >
+          See your full impact report →
+        </Link>
       </p>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
