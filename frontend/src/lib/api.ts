@@ -360,8 +360,17 @@ export const dealApi = {
 };
 
 export const aiApi = {
+  // The concierge runs a multi-step pipeline server-side (intent → Google search
+  // → chain classifier → grounded reply), each step an LLM/Places round-trip, on
+  // top of a possible serverless cold start. That legitimately overruns the
+  // default 15 s budget, so give it a generous ceiling — otherwise the browser
+  // aborts a request the backend is about to answer (the "I hit a snag" bug).
   chat: (message: string, sessionId?: number, lat?: number, lng?: number) =>
-    post<ChatTurn>("/ai/chat", { message, session_id: sessionId, lat, lng }),
+    post<ChatTurn>(
+      "/ai/chat",
+      { message, session_id: sessionId, lat, lng },
+      60_000,
+    ),
 };
 
 export const ownerApi = {

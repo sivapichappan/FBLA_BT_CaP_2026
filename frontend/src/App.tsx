@@ -13,6 +13,7 @@ import { Link, Route, Routes, useLocation } from "react-router-dom";
 import { ConciergeWidget } from "./components/ConciergeWidget";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Header } from "./components/Header";
+import { Onboarding } from "./components/Onboarding";
 import { ScrollProgress } from "./components/ScrollProgress";
 import { EmptyState } from "./components/ui";
 import { AuthProvider } from "./lib/auth";
@@ -112,6 +113,7 @@ export default function App() {
             </ErrorBoundary>
           </div>
           <ConciergeWidget />
+          <Onboarding />
         </div>
       </MotionConfig>
     </AuthProvider>

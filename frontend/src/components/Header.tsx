@@ -15,6 +15,7 @@ import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { MobileMenu } from "./MobileMenu";
 import { PRIMARY_LINKS, ownerLink, userLinks } from "./navLinks";
+import { openOnboarding } from "./Onboarding";
 import { ThemeToggle } from "./ThemeToggle";
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -65,6 +66,14 @@ export function Header() {
                 {l.label}
               </NavLink>
             ))}
+
+            <button
+              type="button"
+              onClick={openOnboarding}
+              className="whitespace-nowrap font-serif text-ink-soft transition-colors hover:text-ink"
+            >
+              How it works
+            </button>
 
             <ThemeToggle />
 

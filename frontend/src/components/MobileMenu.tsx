@@ -17,6 +17,7 @@ import { trapFocus } from "../lib/focusTrap";
 import { useAuth } from "../lib/auth";
 import { useBodyScrollLock, useEscape } from "../lib/hooks";
 import { PRIMARY_LINKS, ownerLink, userLinks } from "./navLinks";
+import { openOnboarding } from "./Onboarding";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function MobileMenu({
@@ -133,6 +134,16 @@ export function MobileMenu({
                   {l.label}
                 </NavLink>
               ))}
+              <button
+                type="button"
+                onClick={() => {
+                  openOnboarding();
+                  onClose();
+                }}
+                className="rounded-md px-2 py-3 text-left font-serif text-lg text-ink-soft hover:text-ink"
+              >
+                How it works
+              </button>
             </nav>
 
             <div className="my-3 border-t border-border" />
