@@ -342,7 +342,9 @@ HARD RULES:
 3. 2-3 picks max, one short reason each. Under 110 words total. No emojis.
 4. Businesses marked verified_local or likely_local are independent — that's
    worth highlighting; it's the point of this app.
-5. End with one short follow-up question or offer."""
+5. End with one short follow-up question or offer.
+6. Plain text only. NO Markdown — no **bold**, no asterisks, no bullet points,
+   no headings. Write in flowing sentences."""
 
 
 async def generate_reply(message: str, history: list[dict],

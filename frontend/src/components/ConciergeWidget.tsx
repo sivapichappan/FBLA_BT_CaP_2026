@@ -11,7 +11,6 @@ import { aiApi, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useLocation } from "../lib/location";
 import type { Business } from "../types";
-import { RichText } from "./RichText";
 import { LocalBadge, StarRating } from "./ui";
 
 interface Turn {
@@ -144,7 +143,7 @@ export function ConciergeWidget() {
                       : "bg-cream text-ink"
                   }`}
                 >
-                  {t.role === "assistant" ? <RichText text={t.text} /> : t.text}
+                  {t.text}
                   {/* Engine chip: proves the silent fallback live (§10/§13). */}
                   {t.role === "assistant" && t.mode && (
                     <span className="mt-1 block font-mono text-[10px] uppercase tracking-wide text-ink-soft">

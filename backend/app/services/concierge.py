@@ -14,6 +14,7 @@ Every fallback is silent. The response carries ``mode`` ("llm" or
 
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
 
 from app.config import settings
@@ -52,6 +53,20 @@ _EMPTY_REPLY = (
     "I couldn't find a match for that nearby. Try widening the search — "
     "for example “coffee”, “bakery”, or “bookstore” — or ask for what's open now."
 )
+
+
+_MD_BOLD = re.compile(r"\*\*(.+?)\*\*|__(.+?)__")        # **x** / __x__  → x
+_MD_BULLET = re.compile(r"^[ \t]*[*\-+][ \t]+", re.M)    # leading "* "/"- " → "• "
+
+
+def _strip_markdown(text: str) -> str:
+    """Flatten the model's stray Markdown to plain text — the concierge is a
+    chat bubble, not a Markdown view, so raw '**' must never reach the user. We
+    instruct the model to write plain text (prompt rule 6); this is the belt-and-
+    suspenders so a slip never shows asterisks."""
+    text = _MD_BOLD.sub(lambda m: m.group(1) or m.group(2), text)
+    text = _MD_BULLET.sub("• ", text)
+    return text
 
 
 def _describe(b: dict[str, Any]) -> str:
@@ -121,7 +136,9 @@ async def chat(user: dict, message: str, session_id: Optional[int],
             reply = _templated_reply(intent, businesses)
             mode = "deterministic"
 
-    # 4) Persist the assistant turn and respond.
+    # 4) Persist the assistant turn and respond. Strip any stray Markdown so the
+    #    chat bubble never shows raw '**' / bullet asterisks.
+    reply = _strip_markdown(reply)
     chat_repo.add_message(sid, "assistant", reply)
     return {"reply": reply, "businesses": businesses, "session_id": sid,
             "intent": intent, "mode": mode}
